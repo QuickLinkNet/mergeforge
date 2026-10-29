@@ -29,6 +29,9 @@ Every approved extension can add new possibilities to the same living world: bui
 - [`docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md`](docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch flow and pull-request contract
+- [`docs/MERGEFORGE_Playable_Blueprint_v1.md`](docs/MERGEFORGE_Playable_Blueprint_v1.md) — first 15 minutes and screen contract
+- [`docs/MERGEFORGE_World_and_Domain_Contract_v1.md`](docs/MERGEFORGE_World_and_Domain_Contract_v1.md) — deterministic world rules and minimal domain model
+- [`docs/MERGEFORGE_MVP_Backlog_v1.md`](docs/MERGEFORGE_MVP_Backlog_v1.md) — small milestone and issue plan
 
 Older pitch material is kept for design history. When documents disagree, the hierarchy defined in the project bible applies.
 
@@ -37,6 +40,7 @@ Older pitch material is kept for design history. When documents disagree, the hi
 - [`concept-art/phase-2/04-style-a-diorama-lite.png`](concept-art/phase-2/04-style-a-diorama-lite.png) — confirmed visual direction
 - [`concept-art/phase-2/07-minigame-signalwerk.png`](concept-art/phase-2/07-minigame-signalwerk.png) — first modular minigame
 - [`concept-art/phase-3/08-first-seven-days-continuous-map.png`](concept-art/phase-3/08-first-seven-days-continuous-map.png) — valid spatial representation of the prologue
+- [`concept-art/phase-4/09-playable-blueprint-four-screens.png`](concept-art/phase-4/09-playable-blueprint-four-screens.png) — current START, MAP, BUILD and PATHFINDER screen direction
 
 ## Implementation gate
 

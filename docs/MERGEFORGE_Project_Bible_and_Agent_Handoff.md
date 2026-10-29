@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** Konzeptphase, Stil A bestätigt, Umsetzung noch nicht freigegeben
+**Stand:** Spielbare Blaupause v1 erstellt, Umsetzung noch nicht freigegeben
 
 ## Vision
 
@@ -28,6 +28,9 @@ Der Code ist nicht nur Technik hinter dem Spiel: Genehmigte Erweiterungen werden
 - Kontakt zu anderen Spielern: zunächst nur Richtungsimpuls, kein früher Sicht-/Reisezugang
 - Monetarisierungs-/Login-Zwang: nicht Teil des MVP
 - App-Implementierung: ausdrücklich erst nach Freigabe des Pitches
+- Spieleridentität: interne MERGEFORGE-ID, im MVP mit stabiler numerischer GitHub-ID verknüpft
+- Lizenz: MIT
+- Branchmodell: `feature/* → dev → main`; `main` enthält nur stabile Versionen
 
 ## Dokument-Hierarchie
 
@@ -35,9 +38,12 @@ Bei Widersprüchen gilt folgende Reihenfolge:
 
 1. Neueste ausdrücklich bestätigte Entscheidung des Nutzers
 2. Dieses Dokument
-3. `MERGEFORGE_Economy_Exploration_and_Time_Model.md`
-4. `MERGEFORGE_Visual_Styles_and_First_7_Days.md`
-5. Ursprünglicher Game Pitch v1
+3. `MERGEFORGE_Playable_Blueprint_v1.md`
+4. `MERGEFORGE_World_and_Domain_Contract_v1.md`
+5. `MERGEFORGE_Economy_Exploration_and_Time_Model.md`
+6. `MERGEFORGE_MVP_Backlog_v1.md`
+7. `MERGEFORGE_Visual_Styles_and_First_7_Days.md`
+8. Ursprünglicher Game Pitch v1
 
 Ältere Bilder sind Stil- oder Stimmungsreferenzen, aber nicht automatisch eine korrekte Darstellung der Kartenlogik.
 
@@ -87,7 +93,6 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - genaue Zielplattformen und kleinste unterstützte Bildschirmbreite
 - Einzelserver-Welt oder mehrere Weltinstanzen
 - persistente Echtzeit-Mehrspieleranzeige oder zunächst asynchroner Nachbarzustand
-- Konto-/Anmeldeverfahren
 - Hosting, Datenbank und Deployment-Ziel
 - endgültige UI-Komposition von Stil A
 - ob der erste Prolog lokal/single-player simulierbar sein soll
@@ -105,3 +110,4 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 
 Die gültige Darstellung der sieben Kapitel ist `concept-art/phase-3/08-first-seven-days-continuous-map.png`: eine zusammenhängende Karte mit Dorf im eigenen Startsektor, Straßenästen zu Wald, Stein und Relais, Wegfinder am Straßenkopf, großen Nebelflächen, entfernten Spielern als Lichtpunkten und einem Signal statt einer frühen physischen Verbindung.
 
+Die gültige UI-Komposition für die spielbare Blaupause ist `concept-art/phase-4/09-playable-blueprint-four-screens.png` mit START, KARTE, BAUEN und WEGFINDER/Signalwerk.
