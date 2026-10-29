@@ -1,0 +1,32 @@
+# Local working material and rendered document previews
+work/
+
+# Large binary pitch exports remain local; Markdown is the source of truth
+docs/*.docx
+docs/*.pdf
+
+# Superseded or exploratory concept art
+concept-art/01-mvp-world-hero.png
+concept-art/02-mvp-browser-ui.png
+concept-art/03-community-expansion-vision.png
+concept-art/IMAGE_PROMPTS.md
+concept-art/phase-2/05-style-b-living-atlas.png
+concept-art/phase-2/06-first-seven-days.png
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Future application output
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
