@@ -35,3 +35,8 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted for the playable blueprint
 - **Decision:** The first seven “days” are objective-driven chapters, not calendar days. Active actions resolve immediately; production and construction use a 10-minute world pulse with offline progress up to storage capacity.
 
+## D-007 — Branch model
+
+- **Status:** Accepted
+- **Decision:** `main` contains only stable versions. `dev` is the integration branch for ongoing development. Feature and fix branches open pull requests into `dev`; release pull requests promote a tested state from `dev` to `main`.
+- **Protection:** `main` requires a pull request, linear history and resolved conversations. Deletion and force pushes are blocked.

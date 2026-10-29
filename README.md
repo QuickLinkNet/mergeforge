@@ -28,6 +28,7 @@ Every approved extension can add new possibilities to the same living world: bui
 - [`docs/MERGEFORGE_Project_Bible_and_Agent_Handoff.md`](docs/MERGEFORGE_Project_Bible_and_Agent_Handoff.md)
 - [`docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md`](docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch flow and pull-request contract
 
 Older pitch material is kept for design history. When documents disagree, the hierarchy defined in the project bible applies.
 
@@ -40,4 +41,3 @@ Older pitch material is kept for design history. When documents disagree, the hi
 ## Implementation gate
 
 No application code is added until the playable blueprint and MVP boundaries are approved. The first implementation milestone will be a persistent, pannable and zoomable procedural hex map with village spawning and fog of war.
-
