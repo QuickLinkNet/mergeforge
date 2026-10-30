@@ -48,15 +48,8 @@ function drawTileFace(
   r: number,
 ): void {
   const corners = polygonPoints(hexCorners({ x: 0, y: 0 }, HEX_SIZE));
-  const lowerCorners = polygonPoints(hexCorners({ x: 0, y: 7 }, HEX_SIZE));
-
-  const shadow = new Graphics()
-    .poly(polygonPoints(hexCorners({ x: 3, y: 12 }, HEX_SIZE)))
-    .fill({ color: 0x050a10, alpha: 0.42 });
-  target.addChild(shadow);
 
   if (!visible) {
-    const skirt = new Graphics().poly(lowerCorners).fill({ color: 0x101722, alpha: 0.98 });
     const fog = new Graphics()
       .poly(corners)
       .fill({ color: 0x1a2431, alpha: 0.98 })
@@ -66,7 +59,7 @@ function drawTileFace(
       .stroke({ color: 0x536174, width: 2, alpha: 0.22 })
       .arc(11, -7, 12, Math.PI * 0.1, Math.PI * 1.05)
       .stroke({ color: 0x738196, width: 1.4, alpha: 0.16 });
-    target.addChild(skirt, fog, haze);
+    target.addChild(fog, haze);
     return;
   }
 
@@ -75,7 +68,6 @@ function drawTileFace(
     return;
   }
 
-  const skirt = new Graphics().poly(lowerCorners).fill({ color: 0x324334, alpha: 1 });
   const face = new Graphics()
     .poly(corners)
     .fill({ color: colors.face })
@@ -85,7 +77,7 @@ function drawTileFace(
     .lineTo(0, -HEX_SIZE)
     .lineTo(HEX_SIZE * 0.72, -HEX_SIZE * 0.48)
     .stroke({ color: 0xffffff, width: 1.2, alpha: 0.12 });
-  target.addChild(skirt, face, highlight);
+  target.addChild(face, highlight);
 
   drawTerrainDecoration(target, terrain, q, r);
 }
@@ -147,10 +139,10 @@ function drawTerrainDecoration(target: Container, terrain: string, q: number, r:
   target.addChild(grass);
 }
 
-function drawVillage(target: Container, coord: { readonly q: number; readonly r: number }, elevation: number): void {
+function drawVillage(target: Container, coord: { readonly q: number; readonly r: number }): void {
   const center = axialToPixel(coord, HEX_SIZE);
   const village = new Container();
-  village.position.set(center.x, center.y - elevation * 3 - 3);
+  village.position.set(center.x, center.y - 3);
 
   const shadow = new Graphics().ellipse(1, 12, 29, 12).fill({ color: 0x07100b, alpha: 0.38 });
   const platform = new Graphics()
@@ -186,11 +178,10 @@ function worldBounds(world: WorldSnapshot): WorldBounds {
   let maxY = Number.NEGATIVE_INFINITY;
   for (const tile of world.tiles) {
     const point = axialToPixel(tile.coord, HEX_SIZE);
-    const raisedY = point.y - tile.elevation * 3;
     minX = Math.min(minX, point.x - HEX_SIZE);
     maxX = Math.max(maxX, point.x + HEX_SIZE);
-    minY = Math.min(minY, raisedY - HEX_SIZE - 30);
-    maxY = Math.max(maxY, raisedY + HEX_SIZE + 20);
+    minY = Math.min(minY, point.y - HEX_SIZE - 30);
+    maxY = Math.max(maxY, point.y + HEX_SIZE + 20);
   }
   return { minX, minY, maxX, maxY };
 }
@@ -201,20 +192,21 @@ function renderWorld(world: WorldSnapshot): { layer: Container; bounds: WorldBou
   const orderedTiles = [...world.tiles].sort((left, right) => {
     const leftPoint = axialToPixel(left.coord, HEX_SIZE);
     const rightPoint = axialToPixel(right.coord, HEX_SIZE);
-    return leftPoint.y - left.elevation * 3 - (rightPoint.y - right.elevation * 3) || leftPoint.x - rightPoint.x;
+    return leftPoint.y - rightPoint.y || leftPoint.x - rightPoint.x;
   });
 
   for (const tile of orderedTiles) {
     const point = axialToPixel(tile.coord, HEX_SIZE);
     const tileLayer = new Container();
-    tileLayer.position.set(point.x, point.y - tile.elevation * 3);
+    // Elevation belongs inside the tile artwork. Moving a complete face would
+    // separate it from neighbors and break the shared-edge hex grid.
+    tileLayer.position.set(point.x, point.y);
     drawTileFace(tileLayer, String(tile.terrain), visible.has(axialKey(tile.coord)), tile.coord.q, tile.coord.r);
     layer.addChild(tileLayer);
   }
 
-  const villageTile = world.tiles.find((tile) => axialKey(tile.coord) === axialKey(world.village.coord));
   if (visible.has(axialKey(world.village.coord))) {
-    drawVillage(layer, world.village.coord, villageTile?.elevation ?? 0);
+    drawVillage(layer, world.village.coord);
   }
 
   return { layer, bounds: worldBounds(world) };
