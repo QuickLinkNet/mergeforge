@@ -33,6 +33,8 @@ Every approved extension can add new possibilities to the same living world: bui
 - [`docs/MERGEFORGE_World_and_Domain_Contract_v1.md`](docs/MERGEFORGE_World_and_Domain_Contract_v1.md) — deterministic world rules and minimal domain model
 - [`docs/MERGEFORGE_MVP_Backlog_v1.md`](docs/MERGEFORGE_MVP_Backlog_v1.md) — small milestone and issue plan
 
+- [`docs/MERGEFORGE_Technical_Foundation_Proposal_v1.md`](docs/MERGEFORGE_Technical_Foundation_Proposal_v1.md) — proposed M1 stack and architecture boundary
+
 Older pitch material is kept for design history. When documents disagree, the hierarchy defined in the project bible applies.
 
 ## Current concept art
@@ -44,4 +46,4 @@ Older pitch material is kept for design history. When documents disagree, the hi
 
 ## Implementation gate
 
-No application code is added until the playable blueprint and MVP boundaries are approved. The first implementation milestone will be a persistent, pannable and zoomable procedural hex map with village spawning and fog of war.
+The playable blueprint and MVP boundaries were approved by the project owner on 30 October 2026. Application code starts only after the technical foundation proposal is approved and then exclusively through an accepted M1 issue, a feature branch and a pull request into `dev`.

@@ -40,3 +40,9 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted
 - **Decision:** `main` contains only stable versions. `dev` is the integration branch for ongoing development. Feature and fix branches open pull requests into `dev`; release pull requests promote a tested state from `dev` to `main`.
 - **Protection:** `main` requires a pull request, linear history and resolved conversations. Deletion and force pushes are blocked.
+
+## D-008 — Playable blueprint design lock
+
+- **Status:** Accepted on 2026-10-30
+- **Decision:** The project owner approved `MERGEFORGE_Playable_Blueprint_v1.md`, the first-15-minute flow, the four-screen UI direction and the deterministic world contract as the implementation baseline.
+- **Consequence:** M1 planning and implementation issues may begin. Changes to locked gameplay values require a new decision record rather than silent deviation.
