@@ -1,0 +1,40 @@
+import { describe, expect, it } from "vitest";
+
+import { axialKey, axialToPixel, hexCorners } from "./hex.js";
+
+describe("axial hex projection", () => {
+  it("maps the origin and known pointy-top neighbors stably", () => {
+    const size = 32;
+
+    expect(axialToPixel({ q: 0, r: 0 }, size)).toEqual({ x: 0, y: 0 });
+    expect(axialToPixel({ q: 1, r: 0 }, size).x).toBeCloseTo(Math.sqrt(3) * size);
+    expect(axialToPixel({ q: 1, r: 0 }, size).y).toBe(0);
+    expect(axialToPixel({ q: 0, r: 1 }, size).x).toBeCloseTo((Math.sqrt(3) * size) / 2);
+    expect(axialToPixel({ q: 0, r: 1 }, size).y).toBe(1.5 * size);
+  });
+
+  it("keeps every adjacent center distinct at the same distance", () => {
+    const size = 27;
+    const origin = axialToPixel({ q: 0, r: 0 }, size);
+    const neighbors = [
+      { q: 1, r: 0 },
+      { q: 1, r: -1 },
+      { q: 0, r: -1 },
+      { q: -1, r: 0 },
+      { q: -1, r: 1 },
+      { q: 0, r: 1 },
+    ].map((coord) => axialToPixel(coord, size));
+
+    expect(new Set(neighbors.map(({ x, y }) => `${x.toFixed(6)},${y.toFixed(6)}`)).size).toBe(6);
+    for (const neighbor of neighbors) {
+      expect(Math.hypot(neighbor.x - origin.x, neighbor.y - origin.y)).toBeCloseTo(
+        Math.sqrt(3) * size,
+      );
+    }
+  });
+
+  it("produces six corners and stable coordinate keys", () => {
+    expect(hexCorners({ x: 10, y: 20 }, 12)).toHaveLength(6);
+    expect(axialKey({ q: -3, r: 8 })).toBe("-3,8");
+  });
+});

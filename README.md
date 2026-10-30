@@ -8,6 +8,17 @@ MERGEFORGE begins as a deliberately small but complete strategy game: found a vi
 
 Every approved extension can add new possibilities to the same living world: buildings, units, resources, automation, events, minigames, PvE, PvP or interface modules.
 
+## Local preview
+
+Requires Node.js 24 and pnpm 11.
+
+```text
+pnpm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Run the complete local verification with `npm run check`. The preview is frontend-only and does not require PHP or another local backend.
+
 ![Seven chapters on one continuous map](concept-art/phase-3/08-first-seven-days-continuous-map.png)
 
 ## Confirmed direction
