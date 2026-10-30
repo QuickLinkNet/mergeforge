@@ -6,10 +6,16 @@ import {
   initialViewState,
   patchViewState,
   type HexWorldViewState,
+  type LumberCampVisual,
+  type LumberCampVisualState,
   type NormalizedViewState,
 } from "./view-state.js";
 
-export type { HexWorldViewState } from "./view-state.js";
+export type {
+  HexWorldViewState,
+  LumberCampVisual,
+  LumberCampVisualState,
+} from "./view-state.js";
 
 const HEX_SIZE = 42;
 const MIN_SCALE = 0.45;
@@ -186,6 +192,126 @@ function drawVillage(target: Container, coord: { readonly q: number; readonly r:
   target.addChild(village);
 }
 
+function drawWoodFind(target: Container, coord: HexCoord): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const marker = new Container();
+  marker.position.set(center.x, center.y + 7);
+
+  const glow = new Graphics().circle(0, 0, 19).fill({ color: 0xf0c46a, alpha: 0.12 });
+  const logs = new Graphics();
+  for (let index = -1; index <= 1; index += 1) {
+    const y = index * 6;
+    logs
+      .roundRect(-14, y - 3, 28, 6, 3)
+      .fill({ color: index === 0 ? 0x8b5b32 : 0x704526 })
+      .stroke({ color: 0x4b2d1b, width: 1 })
+      .circle(-12, y, 2.2)
+      .fill({ color: 0xd0a05c });
+  }
+  marker.addChild(glow, logs);
+  target.addChild(marker);
+}
+
+function drawLumberCamp(
+  target: Container,
+  coord: HexCoord,
+  state: LumberCampVisualState,
+): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const camp = new Container();
+  camp.position.set(center.x, center.y + 3);
+
+  const shadow = new Graphics().ellipse(0, 13, 33, 13).fill({ color: 0x0a120c, alpha: 0.4 });
+  const foundation = new Graphics()
+    .ellipse(0, 9, 30, 13)
+    .fill({ color: state === "construction" ? 0x806543 : 0x6f5838 })
+    .stroke({ color: 0xbe9659, width: 1.2, alpha: 0.78 });
+  camp.addChild(shadow, foundation);
+
+  if (state === "construction") {
+    const scaffold = new Graphics()
+      .rect(-18, -15, 3.5, 27)
+      .fill({ color: 0x9a6c3b })
+      .rect(14.5, -15, 3.5, 27)
+      .fill({ color: 0x9a6c3b })
+      .rect(-18, -13, 36, 3.5)
+      .fill({ color: 0xba864a })
+      .moveTo(-16, 8)
+      .lineTo(16, -11)
+      .moveTo(-16, -11)
+      .lineTo(16, 8)
+      .stroke({ color: 0x6d4728, width: 2.2, alpha: 0.95 });
+    const tarp = new Graphics()
+      .poly([-13, -12, 1, -22, 15, -12, 9, -6, -8, -6])
+      .fill({ color: 0xc49a55, alpha: 0.92 })
+      .stroke({ color: 0x795b35, width: 1.1 });
+    const lumber = new Graphics()
+      .roundRect(-11, 5, 22, 5, 2.5)
+      .fill({ color: 0x75502e })
+      .roundRect(-8, 0, 22, 5, 2.5)
+      .fill({ color: 0x95673a });
+    camp.addChild(scaffold, tarp, lumber);
+    target.addChild(camp);
+    return;
+  }
+
+  const shed = new Graphics()
+    .roundRect(-16, -11, 32, 25, 3)
+    .fill({ color: 0xa7743f })
+    .stroke({ color: 0x55351f, width: 1.4 })
+    .moveTo(-10, -9)
+    .lineTo(-10, 13)
+    .moveTo(-3, -9)
+    .lineTo(-3, 13)
+    .moveTo(4, -9)
+    .lineTo(4, 13)
+    .moveTo(11, -9)
+    .lineTo(11, 13)
+    .stroke({ color: 0x6e4829, width: 1.2, alpha: 0.72 })
+    .poly([-20, -10, 0, -25, 20, -10])
+    .fill({ color: 0x315c48 })
+    .stroke({ color: 0x173a31, width: 1.5 });
+  const doorway = new Graphics().roundRect(-5, 2, 10, 13, 2).fill({ color: 0x3f2b20 });
+  const logStack = new Graphics();
+  for (let row = 0; row < 2; row += 1) {
+    for (let column = 0; column < 3 - row; column += 1) {
+      const x = 19 + column * 6 - row * 3;
+      const y = 10 - row * 6;
+      logStack
+        .circle(x, y, 3.1)
+        .fill({ color: 0xd0a160 })
+        .stroke({ color: 0x684326, width: 1 });
+    }
+  }
+  camp.addChild(shed, doorway, logStack);
+  target.addChild(camp);
+}
+
+function drawLumberVisuals(
+  target: Container,
+  world: WorldSnapshot,
+  lumberCamps: readonly LumberCampVisual[],
+  woodFindTileKeys: readonly string[],
+): void {
+  const visible = new Set(world.visibleTileKeys);
+  const tileCoordinates = new Map(world.tiles.map((tile) => [axialKey(tile.coord), tile.coord]));
+
+  for (const key of new Set(woodFindTileKeys)) {
+    const coord = tileCoordinates.get(key);
+    if (coord !== undefined && visible.has(key)) {
+      drawWoodFind(target, coord);
+    }
+  }
+
+  const campsByTile = new Map(lumberCamps.map((camp) => [camp.tileKey, camp]));
+  for (const camp of campsByTile.values()) {
+    const coord = tileCoordinates.get(camp.tileKey);
+    if (coord !== undefined && visible.has(camp.tileKey)) {
+      drawLumberCamp(target, coord, camp.state);
+    }
+  }
+}
+
 function areNeighbors(left: HexCoord, right: HexCoord): boolean {
   const dq = left.q - right.q;
   const dr = left.r - right.r;
@@ -341,6 +467,12 @@ function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { la
   drawRoadNetwork(roadLayer, previewCoordinates, world.village.coord, true, allConnectedCoordinates);
 
   const landmarkLayer = new Container();
+  drawLumberVisuals(
+    landmarkLayer,
+    world,
+    viewState.lumberCamps,
+    viewState.woodFindTileKeys,
+  );
   if (visible.has(axialKey(world.village.coord))) {
     drawVillage(landmarkLayer, world.village.coord);
   }

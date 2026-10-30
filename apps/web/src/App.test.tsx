@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { GAME_SAVE_KEY } from './persistence';
 
 interface HexSelection {
   readonly key: string;
@@ -15,6 +16,7 @@ const rendererHarness = vi.hoisted(() => ({
 
 const visibleTileKeys = ['0,0', '1,0', '1,-1', '0,-1', '-1,0', '-1,1', '0,1'];
 const meadow = (q: number, r: number) => ({ coord: { q, r }, terrain: 'meadow' as const, elevation: 1 });
+const forest = (q: number, r: number) => ({ coord: { q, r }, terrain: 'forest' as const, elevation: 2 });
 
 vi.mock('@mergeforge/worldgen', () => ({
   generateWorld: vi.fn(() => ({
@@ -24,7 +26,7 @@ vi.mock('@mergeforge/worldgen', () => ({
     tiles: [
       meadow(0, 0),
       meadow(1, 0),
-      meadow(2, 0),
+      forest(2, 0),
       meadow(1, -1),
       meadow(0, -1),
       meadow(-1, 0),
@@ -44,9 +46,14 @@ vi.mock('@mergeforge/renderer-pixi', () => ({
   }),
 }));
 
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
 afterEach(() => {
   vi.clearAllMocks();
   rendererHarness.onHexSelect = undefined;
+  window.localStorage.clear();
 });
 
 async function renderReadyApp() {
@@ -82,17 +89,67 @@ describe('MERGEFORGE web shell', () => {
     expect(screen.getByText('1 neues Feld')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Straße bauen' }));
 
-    expect(screen.getByLabelText('Holz: 11')).toBeTruthy();
+    expect(screen.getByLabelText('Holz: 12')).toBeTruthy();
+    expect(screen.getByText('Fallholz geborgen · +1 Holz')).toBeTruthy();
     expect(screen.getByLabelText('Kapitelziel').textContent).toContain('1 / 2');
 
     act(() => selectHex?.({ key: '2,0', coord: { q: 2, r: 0 } }));
     fireEvent.click(screen.getByRole('button', { name: 'Straße bauen' }));
 
-    expect(screen.getByLabelText('Holz: 10')).toBeTruthy();
+    expect(screen.getByLabelText('Holz: 11')).toBeTruthy();
     expect(screen.getByLabelText('Kapitelziel').textContent).toContain('2 / 2');
     expect(screen.getByText('Kapitel 1 · Ziel erreicht')).toBeTruthy();
     expect(rendererHarness.update).toHaveBeenCalled();
 
+    view.unmount();
+  });
+
+  it('restores roads, resources, finds, and progress after remounting', async () => {
+    const firstView = await renderReadyApp();
+    const firstSelectHex = rendererHarness.onHexSelect;
+
+    act(() => firstSelectHex?.({ key: '1,0', coord: { q: 1, r: 0 } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Straße bauen' }));
+    await waitFor(() => expect(window.localStorage.getItem(GAME_SAVE_KEY)).not.toBeNull());
+    firstView.unmount();
+
+    const restoredView = await renderReadyApp();
+    expect(screen.getByLabelText('Holz: 12')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('1 / 2');
+    expect(rendererHarness.update).toHaveBeenCalled();
+    restoredView.unmount();
+  });
+
+  it('builds a lumber camp on a connected forest road and shows its timer', async () => {
+    const view = await renderReadyApp();
+    const selectHex = rendererHarness.onHexSelect;
+
+    act(() => selectHex?.({ key: '1,0', coord: { q: 1, r: 0 } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Straße bauen' }));
+    act(() => selectHex?.({ key: '2,0', coord: { q: 2, r: 0 } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Straße bauen' }));
+    act(() => selectHex?.({ key: '2,0', coord: { q: 2, r: 0 } }));
+
+    expect(screen.getByRole('heading', { name: 'Holzfällerlager' })).toBeTruthy();
+    expect(screen.getByText('4 Holz · 1 Stein')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Lager errichten' }));
+
+    expect(screen.getByRole('heading', { name: 'Bau läuft' })).toBeTruthy();
+    expect(screen.getByLabelText('Holz: 7')).toBeTruthy();
+    expect(screen.getByLabelText('Stein: 5')).toBeTruthy();
+    expect(screen.getByText('Fertig in')).toBeTruthy();
+    expect(screen.getByText('Am Bauende wird das Lager aktiv und liefert sofort die ersten 2 Holz.')).toBeTruthy();
+    view.unmount();
+  });
+
+  it('resets a corrupt save with a clear message', async () => {
+    window.localStorage.setItem(GAME_SAVE_KEY, '{not-json');
+    const view = await renderReadyApp();
+
+    expect(
+      screen.getByText('Der lokale Spielstand war beschädigt und wurde sicher zurückgesetzt.'),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Holz: 12')).toBeTruthy();
     view.unmount();
   });
 

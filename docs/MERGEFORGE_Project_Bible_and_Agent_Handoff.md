@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** Spielbare Blaupause v1 am 30. Oktober 2026 freigegeben; M1-Vorbereitung aktiv
+**Stand:** Spielbare Blaupause v1 freigegeben; M1.1 und M1.2 in `dev`, M1.3 implementiert und abgenommen (30. Oktober 2026)
 
 ## Vision
 
@@ -87,7 +87,16 @@ Erst nach Umsetzungsfreigabe können die Arbeiten getrennt vergeben werden:
 
 Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigten Werten werden als kurze Entscheidungsnotiz dokumentiert.
 
-## Offene Entscheidungen vor Implementierung
+## Aktueller Implementierungsstand
+
+- **M1.1:** deterministische Hexwelt, Dorf, Fog of War sowie Pan/Zoom umgesetzt
+- **M1.2:** zusammenhängender Straßenbau, Kosten, Aufdeckung und Kapitelziel umgesetzt
+- **M1.3:** einmalige Wald-Oberflächenfunde, Holzfällerlager, 10-Minuten-Welttakt, Offline-Nachholung und versionierter lokaler Spielstand umgesetzt
+- Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
+- Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
+- Nächster fachlicher Schritt nach Integration von M1.3: M2 für Wegfinder, garantierte Steinquelle und Relais-Prolog als neue, getrennt abnehmbare Issues planen.
+
+## Noch offene Produktentscheidungen
 
 - endgültiger Projektname/Logo beibehalten oder ändern
 - genaue Zielplattformen und kleinste unterstützte Bildschirmbreite

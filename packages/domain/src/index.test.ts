@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   axialNeighbors,
+  advanceTime,
   buildRoad,
   createInitialGameState,
   hexKey,
+  startLumberCamp,
+  LUMBER_CAMP_BUILD_MS,
+  WORLD_PULSE_MS,
   type GameState,
   type HexTile,
   type Terrain,
@@ -38,6 +42,29 @@ describe("road building", () => {
     expect(state.roadTileKeys).toEqual([]);
     expect(state.visibleTileKeys).toEqual(state.world.visibleTileKeys);
     expect(state.visibleTileKeys).not.toBe(state.world.visibleTileKeys);
+    expect(state).toMatchObject({
+      schemaVersion: 1,
+      claimedSurfaceFindTileKeys: [],
+      buildings: [],
+      lastAdvancedAtMs: 0,
+    });
+  });
+
+  it("grants a forest surface find exactly once when the tile is first revealed", () => {
+    const initial = createInitialGameState(createWorld(["2,0"]));
+    const first = buildRoad(initial, { q: 1, r: 0 });
+    if (!first.ok) throw new Error("Expected first road build to succeed.");
+
+    expect(first.state.resources.wood).toBe(12);
+    expect(first.state.claimedSurfaceFindTileKeys).toEqual(["2,0"]);
+
+    const overlappingReveal = buildRoad(first.state, { q: 1, r: -1 });
+    if (!overlappingReveal.ok) {
+      throw new Error("Expected overlapping road build to succeed.");
+    }
+
+    expect(overlappingReveal.state.resources.wood).toBe(11);
+    expect(overlappingReveal.state.claimedSurfaceFindTileKeys).toEqual(["2,0"]);
   });
 
   it("builds next to the village, spends one wood and reveals neighbors", () => {
@@ -134,8 +161,142 @@ describe("road building", () => {
   });
 });
 
-function createWorld(): WorldSnapshot {
+describe("lumber camp construction and production", () => {
+  it("starts construction on a connected road forest and reserves its costs", () => {
+    const ready = createLumberCampReadyState();
+    const result = startLumberCamp(ready, { q: 2, r: 0 }, 1_000);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.resources).toEqual({ wood: 7, stone: 5 });
+    expect(result.state.buildings).toEqual([
+      {
+        id: "lumber-camp:2,0",
+        type: "lumber-camp",
+        tileKey: "2,0",
+        status: "constructing",
+        startedAtMs: 1_000,
+        completesAtMs: 1_000 + LUMBER_CAMP_BUILD_MS,
+        lastProductionAtMs: 1_000,
+      },
+    ]);
+  });
+
+  it("activates and produces its first two wood on the ten-minute completion pulse", () => {
+    const construction = startLumberCamp(
+      createLumberCampReadyState(),
+      { q: 2, r: 0 },
+      1_000,
+    );
+    if (!construction.ok) throw new Error("Expected lumber camp construction.");
+
+    const completedAt = 1_000 + LUMBER_CAMP_BUILD_MS;
+    const completed = advanceTime(construction.state, completedAt);
+    expect(completed.buildings[0]?.status).toBe("active");
+    expect(completed.resources.wood).toBe(9);
+
+    const firstProduction = advanceTime(completed, completedAt + WORLD_PULSE_MS);
+    expect(firstProduction.resources.wood).toBe(11);
+  });
+
+  it("catches up offline pulses once without double-producing", () => {
+    const construction = startLumberCamp(
+      createLumberCampReadyState(),
+      { q: 2, r: 0 },
+      2_000,
+    );
+    if (!construction.ok) throw new Error("Expected lumber camp construction.");
+
+    const completedAt = 2_000 + LUMBER_CAMP_BUILD_MS;
+    const caughtUp = advanceTime(
+      construction.state,
+      completedAt + 5 * WORLD_PULSE_MS + WORLD_PULSE_MS / 2,
+    );
+
+    expect(caughtUp.resources.wood).toBe(19);
+    expect(caughtUp.buildings[0]?.lastProductionAtMs).toBe(
+      completedAt + 5 * WORLD_PULSE_MS,
+    );
+    expect(advanceTime(caughtUp, caughtUp.lastAdvancedAtMs)).toBe(caughtUp);
+  });
+
+  it("rejects invalid sites and missing resources", () => {
+    const world = createWorld(["2,0", "-1,0"]);
+    const initial = createInitialGameState(world);
+
+    expect(startLumberCamp(initial, { q: 9, r: 9 }, 0)).toMatchObject({
+      ok: false,
+      reason: "tile-not-found",
+    });
+
+    expect(startLumberCamp(initial, { q: 2, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "road-required",
+    });
+
+    const meadowRoad = buildRoad(initial, { q: 1, r: 0 });
+    if (!meadowRoad.ok) throw new Error("Expected meadow road.");
+    expect(startLumberCamp(meadowRoad.state, { q: 1, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "not-forest",
+    });
+
+    const forestRoad = buildRoad(initial, { q: -1, r: 0 });
+    if (!forestRoad.ok) throw new Error("Expected forest road.");
+    const firstCamp = startLumberCamp(forestRoad.state, { q: -1, r: 0 }, 0);
+    if (!firstCamp.ok) throw new Error("Expected first lumber camp.");
+
+    const poor: GameState = {
+      ...forestRoad.state,
+      resources: { wood: 3, stone: 0 },
+    };
+    expect(startLumberCamp(poor, { q: -1, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "insufficient-resources",
+    });
+  });
+
+  it("allows only one construction at a time and one building per tile", () => {
+    const initial = createInitialGameState(createWorld(["-1,0", "1,0"]));
+    const westRoad = buildRoad(initial, { q: -1, r: 0 });
+    if (!westRoad.ok) throw new Error("Expected west forest road.");
+    const eastRoad = buildRoad(westRoad.state, { q: 1, r: 0 });
+    if (!eastRoad.ok) throw new Error("Expected east forest road.");
+    const firstCamp = startLumberCamp(eastRoad.state, { q: -1, r: 0 }, 0);
+    if (!firstCamp.ok) throw new Error("Expected first lumber camp.");
+
+    expect(startLumberCamp(firstCamp.state, { q: 1, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "build-slot-occupied",
+    });
+
+    const completed = advanceTime(firstCamp.state, LUMBER_CAMP_BUILD_MS);
+    expect(startLumberCamp(completed, { q: -1, r: 0 }, LUMBER_CAMP_BUILD_MS)).toMatchObject({
+      ok: false,
+      reason: "already-built",
+    });
+  });
+
+  it("rejects backwards or invalid time", () => {
+    const state = createInitialGameState(createWorld(), 5_000);
+
+    expect(() => advanceTime(state, 4_999)).toThrow(RangeError);
+    expect(() => advanceTime(state, Number.NaN)).toThrow(RangeError);
+  });
+});
+
+function createLumberCampReadyState(): GameState {
+  const initial = createInitialGameState(createWorld(["2,0"]));
+  const firstRoad = buildRoad(initial, { q: 1, r: 0 });
+  if (!firstRoad.ok) throw new Error("Expected first road.");
+  const forestRoad = buildRoad(firstRoad.state, { q: 2, r: 0 });
+  if (!forestRoad.ok) throw new Error("Expected forest road.");
+  return forestRoad.state;
+}
+
+function createWorld(forestTileKeys: readonly string[] = []): WorldSnapshot {
   const terrainOverrides = new Map<string, Terrain>([["0,1", "water"]]);
+  for (const tileKey of forestTileKeys) terrainOverrides.set(tileKey, "forest");
   const tiles: HexTile[] = [];
   const radius = 2;
 
