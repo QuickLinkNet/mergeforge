@@ -33,6 +33,32 @@ describe("axial hex projection", () => {
     }
   });
 
+  it("gives every neighboring hex exactly one shared edge", () => {
+    const size = 42;
+    const originCorners = hexCorners(axialToPixel({ q: 0, r: 0 }, size), size);
+    const neighbors = [
+      { q: 1, r: 0 },
+      { q: 1, r: -1 },
+      { q: 0, r: -1 },
+      { q: -1, r: 0 },
+      { q: -1, r: 1 },
+      { q: 0, r: 1 },
+    ];
+
+    for (const neighbor of neighbors) {
+      const neighborCorners = hexCorners(axialToPixel(neighbor, size), size);
+      const sharedCorners = originCorners.filter((originCorner) =>
+        neighborCorners.some(
+          (neighborCorner) =>
+            Math.abs(originCorner.x - neighborCorner.x) < 0.000_001 &&
+            Math.abs(originCorner.y - neighborCorner.y) < 0.000_001,
+        ),
+      );
+
+      expect(sharedCorners).toHaveLength(2);
+    }
+  });
+
   it("produces six corners and stable coordinate keys", () => {
     expect(hexCorners({ x: 10, y: 20 }, 12)).toHaveLength(6);
     expect(axialKey({ q: -3, r: 8 })).toBe("-3,8");
