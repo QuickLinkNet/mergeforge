@@ -1,0 +1,25 @@
+{
+  "name": "mergeforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A persistent collaborative browser hexworld expanded through reviewed pull requests.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/workspace-runner.mjs dev",
+    "build": "node scripts/workspace-runner.mjs build",
+    "typecheck": "node scripts/workspace-runner.mjs typecheck",
+    "test": "node scripts/workspace-runner.mjs test",
+    "check": "node scripts/workspace-runner.mjs check"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
