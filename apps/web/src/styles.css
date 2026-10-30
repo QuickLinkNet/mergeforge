@@ -320,6 +320,12 @@ a {
   font-size: 26px;
 }
 
+.camp-symbol {
+  background: rgb(94 153 101 / 14%);
+  border-color: rgb(129 187 129 / 30%);
+  color: #acd29f;
+}
+
 .build-preview {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -384,6 +390,97 @@ a {
   grid-template-columns: auto 1fr;
   gap: 9px;
   margin-top: 16px;
+}
+
+.build-actions.single {
+  grid-template-columns: 1fr;
+}
+
+.construction-progress {
+  height: 7px;
+  margin-top: 20px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.construction-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #70a76f, #d4b35f);
+  box-shadow: 0 0 12px rgb(151 190 107 / 45%);
+  transition: width 400ms ease;
+}
+
+.building-timer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 11px;
+  color: #91a598;
+  font-size: 11px;
+}
+
+.building-timer strong {
+  color: #f2db9f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+}
+
+.system-notice {
+  position: absolute;
+  z-index: 6;
+  top: 84px;
+  left: 50%;
+  display: flex;
+  width: min(560px, calc(100vw - 32px));
+  min-height: 44px;
+  padding: 10px 10px 10px 14px;
+  transform: translateX(-50%);
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgb(219 177 87 / 32%);
+  border-radius: 11px;
+  background: rgb(30 38 29 / 95%);
+  box-shadow: 0 14px 35px rgb(0 0 0 / 35%);
+  color: #e7dab3;
+  font-size: 12px;
+  backdrop-filter: blur(14px);
+}
+
+.system-notice button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 7%);
+  color: #c8c6b4;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.event-toast {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 70px;
+  padding: 11px 16px;
+  transform: translateX(-50%);
+  border: 1px solid rgb(127 189 125 / 35%);
+  border-radius: 999px;
+  background: rgb(13 39 29 / 94%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 32%);
+  color: #bfe0b9;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
 }
 
 .build-actions button {
@@ -564,6 +661,8 @@ a {
   }
   .build-preview { padding: 10px 0; }
   .build-actions button { min-height: 48px; }
+  .system-notice { top: 66px; }
+  .event-toast { bottom: 122px; max-width: calc(100vw - 20px); white-space: normal; text-align: center; }
   .world-badge { bottom: 10px; left: 10px; max-width: calc(100vw - 20px); }
   .world-badge .version { display: none; }
   .camera-hints { right: 10px; bottom: 74px; }
