@@ -32,7 +32,6 @@ Every approved extension can add new possibilities to the same living world: bui
 - [`docs/MERGEFORGE_Playable_Blueprint_v1.md`](docs/MERGEFORGE_Playable_Blueprint_v1.md) — first 15 minutes and screen contract
 - [`docs/MERGEFORGE_World_and_Domain_Contract_v1.md`](docs/MERGEFORGE_World_and_Domain_Contract_v1.md) — deterministic world rules and minimal domain model
 - [`docs/MERGEFORGE_MVP_Backlog_v1.md`](docs/MERGEFORGE_MVP_Backlog_v1.md) — small milestone and issue plan
-
 - [`docs/MERGEFORGE_Technical_Foundation_Proposal_v1.md`](docs/MERGEFORGE_Technical_Foundation_Proposal_v1.md) — proposed M1 stack and architecture boundary
 
 Older pitch material is kept for design history. When documents disagree, the hierarchy defined in the project bible applies.
