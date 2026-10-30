@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { axialKey, axialToPixel, hexCorners } from "./hex.js";
+import { axialKey, axialToPixel, hexCorners, pixelToAxial } from "./hex.js";
 
 describe("axial hex projection", () => {
   it("maps the origin and known pointy-top neighbors stably", () => {
@@ -56,6 +56,19 @@ describe("axial hex projection", () => {
       );
 
       expect(sharedCorners).toHaveLength(2);
+    }
+  });
+
+  it("round-trips projected centers and resolves points inside a hex", () => {
+    const size = 42;
+    for (const coord of [
+      { q: 0, r: 0 },
+      { q: 4, r: -2 },
+      { q: -3, r: 5 },
+    ]) {
+      const center = axialToPixel(coord, size);
+      expect(pixelToAxial(center, size)).toEqual(coord);
+      expect(pixelToAxial({ x: center.x + 5, y: center.y - 4 }, size)).toEqual(coord);
     }
   });
 

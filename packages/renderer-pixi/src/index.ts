@@ -1,7 +1,15 @@
-import type { WorldSnapshot } from "@mergeforge/domain";
+import type { HexCoord, WorldSnapshot } from "@mergeforge/domain";
 import { Application, Container, Graphics } from "pixi.js";
 
-import { axialKey, axialToPixel, hexCorners, type PixelPoint } from "./hex.js";
+import { axialKey, axialToPixel, hexCorners, pixelToAxial, type PixelPoint } from "./hex.js";
+import {
+  initialViewState,
+  patchViewState,
+  type HexWorldViewState,
+  type NormalizedViewState,
+} from "./view-state.js";
+
+export type { HexWorldViewState } from "./view-state.js";
 
 const HEX_SIZE = 42;
 const MIN_SCALE = 0.45;
@@ -15,9 +23,20 @@ interface WorldBounds {
   readonly maxY: number;
 }
 
-interface MountedHexWorld {
+export interface HexSelectionEvent {
+  readonly key: string;
+  readonly coord: HexCoord;
+}
+
+export interface HexWorldMountOptions extends HexWorldViewState {
+  readonly onHexSelect?: (event: HexSelectionEvent) => void;
+}
+
+export interface MountedHexWorld {
+  update(world: WorldSnapshot, viewState?: HexWorldViewState): void;
   destroy(): void;
 }
+
 
 const terrainColors: Readonly<Record<string, { face: number; edge: number }>> = {
   grass: { face: 0x769a5d, edge: 0xa3bf7e },
@@ -167,6 +186,114 @@ function drawVillage(target: Container, coord: { readonly q: number; readonly r:
   target.addChild(village);
 }
 
+function areNeighbors(left: HexCoord, right: HexCoord): boolean {
+  const dq = left.q - right.q;
+  const dr = left.r - right.r;
+  return Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) === 1;
+}
+
+function drawableCoordinates(world: WorldSnapshot, keys: readonly string[]): Map<string, HexCoord> {
+  const requested = new Set(keys);
+  const visible = new Set(world.visibleTileKeys);
+  const result = new Map<string, HexCoord>();
+  for (const tile of world.tiles) {
+    const key = axialKey(tile.coord);
+    if (requested.has(key) && visible.has(key)) {
+      result.set(key, tile.coord);
+    }
+  }
+  return result;
+}
+
+function addRoadSegment(graphics: Graphics, from: HexCoord, to: HexCoord): void {
+  const start = axialToPixel(from, HEX_SIZE);
+  const end = axialToPixel(to, HEX_SIZE);
+  graphics.moveTo(start.x, start.y).lineTo(end.x, end.y);
+}
+
+function drawRoadNetwork(
+  target: Container,
+  coordinates: ReadonlyMap<string, HexCoord>,
+  villageCoord: HexCoord,
+  preview: boolean,
+  connectedCoordinates: ReadonlyMap<string, HexCoord> = coordinates,
+): void {
+  if (coordinates.size === 0) {
+    return;
+  }
+
+  const underlay = new Graphics();
+  const road = new Graphics();
+  const highlight = new Graphics();
+  for (const [key, coord] of coordinates) {
+    for (const [otherKey, otherCoord] of connectedCoordinates) {
+      if (!areNeighbors(coord, otherCoord)) {
+        continue;
+      }
+      const otherIsPreview = coordinates.has(otherKey);
+      if (otherIsPreview && key.localeCompare(otherKey) >= 0) {
+        continue;
+      }
+      addRoadSegment(underlay, coord, otherCoord);
+      addRoadSegment(road, coord, otherCoord);
+      addRoadSegment(highlight, coord, otherCoord);
+    }
+    if (areNeighbors(coord, villageCoord)) {
+      addRoadSegment(underlay, coord, villageCoord);
+      addRoadSegment(road, coord, villageCoord);
+      addRoadSegment(highlight, coord, villageCoord);
+    }
+  }
+
+  const alpha = preview ? 0.72 : 1;
+  underlay.stroke({ color: preview ? 0x254953 : 0x3c2b20, width: 13, alpha: alpha * 0.9 });
+  road.stroke({ color: preview ? 0x58c4c7 : 0xb68b55, width: 8, alpha });
+  highlight.stroke({ color: preview ? 0xb9ffff : 0xe5c68b, width: 2, alpha: alpha * 0.8 });
+  target.addChild(underlay, road, highlight);
+
+  const nodes = new Graphics();
+  for (const coord of coordinates.values()) {
+    const point = axialToPixel(coord, HEX_SIZE);
+    nodes
+      .circle(point.x, point.y, preview ? 7 : 8)
+      .fill({ color: preview ? 0x62d1cf : 0xb9905b, alpha })
+      .stroke({ color: preview ? 0xd5ffff : 0x5a3d27, width: 2, alpha });
+  }
+  target.addChild(nodes);
+}
+
+function drawInteractionOverlay(
+  target: Container,
+  world: WorldSnapshot,
+  viewState: NormalizedViewState,
+): void {
+  const visible = new Set(world.visibleTileKeys);
+  if (viewState.selectedTileKey !== null && visible.has(viewState.selectedTileKey)) {
+    const tile = world.tiles.find((candidate) => axialKey(candidate.coord) === viewState.selectedTileKey);
+    if (tile !== undefined) {
+      const center = axialToPixel(tile.coord, HEX_SIZE);
+      const selection = new Graphics()
+        .poly(polygonPoints(hexCorners(center, HEX_SIZE - 3)))
+        .fill({ color: 0xf8cf69, alpha: 0.12 })
+        .stroke({ color: 0xffdc78, width: 3.2, alpha: 0.98 });
+      target.addChild(selection);
+    }
+  }
+
+  const previewCoordinates = drawableCoordinates(world, viewState.roadPreviewTileKeys);
+  if (previewCoordinates.size > 0) {
+    const outlines = new Graphics();
+    for (const coord of previewCoordinates.values()) {
+      const center = axialToPixel(coord, HEX_SIZE);
+      outlines
+        .poly(polygonPoints(hexCorners(center, HEX_SIZE - 7)))
+        .fill({ color: 0x75e4dd, alpha: 0.08 })
+        .stroke({ color: 0x9ff4ec, width: 2, alpha: 0.75 });
+    }
+    target.addChild(outlines);
+  }
+}
+
 function worldBounds(world: WorldSnapshot): WorldBounds {
   if (world.tiles.length === 0) {
     return { minX: -HEX_SIZE, minY: -HEX_SIZE, maxX: HEX_SIZE, maxY: HEX_SIZE };
@@ -186,8 +313,9 @@ function worldBounds(world: WorldSnapshot): WorldBounds {
   return { minX, minY, maxX, maxY };
 }
 
-function renderWorld(world: WorldSnapshot): { layer: Container; bounds: WorldBounds } {
+function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { layer: Container; bounds: WorldBounds } {
   const layer = new Container();
+  const terrainLayer = new Container();
   const visible = new Set(world.visibleTileKeys);
   const orderedTiles = [...world.tiles].sort((left, right) => {
     const leftPoint = axialToPixel(left.coord, HEX_SIZE);
@@ -202,12 +330,24 @@ function renderWorld(world: WorldSnapshot): { layer: Container; bounds: WorldBou
     // separate it from neighbors and break the shared-edge hex grid.
     tileLayer.position.set(point.x, point.y);
     drawTileFace(tileLayer, String(tile.terrain), visible.has(axialKey(tile.coord)), tile.coord.q, tile.coord.r);
-    layer.addChild(tileLayer);
+    terrainLayer.addChild(tileLayer);
   }
 
+  const roadLayer = new Container();
+  const roadCoordinates = drawableCoordinates(world, viewState.roadTileKeys);
+  drawRoadNetwork(roadLayer, roadCoordinates, world.village.coord, false);
+  const previewCoordinates = drawableCoordinates(world, viewState.roadPreviewTileKeys);
+  const allConnectedCoordinates = new Map([...roadCoordinates, ...previewCoordinates]);
+  drawRoadNetwork(roadLayer, previewCoordinates, world.village.coord, true, allConnectedCoordinates);
+
+  const landmarkLayer = new Container();
   if (visible.has(axialKey(world.village.coord))) {
-    drawVillage(layer, world.village.coord);
+    drawVillage(landmarkLayer, world.village.coord);
   }
+
+  const interactionLayer = new Container();
+  drawInteractionOverlay(interactionLayer, world, viewState);
+  layer.addChild(terrainLayer, roadLayer, landmarkLayer, interactionLayer);
 
   return { layer, bounds: worldBounds(world) };
 }
@@ -216,6 +356,7 @@ function renderWorld(world: WorldSnapshot): { layer: Container; bounds: WorldBou
 export async function mountHexWorld(
   container: HTMLElement,
   world: WorldSnapshot,
+  options?: HexWorldMountOptions,
 ): Promise<MountedHexWorld> {
   const initialRect = container.getBoundingClientRect();
   const app = new Application();
@@ -239,13 +380,18 @@ export async function mountHexWorld(
   app.canvas.style.height = "100%";
   container.appendChild(app.canvas);
 
-  const { layer, bounds } = renderWorld(world);
+  let currentWorld = world;
+  let viewState = initialViewState(options);
+  let renderedWorld = renderWorld(currentWorld, viewState);
+  const layer = new Container();
+  layer.addChild(renderedWorld.layer);
   app.stage.addChild(layer);
 
   let viewportWidth = Math.max(1, initialRect.width);
   let viewportHeight = Math.max(1, initialRect.height);
-  const contentWidth = bounds.maxX - bounds.minX;
-  const contentHeight = bounds.maxY - bounds.minY;
+  let bounds = renderedWorld.bounds;
+  let contentWidth = bounds.maxX - bounds.minX;
+  let contentHeight = bounds.maxY - bounds.minY;
   const fitScale = Math.min(
     1.1,
     Math.max(MIN_SCALE, Math.min((viewportWidth - 48) / contentWidth, (viewportHeight - 48) / contentHeight)),
@@ -279,9 +425,30 @@ export async function mountHexWorld(
   };
   clampView();
 
+  const refreshScene = (): void => {
+    const worldCenterX = (viewportWidth / 2 - layer.position.x) / layer.scale.x;
+    const worldCenterY = (viewportHeight / 2 - layer.position.y) / layer.scale.y;
+    const previousScene = renderedWorld.layer;
+    renderedWorld = renderWorld(currentWorld, viewState);
+    bounds = renderedWorld.bounds;
+    contentWidth = bounds.maxX - bounds.minX;
+    contentHeight = bounds.maxY - bounds.minY;
+    layer.removeChild(previousScene);
+    previousScene.destroy({ children: true });
+    layer.addChild(renderedWorld.layer);
+    layer.position.set(
+      viewportWidth / 2 - worldCenterX * layer.scale.x,
+      viewportHeight / 2 - worldCenterY * layer.scale.y,
+    );
+    clampView();
+  };
+
   let activePointer: number | undefined;
   let lastPointerX = 0;
   let lastPointerY = 0;
+  let pointerStartX = 0;
+  let pointerStartY = 0;
+  let pointerDragged = false;
 
   const onPointerDown = (event: PointerEvent): void => {
     if (activePointer !== undefined) {
@@ -290,6 +457,9 @@ export async function mountHexWorld(
     activePointer = event.pointerId;
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
+    pointerStartX = event.clientX;
+    pointerStartY = event.clientY;
+    pointerDragged = false;
     app.canvas.setPointerCapture(event.pointerId);
     app.canvas.style.cursor = "grabbing";
     event.preventDefault();
@@ -301,13 +471,40 @@ export async function mountHexWorld(
     }
     layer.position.x += event.clientX - lastPointerX;
     layer.position.y += event.clientY - lastPointerY;
+    if (Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY) > 5) {
+      pointerDragged = true;
+    }
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
     clampView();
     event.preventDefault();
   };
 
-  const finishPointer = (event: PointerEvent): void => {
+  const selectHexAt = (clientX: number, clientY: number): void => {
+    const rect = app.canvas.getBoundingClientRect();
+    const screenX = ((clientX - rect.left) / Math.max(1, rect.width)) * viewportWidth;
+    const screenY = ((clientY - rect.top) / Math.max(1, rect.height)) * viewportHeight;
+    const coord = pixelToAxial(
+      {
+        x: (screenX - layer.position.x) / layer.scale.x,
+        y: (screenY - layer.position.y) / layer.scale.y,
+      },
+      HEX_SIZE,
+    );
+    const key = axialKey(coord);
+    if (!currentWorld.visibleTileKeys.includes(key)) {
+      return;
+    }
+    const tileExists = currentWorld.tiles.some((tile) => axialKey(tile.coord) === key);
+    if (!tileExists) {
+      return;
+    }
+    viewState = { ...viewState, selectedTileKey: key };
+    refreshScene();
+    options?.onHexSelect?.({ key, coord });
+  };
+
+  const finishPointer = (event: PointerEvent, select: boolean): void => {
     if (event.pointerId !== activePointer) {
       return;
     }
@@ -316,7 +513,13 @@ export async function mountHexWorld(
     }
     activePointer = undefined;
     app.canvas.style.cursor = "grab";
+    if (select && !pointerDragged) {
+      selectHexAt(event.clientX, event.clientY);
+    }
   };
+
+  const onPointerUp = (event: PointerEvent): void => finishPointer(event, true);
+  const onPointerCancel = (event: PointerEvent): void => finishPointer(event, false);
 
   const onWheel = (event: WheelEvent): void => {
     event.preventDefault();
@@ -336,8 +539,8 @@ export async function mountHexWorld(
   app.canvas.style.cursor = "grab";
   app.canvas.addEventListener("pointerdown", onPointerDown);
   app.canvas.addEventListener("pointermove", onPointerMove);
-  app.canvas.addEventListener("pointerup", finishPointer);
-  app.canvas.addEventListener("pointercancel", finishPointer);
+  app.canvas.addEventListener("pointerup", onPointerUp);
+  app.canvas.addEventListener("pointercancel", onPointerCancel);
   app.canvas.addEventListener("wheel", onWheel, { passive: false });
 
   const resizeObserver = new ResizeObserver((entries) => {
@@ -362,6 +565,14 @@ export async function mountHexWorld(
 
   let destroyed = false;
   return {
+    update(nextWorld: WorldSnapshot, nextViewState?: HexWorldViewState): void {
+      if (destroyed) {
+        return;
+      }
+      currentWorld = nextWorld;
+      viewState = patchViewState(viewState, nextViewState);
+      refreshScene();
+    },
     destroy(): void {
       if (destroyed) {
         return;
@@ -370,8 +581,8 @@ export async function mountHexWorld(
       resizeObserver.disconnect();
       app.canvas.removeEventListener("pointerdown", onPointerDown);
       app.canvas.removeEventListener("pointermove", onPointerMove);
-      app.canvas.removeEventListener("pointerup", finishPointer);
-      app.canvas.removeEventListener("pointercancel", finishPointer);
+      app.canvas.removeEventListener("pointerup", onPointerUp);
+      app.canvas.removeEventListener("pointercancel", onPointerCancel);
       app.canvas.removeEventListener("wheel", onWheel);
       container.style.touchAction = previousTouchAction;
       container.style.overflow = previousOverflow;

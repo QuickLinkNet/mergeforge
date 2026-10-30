@@ -24,6 +24,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@mergeforge/domain':
+        specifier: workspace:*
+        version: file:packages/domain
       '@mergeforge/renderer-pixi':
         specifier: workspace:*
         version: file:packages/renderer-pixi
