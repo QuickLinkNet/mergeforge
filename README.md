@@ -45,4 +45,4 @@ Older pitch material is kept for design history. When documents disagree, the hi
 
 ## Implementation gate
 
-The playable blueprint and MVP boundaries were approved by the project owner on 30 October 2026. Application code starts only after the technical foundation proposal is approved and then exclusively through an accepted M1 issue, a feature branch and a pull request into `dev`.
+The playable blueprint, MVP boundaries and technical foundation were approved by the project owner on 30 October 2026. Application code starts exclusively through an accepted M1 issue, a feature branch and a pull request into `dev`. M1 requires no local PHP server; a later backend will target the owner-provided online API and deploy through `npm run deploy`.

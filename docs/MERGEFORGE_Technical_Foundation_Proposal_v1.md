@@ -1,6 +1,6 @@
 # MERGEFORGE – Technical Foundation Proposal v1
 
-**Status:** Vorschlag zur Owner-Freigabe
+**Status:** Am 30. Oktober 2026 durch den Projektowner freigegeben
 
 **Datum:** 30. Oktober 2026
 
@@ -75,9 +75,18 @@ Folgende Entscheidungen werden erst getroffen, wenn ein akzeptiertes Issue sie b
 
 Damit bleibt M1 lokal spielbar und testbar, ohne die spätere Online-Architektur vorwegzunehmen.
 
-## Freigabekriterium
+## Backend- und Deployment-Grenze
 
-Nach Owner-Freigabe wird Issue M1.1 auf `feature/m1-1-hexworld-view` umgesetzt. Architekturabweichungen müssen im Pull Request begründet werden; neue Bibliotheken benötigen einen konkreten Bedarf und dürfen die Domain-Grenze nicht aufweichen.
+- Für M1 wird kein lokaler PHP-Server eingerichtet oder vorausgesetzt.
+- Ein Backend entsteht erst, wenn ein akzeptiertes Issue einen konkreten Online-Anwendungsfall verlangt.
+- Sobald der Projektowner Zielordner und Zugangsdaten bereitstellt, muss `npm run deploy` den vollständigen Upload zum vorgesehenen FTP-Ziel ausführen.
+- Integrationstests dürfen dann gegen die freigegebene Online-API laufen.
+- FTP-Zugangsdaten, API-Schlüssel und Zielkonfigurationen bleiben außerhalb des Repositories und werden ausschließlich über lokale Umgebungsvariablen oder geschützte CI-Secrets eingespeist.
+- Der Deploy-Befehl muss bei fehlender Konfiguration verständlich abbrechen und darf niemals ein geratenes Ziel verwenden.
+
+## Umsetzungsfreigabe
+
+Issue M1.1 wird auf `feature/m1-1-hexworld-view` umgesetzt. Architekturabweichungen müssen im Pull Request begründet werden; neue Bibliotheken benötigen einen konkreten Bedarf und dürfen die Domain-Grenze nicht aufweichen.
 
 ## Primärquellen
 

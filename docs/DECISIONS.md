@@ -46,3 +46,15 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted on 2026-10-30
 - **Decision:** The project owner approved `MERGEFORGE_Playable_Blueprint_v1.md`, the first-15-minute flow, the four-screen UI direction and the deterministic world contract as the implementation baseline.
 - **Consequence:** M1 planning and implementation issues may begin. Changes to locked gameplay values require a new decision record rather than silent deviation.
+
+## D-009 — M1 technical foundation
+
+- **Status:** Accepted on 2026-10-30
+- **Decision:** Use Node.js 24 LTS, pnpm workspaces, strict TypeScript, React with Vite for the application shell and PixiJS 8 with WebGL for the map. Keep domain and world generation independent from browser and renderer concerns. Use Vitest, fast-check and Playwright for automated verification.
+- **Consequence:** Issue M1.1 may begin on `feature/m1-1-hexworld-view`. Additional frameworks require a concrete issue and pull-request justification.
+
+## D-010 — Backend and deployment boundary
+
+- **Status:** Accepted on 2026-10-30
+- **Decision:** Do not require or create a local PHP server. A later backend targets the owner-provided online environment. Once FTP target and credentials exist, `npm run deploy` must perform the complete upload; integration tests may run against the approved online API.
+- **Security:** Credentials and target secrets never enter the repository. Missing deployment configuration must fail safely and must not fall back to a guessed destination.
