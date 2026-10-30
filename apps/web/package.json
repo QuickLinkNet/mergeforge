@@ -10,12 +10,16 @@
     "test": "node ../../node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
+    "@mergeforge/domain": "workspace:*",
     "@mergeforge/renderer-pixi": "workspace:*",
     "@mergeforge/worldgen": "workspace:*",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "dependenciesMeta": {
+    "@mergeforge/domain": {
+      "injected": true
+    },
     "@mergeforge/renderer-pixi": {
       "injected": true
     },

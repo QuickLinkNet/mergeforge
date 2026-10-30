@@ -74,6 +74,7 @@ a {
 .wordmark,
 .status-cluster,
 .mission-card,
+.build-card,
 .world-badge,
 .camera-hints {
   border: 1px solid rgb(230 220 175 / 18%);
@@ -171,6 +172,11 @@ a {
   font-weight: 700;
 }
 
+.chapter-status.complete {
+  background: rgb(103 183 120 / 15%);
+  color: #a9d7aa;
+}
+
 .mission-card {
   position: absolute;
   z-index: 3;
@@ -255,6 +261,166 @@ a {
 
 .objective strong { color: #dabd77; }
 .mission-card .mission-note { margin-top: 10px; color: #819489; font-size: 10px; }
+
+.objective.complete {
+  border-color: rgb(119 190 128 / 31%);
+  background: rgb(103 183 120 / 10%);
+}
+
+.objective.complete .objective-icon {
+  background: rgb(103 183 120 / 18%);
+  color: #9bd3a3;
+}
+
+.build-card {
+  position: absolute;
+  z-index: 4;
+  top: 94px;
+  right: 22px;
+  width: min(342px, calc(100vw - 44px));
+  padding: 20px;
+  border-color: rgb(226 186 100 / 31%);
+  border-radius: 16px;
+  pointer-events: auto;
+}
+
+.build-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.build-card-heading small {
+  display: block;
+  margin-bottom: 3px;
+  color: #d6b667;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.build-card h2 {
+  margin: 0;
+  color: #fff5d3;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+}
+
+.road-symbol {
+  display: grid;
+  width: 41px;
+  height: 41px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(223 180 85 / 30%);
+  border-radius: 11px;
+  background: rgb(223 180 85 / 12%);
+  color: #e1bc68;
+  font-size: 26px;
+}
+
+.build-preview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 17px 0 0;
+  padding: 13px 0;
+  border-top: 1px solid rgb(236 222 170 / 13%);
+  border-bottom: 1px solid rgb(236 222 170 / 13%);
+}
+
+.build-preview div {
+  padding: 0 10px;
+  border-right: 1px solid rgb(236 222 170 / 11%);
+}
+
+.build-preview div:first-child { padding-left: 0; }
+.build-preview div:last-child { padding-right: 0; border-right: 0; }
+
+.build-preview dt {
+  margin-bottom: 5px;
+  color: #7f9588;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.build-preview dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #e5e2cc;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.build-preview .resource-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+}
+
+.build-explanation,
+.build-warning {
+  margin: 11px 0 0;
+  color: #91a598;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.build-warning {
+  padding: 12px;
+  border: 1px solid rgb(207 118 83 / 28%);
+  border-radius: 9px;
+  background: rgb(173 77 53 / 10%);
+  color: #e0ac91;
+  font-size: 12px;
+}
+
+.build-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.build-actions button {
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.secondary-action {
+  border: 1px solid rgb(232 223 184 / 15%);
+  background: rgb(255 255 255 / 4%);
+  color: #aebbb0;
+}
+
+.primary-action {
+  border: 1px solid #d4ae5a;
+  background: linear-gradient(180deg, #d8b664, #b98c39);
+  box-shadow: 0 7px 20px rgb(179 130 45 / 22%);
+  color: #17241c;
+}
+
+.primary-action:disabled {
+  border-color: rgb(222 213 176 / 14%);
+  background: rgb(255 255 255 / 6%);
+  box-shadow: none;
+  color: #6e7d73;
+  cursor: not-allowed;
+}
+
+.build-actions button:focus-visible,
+.view-message button:focus-visible {
+  outline: 2px solid #f4d483;
+  outline-offset: 3px;
+}
 
 .world-badge {
   position: absolute;
@@ -378,6 +544,7 @@ a {
   .preview-label,
   .chapter-status { display: none; }
   .mission-card { top: 88px; }
+  .build-card { top: auto; right: 14px; bottom: 72px; }
 }
 
 @media (max-width: 580px) {
@@ -389,6 +556,14 @@ a {
   .resource span:not(.resource-dot) { display: none; }
   .mission-card { top: 68px; left: 10px; width: min(330px, calc(100vw - 20px)); padding: 17px; }
   .mission-card h1 { font-size: 23px; }
+  .build-card {
+    right: 10px;
+    bottom: 58px;
+    width: calc(100vw - 20px);
+    padding: 15px;
+  }
+  .build-preview { padding: 10px 0; }
+  .build-actions button { min-height: 48px; }
   .world-badge { bottom: 10px; left: 10px; max-width: calc(100vw - 20px); }
   .world-badge .version { display: none; }
   .camera-hints { right: 10px; bottom: 74px; }

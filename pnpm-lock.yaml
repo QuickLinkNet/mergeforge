@@ -24,6 +24,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@mergeforge/domain':
+        specifier: workspace:*
+        version: file:packages/domain
       '@mergeforge/renderer-pixi':
         specifier: workspace:*
         version: file:packages/renderer-pixi
@@ -37,6 +40,8 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
     dependenciesMeta:
+      '@mergeforge/domain':
+        injected: true
       '@mergeforge/renderer-pixi':
         injected: true
       '@mergeforge/worldgen':
