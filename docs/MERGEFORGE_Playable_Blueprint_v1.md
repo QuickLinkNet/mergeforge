@@ -1,6 +1,6 @@
 # MERGEFORGE — Spielbare Blaupause v1
 
-**Status:** zur Abnahme, noch keine Implementierungsfreigabe  
+**Status:** Design-Lock am 30. Oktober 2026 durch den Projektowner freigegeben
 **Ziel:** Der erste Spieler erlebt innerhalb von 15 Minuten den vollständigen kleinen Kernloop.
 
 ## Referenzmoment nach 15 Minuten
@@ -79,3 +79,4 @@ Die Umsetzung darf beginnen, wenn Projektowner und Projektmaster diese Punkte au
 - M0-Issues sind präzise genug für getrennte Agentenpakete.
 - Nicht-Ziele bleiben außerhalb der ersten Vertikalscheibe.
 
+**Gate erfüllt:** Der Projektowner hat den Design-Lock am 30. Oktober 2026 ausdrücklich freigegeben. Die technische Grundlage und M1-Issues dürfen vorbereitet werden. Implementiert wird weiterhin ausschließlich über die dokumentierten Feature-Branches und Pull Requests nach `dev`.

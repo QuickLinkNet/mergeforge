@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** Spielbare Blaupause v1 erstellt, Umsetzung noch nicht freigegeben
+**Stand:** Spielbare Blaupause v1 am 30. Oktober 2026 freigegeben; M1-Vorbereitung aktiv
 
 ## Vision
 
@@ -27,7 +27,7 @@ Der Code ist nicht nur Technik hinter dem Spiel: Genehmigte Erweiterungen werden
 - Minispiel-Belohnung: einzigartiger Resonanzkern
 - Kontakt zu anderen Spielern: zunächst nur Richtungsimpuls, kein früher Sicht-/Reisezugang
 - Monetarisierungs-/Login-Zwang: nicht Teil des MVP
-- App-Implementierung: ausdrücklich erst nach Freigabe des Pitches
+- App-Implementierung: Design-Lock freigegeben; Start ausschließlich über abgenommene M1-Issues
 - Spieleridentität: interne MERGEFORGE-ID, im MVP mit stabiler numerischer GitHub-ID verknüpft
 - Lizenz: MIT
 - Branchmodell: `feature/* → dev → main`; `main` enthält nur stabile Versionen
