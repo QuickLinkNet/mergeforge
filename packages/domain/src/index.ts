@@ -17,6 +17,19 @@ export interface Village {
   readonly coord: HexCoord;
 }
 
+export type ResourceSiteType = "stone";
+
+export interface ResourceSite {
+  readonly id: string;
+  readonly type: ResourceSiteType;
+  readonly tileKey: string;
+}
+
+export interface RelaySite {
+  readonly id: string;
+  readonly tileKey: string;
+}
+
 export interface WorldSnapshot {
   readonly seed: string;
   readonly generatorVersion: string;
@@ -24,6 +37,8 @@ export interface WorldSnapshot {
   readonly tiles: readonly HexTile[];
   readonly village: Village;
   readonly visibleTileKeys: readonly string[];
+  readonly resourceSites: readonly ResourceSite[];
+  readonly relaySite: RelaySite;
 }
 
 export interface ResourceStock {

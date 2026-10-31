@@ -321,5 +321,7 @@ function createWorld(forestTileKeys: readonly string[] = []): WorldSnapshot {
     tiles,
     village: { id: "village-0", name: "Testdorf", coord: { q: 0, r: 0 } },
     visibleTileKeys: ["0,0", "1,0", "1,-1", "0,-1", "-1,0", "-1,1", "0,1"],
+    resourceSites: [{ id: "stone:2,0", type: "stone", tileKey: "2,0" }],
+    relaySite: { id: "relay:local:2,-2", tileKey: "2,-2" },
   };
 }

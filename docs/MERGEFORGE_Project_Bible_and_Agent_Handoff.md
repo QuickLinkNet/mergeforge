@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** Spielbare Blaupause v1 freigegeben; M1.1 und M1.2 in `dev`, M1.3 implementiert und abgenommen (30. Oktober 2026)
+**Stand:** M1-Vertikalscheibe umgesetzt; M2 beginnt mit Issue #9 auf `feature/m2-1-world-objectives` (31. Oktober 2026)
 
 ## Vision
 
@@ -94,7 +94,39 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M1.3:** einmalige Wald-Oberflächenfunde, Holzfällerlager, 10-Minuten-Welttakt, Offline-Nachholung und versionierter lokaler Spielstand umgesetzt
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- Nächster fachlicher Schritt nach Integration von M1.3: M2 für Wegfinder, garantierte Steinquelle und Relais-Prolog als neue, getrennt abnehmbare Issues planen.
+- **Aktueller Arbeitsbranch:** `feature/m2-1-world-objectives`
+- **Aktuelles Issue:** #9 — garantierte Steinquelle und deterministische Relaisplatzierung
+
+## Verbindliche M2-Issue-Reihenfolge
+
+Die vier M2-Issues werden nacheinander über `feature/* → dev` integriert. Jedes Issue bleibt einzeln test- und abnehmbar; spätere Mechaniken dürfen nicht vorgezogen werden.
+
+| Issue | Branch | Ziel | Abhängigkeit |
+|---:|---|---|---|
+| **#9 — Weltziele** | `feature/m2-1-world-objectives` | Garantierte, erreichbare Steinquelle in der Gründungszone und deterministisches Relais außerhalb der Anfangssicht in 8–12 begehbaren Schritten | M1.3 |
+| **#10 — Steinloop** | `feature/m2-2-stone-loop` | Einmalige Steinfunde, verbundener Steinbruch, 10-Minuten-Bauzeit und 1 Stein je Welttakt mit Offline-Nachholung | #9 |
+| **#11 — Wegfinder** | `feature/m2-3-pathfinder-survey` | Ausbildung, Straßenbewegung, Expeditionsladungen, Vermessung genau eines Nebelhexes und Vermesserzelt | #10 |
+| **#12 — Relais-Prolog** | `feature/m2-4-relay-prologue` | Kapitel 3–5 automatisch und einmalig abschließen; verborgenes Relais durch Straße oder Wegfinder entdecken | #9, #10 und #11 |
+
+### Issue #9 — Abnahmegrenze
+
+Issue #9 liefert ausschließlich die deterministische Weltgrundlage für die nachfolgenden Systeme:
+
+- Gleicher Seed und gleiche Generatorversion erzeugen dieselbe Steinquelle und dasselbe Relais.
+- Mindestens eine Steinquelle ist innerhalb der Gründungszone über begehbare Hexfelder erreichbar.
+- Das Relais liegt außerhalb der Anfangssicht und 8–12 begehbare Schritte vom Dorf entfernt.
+- Ungültige Startzonen werden deterministisch verworfen; fehlende Garantien werden nicht durch Bonusressourcen kaschiert.
+- Steinquelle und Relais besitzen stabile, serialisierbare Kennungen und automatisierte Tests für Reproduzierbarkeit, Erreichbarkeit und Distanz.
+
+**Nicht-Ziele von Issue #9:**
+
+- keine Steinfunde, Steinbruchkosten, Bauaufträge oder Steinproduktion
+- kein Wegfinder, keine Bewegung, Expeditionsladungen oder Vermessungsaktion
+- keine Kapitelabschlüsse oder Questbelohnungen
+- keine Relaisinteraktion, Reparatur oder Freischaltung des Signalwerks
+- kein Resonanzkern, Signalnetz oder Hinweis auf andere Spieler
+- keine Multiplayer-, Backend- oder Accountlogik
+- keine neue allgemeine Ressourcen- oder Gebäude-UI; #9 stellt nur die Welt- und Domänendaten bereit
 
 ## Noch offene Produktentscheidungen
 
