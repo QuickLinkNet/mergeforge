@@ -26,7 +26,7 @@ import { generateWorld } from '@mergeforge/worldgen';
 import { loadGame, saveGame } from './persistence';
 
 const WORLD_SEED = 'mergeforge-genesis-001';
-const WORLD_RADIUS = 7;
+const WORLD_RADIUS = 12;
 const CHAPTER_ONE_ROAD_TARGET = 2;
 
 type ViewState = 'loading' | 'ready' | 'error';

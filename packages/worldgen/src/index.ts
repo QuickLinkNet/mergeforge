@@ -3,13 +3,20 @@ import {
   hexKey,
   type HexCoord,
   type HexTile,
+  type RelaySite,
+  type ResourceSite,
   type Terrain,
   type WorldSnapshot,
 } from "@mergeforge/domain";
 
 export type { WorldSnapshot } from "@mergeforge/domain";
 
-export const GENERATOR_VERSION = "m1.1-v1";
+export const GENERATOR_VERSION = "m2.1-v1";
+export const MINIMUM_WORLD_RADIUS = 8;
+export const STONE_MIN_DISTANCE = 3;
+export const STONE_MAX_DISTANCE = 5;
+export const RELAY_MIN_DISTANCE = 8;
+export const RELAY_MAX_DISTANCE = 12;
 
 export interface GenerateWorldOptions {
   readonly seed: string;
@@ -22,6 +29,7 @@ const INITIAL_VISIBLE_COORDS: readonly HexCoord[] = [
   ...axialNeighbors(ORIGIN),
 ];
 const INITIAL_VISIBLE_KEYS = new Set(INITIAL_VISIBLE_COORDS.map(hexKey));
+const DIRECTIONS = axialNeighbors(ORIGIN);
 
 /**
  * Generates a complete axial hex disk. Output order and values are stable for
@@ -29,6 +37,22 @@ const INITIAL_VISIBLE_KEYS = new Set(INITIAL_VISIBLE_COORDS.map(hexKey));
  */
 export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnapshot {
   assertRadius(radius);
+
+  const stoneCoord = selectSiteCoord(
+    seed,
+    "resource_sites|stone",
+    STONE_MIN_DISTANCE,
+    STONE_MAX_DISTANCE,
+  );
+  const relayCoord = selectSiteCoord(
+    seed,
+    "relays|local",
+    RELAY_MIN_DISTANCE,
+    Math.min(RELAY_MAX_DISTANCE, radius),
+  );
+  const forcedTraversableKeys = new Set(INITIAL_VISIBLE_KEYS);
+  addStraightPath(forcedTraversableKeys, stoneCoord);
+  addStraightPath(forcedTraversableKeys, relayCoord);
 
   const tiles: HexTile[] = [];
 
@@ -39,7 +63,7 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
     for (let r = minimumR; r <= maximumR; r += 1) {
       const coord = { q, r };
       const value = hash32(`${GENERATOR_VERSION}|${seed}|terrain|${hexKey(coord)}`);
-      const terrain = terrainFor(value, INITIAL_VISIBLE_KEYS.has(hexKey(coord)));
+      const terrain = terrainFor(value, forcedTraversableKeys.has(hexKey(coord)));
 
       tiles.push({
         coord,
@@ -48,6 +72,16 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
       });
     }
   }
+
+  const stoneKey = hexKey(stoneCoord);
+  const relayKey = hexKey(relayCoord);
+  const resourceSites: readonly ResourceSite[] = [
+    { id: `stone:${stoneKey}`, type: "stone", tileKey: stoneKey },
+  ];
+  const relaySite: RelaySite = {
+    id: `relay:local:${relayKey}`,
+    tileKey: relayKey,
+  };
 
   return {
     seed,
@@ -60,13 +94,53 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
       coord: ORIGIN,
     },
     visibleTileKeys: INITIAL_VISIBLE_COORDS.map(hexKey),
+    resourceSites,
+    relaySite,
   };
 }
 
 function assertRadius(radius: number): void {
-  if (!Number.isSafeInteger(radius) || radius < 1) {
-    throw new RangeError("World radius must be a safe integer of at least 1.");
+  if (!Number.isSafeInteger(radius) || radius < MINIMUM_WORLD_RADIUS) {
+    throw new RangeError(
+      `World radius must be a safe integer of at least ${MINIMUM_WORLD_RADIUS}.`,
+    );
   }
+}
+
+function selectSiteCoord(
+  seed: string,
+  namespace: string,
+  minimumDistance: number,
+  maximumDistance: number,
+): HexCoord {
+  const value = hash32(`${GENERATOR_VERSION}|${seed}|${namespace}`);
+  const direction = DIRECTIONS[value % DIRECTIONS.length];
+  if (direction === undefined) throw new Error("Hex direction contract is empty.");
+
+  const distanceRange = maximumDistance - minimumDistance + 1;
+  const distance = minimumDistance + ((value >>> 8) % distanceRange);
+  return {
+    q: direction.q * distance,
+    r: direction.r * distance,
+  };
+}
+
+function addStraightPath(keys: Set<string>, target: HexCoord): void {
+  const distance = axialDistance(ORIGIN, target);
+  const direction = {
+    q: target.q / distance,
+    r: target.r / distance,
+  };
+
+  for (let step = 1; step <= distance; step += 1) {
+    keys.add(hexKey({ q: direction.q * step, r: direction.r * step }));
+  }
+}
+
+function axialDistance(first: HexCoord, second: HexCoord): number {
+  const q = second.q - first.q;
+  const r = second.r - first.r;
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
 function terrainFor(value: number, mustBeTraversable: boolean): Terrain {

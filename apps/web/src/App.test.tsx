@@ -22,7 +22,7 @@ vi.mock('@mergeforge/worldgen', () => ({
   generateWorld: vi.fn(() => ({
     seed: 'mergeforge-genesis-001',
     generatorVersion: '1.0.0',
-    radius: 7,
+    radius: 12,
     tiles: [
       meadow(0, 0),
       meadow(1, 0),
@@ -35,6 +35,8 @@ vi.mock('@mergeforge/worldgen', () => ({
     ],
     village: { id: 'genesis', name: 'Genesis', coord: { q: 0, r: 0 } },
     visibleTileKeys,
+    resourceSites: [{ id: 'stone:2,0', type: 'stone', tileKey: '2,0' }],
+    relaySite: { id: 'relay:local:8,0', tileKey: '8,0' },
   })),
 }));
 

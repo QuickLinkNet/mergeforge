@@ -26,6 +26,8 @@ const world: WorldSnapshot = {
   ],
   village: { id: 'village-0', name: 'Genesis', coord: { q: 0, r: 0 } },
   visibleTileKeys: ['0,0', '1,0'],
+  resourceSites: [{ id: 'stone:1,0', type: 'stone', tileKey: '1,0' }],
+  relaySite: { id: 'relay:local:1,0', tileKey: '1,0' },
 };
 
 function stateWithLumberCamp() {
