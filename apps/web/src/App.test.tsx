@@ -188,18 +188,26 @@ describe('MERGEFORGE web shell', () => {
     view.unmount();
   });
 
-  it('explains an invalid village build without spending resources', async () => {
+  it('offers pathfinder training at the village and spends only after confirmation', async () => {
     const view = await renderReadyApp();
     const selectHex = rendererHarness.onHexSelect;
 
     act(() => selectHex?.({ key: '0,0', coord: { q: 0, r: 0 } }));
 
-    expect(
-      screen.getByText('Der Dorfkern ist bereits der Ausgangspunkt eures Straßennetzes.'),
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Straße bauen' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('heading', { name: 'Wegfinder' })).toBeTruthy();
+    expect(screen.getByText('2 Holz · 2 Stein')).toBeTruthy();
     expect(screen.getByLabelText('Holz: 12')).toBeTruthy();
-    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('0 / 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Ausbildung beginnen' }));
+
+    expect(screen.getByRole('heading', { name: 'Ausbildung läuft' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Weg nach 0, 0' })).toBeNull();
+    expect(screen.getByLabelText('Holz: 10')).toBeTruthy();
+    expect(screen.getByLabelText('Stein: 4')).toBeTruthy();
+    expect(screen.getByLabelText('Expeditionsladungen: 0 von 6')).toBeTruthy();
+    expect(rendererHarness.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ wayfinder: expect.objectContaining({ state: 'training', tileKey: '0,0' }) }),
+    );
 
     view.unmount();
   });

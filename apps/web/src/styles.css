@@ -161,6 +161,7 @@ a {
 
 .resource-dot.wood { color: #d79a52; background: currentColor; }
 .resource-dot.stone { color: #a7c4b9; background: currentColor; }
+.resource-dot.charge { color: #65d7d0; background: currentColor; }
 .resource strong { color: #fff6d5; font-size: 14px; }
 
 .chapter-status {
@@ -330,6 +331,23 @@ a {
   background: rgb(125 144 151 / 16%);
   border-color: rgb(162 181 184 / 32%);
   color: #c2d1ce;
+}
+
+.wayfinder-symbol,
+.survey-symbol {
+  background: rgb(57 176 173 / 15%);
+  border-color: rgb(92 218 207 / 34%);
+  color: #7de2d8;
+}
+
+.tent-symbol {
+  background: rgb(64 143 126 / 17%);
+  border-color: rgb(106 192 169 / 32%);
+  color: #91d4bd;
+}
+
+.exploration-card {
+  border-color: rgb(96 211 200 / 22%);
 }
 
 .build-preview {
