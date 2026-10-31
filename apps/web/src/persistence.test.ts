@@ -1,11 +1,15 @@
 import {
   LUMBER_CAMP_BUILD_MS,
+  PATHFINDER_BASE_MAX_CHARGES,
+  PATHFINDER_TRAINING_MS,
   QUARRY_BUILD_MS,
   advanceTime,
   buildRoad,
   createInitialGameState,
+  startPathfinderTraining,
   startLumberCamp,
   startQuarry,
+  startSurveyTent,
   type WorldSnapshot,
 } from '@mergeforge/domain';
 import { describe, expect, it } from 'vitest';
@@ -48,6 +52,12 @@ function stateWithQuarry() {
   const quarry = startQuarry(road.state, { q: 0, r: 1 }, 2_000);
   if (!quarry.ok) throw new Error(quarry.reason);
   return quarry.state;
+}
+
+function stateWithActivePathfinder() {
+  const started = startPathfinderTraining(createInitialGameState(world, 1_000), 2_000);
+  if (!started.ok) throw new Error(started.reason);
+  return advanceTime(started.state, 2_000 + PATHFINDER_TRAINING_MS);
 }
 
 describe('versioned local game persistence', () => {
@@ -101,6 +111,35 @@ describe('versioned local game persistence', () => {
     const worldWithoutSite: WorldSnapshot = { ...world, resourceSites: [] };
 
     expect(loadGame(storage, worldWithoutSite)).toEqual({ kind: 'reset', reason: 'corrupt' });
+    expect(storage.getItem(GAME_SAVE_KEY)).toBeNull();
+  });
+
+  it('round-trips the active pathfinder and village survey tent', () => {
+    const storage = new MemoryStorage();
+    const pathfinderState = stateWithActivePathfinder();
+    const tent = startSurveyTent(pathfinderState, pathfinderState.lastAdvancedAtMs);
+    if (!tent.ok) throw new Error(tent.reason);
+
+    expect(saveGame(storage, tent.state)).toBe(true);
+    const loaded = loadGame(storage, world);
+
+    expect(loaded.kind).toBe('loaded');
+    if (loaded.kind !== 'loaded') return;
+    expect(loaded.state.units).toEqual(tent.state.units);
+    expect(loaded.state.buildings).toContainEqual(expect.objectContaining({ type: 'survey-tent', tileKey: '0,0' }));
+  });
+
+  it('rejects manipulated pathfinder positions and charge counts', () => {
+    const storage = new MemoryStorage();
+    saveGame(storage, stateWithActivePathfinder());
+    const raw = storage.getItem(GAME_SAVE_KEY);
+    if (raw === null) throw new Error('Expected save payload');
+    const payload = JSON.parse(raw) as { units: Array<{ tileKey: string; charges: number }> };
+    payload.units[0]!.tileKey = '0,1';
+    payload.units[0]!.charges = PATHFINDER_BASE_MAX_CHARGES + 1;
+    storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
+
+    expect(loadGame(storage, world)).toEqual({ kind: 'reset', reason: 'corrupt' });
     expect(storage.getItem(GAME_SAVE_KEY)).toBeNull();
   });
 

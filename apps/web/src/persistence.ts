@@ -2,9 +2,12 @@ import {
   GAME_STATE_SCHEMA_VERSION,
   MAX_STONE_STORAGE,
   MAX_WOOD_STORAGE,
+  PATHFINDER_BASE_MAX_CHARGES,
+  PATHFINDER_EXPANDED_MAX_CHARGES,
   type Building,
   type GameState,
   type ResourceStock,
+  type Unit,
   type WorldSnapshot,
 } from '@mergeforge/domain';
 
@@ -24,7 +27,7 @@ export type LoadGameResult =
 
 interface PersistedStateV1 {
   readonly formatVersion: 1;
-  readonly gameSchemaVersion: 1;
+  readonly gameSchemaVersion: typeof GAME_STATE_SCHEMA_VERSION;
   readonly world: {
     readonly seed: string;
     readonly generatorVersion: string;
@@ -35,6 +38,7 @@ interface PersistedStateV1 {
   readonly visibleTileKeys: readonly string[];
   readonly claimedSurfaceFindTileKeys: readonly string[];
   readonly buildings: readonly Building[];
+  readonly units: readonly Unit[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -52,6 +56,7 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     visibleTileKeys: state.visibleTileKeys,
     claimedSurfaceFindTileKeys: state.claimedSurfaceFindTileKeys,
     buildings: state.buildings,
+    units: state.units,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -104,7 +109,13 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const roadTileKeys = parseTileKeys(value.roadTileKeys, tileByKey);
   const visibleTileKeys = parseTileKeys(value.visibleTileKeys, tileByKey);
   const claimedSurfaceFindTileKeys = parseTileKeys(value.claimedSurfaceFindTileKeys, tileByKey);
-  const buildings = parseBuildings(value.buildings, tileByKey, stoneSiteKeys);
+  const villageTileKey = `${world.village.coord.q},${world.village.coord.r}`;
+  const buildings = parseBuildings(value.buildings, tileByKey, stoneSiteKeys, villageTileKey);
+  const surveyTent = buildings?.find((building) => building.type === 'survey-tent');
+  const maxCharges = surveyTent?.status === 'active'
+    ? PATHFINDER_EXPANDED_MAX_CHARGES
+    : PATHFINDER_BASE_MAX_CHARGES;
+  const units = parseUnits(value.units, tileByKey, new Set(roadTileKeys ?? []), villageTileKey, maxCharges);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -113,6 +124,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     visibleTileKeys === null ||
     claimedSurfaceFindTileKeys === null ||
     buildings === null ||
+    units === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -129,7 +141,13 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   ) {
     return reset(storage, 'corrupt');
   }
-  if (buildings.some((building) => !roads.has(building.tileKey))) return reset(storage, 'corrupt');
+  if (buildings.some((building) => building.type !== 'survey-tent' && !roads.has(building.tileKey))) {
+    return reset(storage, 'corrupt');
+  }
+  if (surveyTent !== undefined && units[0]?.status !== 'active') return reset(storage, 'corrupt');
+  const activeTimedOrders = buildings.filter((building) => building.status === 'constructing').length
+    + units.filter((unit) => unit.status === 'training').length;
+  if (activeTimedOrders > 1) return reset(storage, 'corrupt');
 
   return {
     kind: 'loaded',
@@ -141,6 +159,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
       visibleTileKeys,
       claimedSurfaceFindTileKeys,
       buildings,
+      units,
       lastAdvancedAtMs,
     },
   };
@@ -167,6 +186,7 @@ function parseBuildings(
   value: unknown,
   tileByKey: ReadonlyMap<string, WorldSnapshot['tiles'][number]>,
   stoneSiteKeys: ReadonlySet<string>,
+  villageTileKey: string,
 ): readonly Building[] | null {
   if (!Array.isArray(value)) return null;
   const buildings: Building[] = [];
@@ -177,15 +197,13 @@ function parseBuildings(
     if (!isRecord(candidate)) return null;
     const startedAtMs = parseTimestamp(candidate.startedAtMs);
     const completesAtMs = parseTimestamp(candidate.completesAtMs);
-    const lastProductionAtMs = parseTimestamp(candidate.lastProductionAtMs);
     if (
       typeof candidate.id !== 'string' ||
-      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry') ||
+      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent') ||
       typeof candidate.tileKey !== 'string' ||
       (candidate.status !== 'constructing' && candidate.status !== 'active') ||
       startedAtMs === null ||
       completesAtMs === null ||
-      lastProductionAtMs === null ||
       ids.has(candidate.id) ||
       tileKeys.has(candidate.tileKey)
     ) {
@@ -196,24 +214,81 @@ function parseBuildings(
       tile === undefined ||
       completesAtMs < startedAtMs ||
       (candidate.type === 'lumber-camp' && tile.terrain !== 'forest') ||
-      (candidate.type === 'quarry' && !stoneSiteKeys.has(candidate.tileKey))
+      (candidate.type === 'quarry' && !stoneSiteKeys.has(candidate.tileKey)) ||
+      (candidate.type === 'survey-tent' && candidate.tileKey !== villageTileKey)
     ) {
       return null;
     }
 
     ids.add(candidate.id);
     tileKeys.add(candidate.tileKey);
-    buildings.push({
-      id: candidate.id,
-      type: candidate.type,
-      tileKey: candidate.tileKey,
-      status: candidate.status,
-      startedAtMs,
-      completesAtMs,
-      lastProductionAtMs,
-    });
+    if (candidate.type === 'survey-tent') {
+      buildings.push({
+        id: candidate.id,
+        type: 'survey-tent',
+        tileKey: candidate.tileKey,
+        status: candidate.status,
+        startedAtMs,
+        completesAtMs,
+      });
+    } else {
+      const lastProductionAtMs = parseTimestamp(candidate.lastProductionAtMs);
+      if (lastProductionAtMs === null) return null;
+      buildings.push({
+        id: candidate.id,
+        type: candidate.type,
+        tileKey: candidate.tileKey,
+        status: candidate.status,
+        startedAtMs,
+        completesAtMs,
+        lastProductionAtMs,
+      });
+    }
   }
   return buildings;
+}
+
+function parseUnits(
+  value: unknown,
+  tileByKey: ReadonlyMap<string, WorldSnapshot['tiles'][number]>,
+  roadTileKeys: ReadonlySet<string>,
+  villageTileKey: string,
+  maxCharges: number,
+): readonly Unit[] | null {
+  if (!Array.isArray(value) || value.length > 1) return null;
+  const units: Unit[] = [];
+  for (const candidate of value) {
+    if (!isRecord(candidate)) return null;
+    const startedAtMs = parseTimestamp(candidate.startedAtMs);
+    const completesAtMs = parseTimestamp(candidate.completesAtMs);
+    const lastChargeAtMs = parseTimestamp(candidate.lastChargeAtMs);
+    if (
+      typeof candidate.id !== 'string' ||
+      candidate.type !== 'pathfinder' ||
+      (candidate.status !== 'training' && candidate.status !== 'active') ||
+      typeof candidate.tileKey !== 'string' ||
+      !tileByKey.has(candidate.tileKey) ||
+      !isCount(candidate.charges) ||
+      candidate.charges > maxCharges ||
+      startedAtMs === null ||
+      completesAtMs === null ||
+      lastChargeAtMs === null ||
+      completesAtMs < startedAtMs ||
+      (candidate.status === 'training' && candidate.tileKey !== villageTileKey) ||
+      (candidate.status === 'active' && candidate.tileKey !== villageTileKey && !roadTileKeys.has(candidate.tileKey))
+    ) return null;
+    units.push({
+      id: candidate.id,
+      type: 'pathfinder',
+      status: candidate.status,
+      tileKey: candidate.tileKey,
+      charges: candidate.charges,
+      startedAtMs,
+      completesAtMs,
+      lastChargeAtMs,
+    });
+  }
+  return units;
 }
 
 function parseTimestamp(value: unknown): number | null {

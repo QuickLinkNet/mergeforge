@@ -10,6 +10,9 @@ describe("renderer view state", () => {
       roadPreviewTileKeys: [],
       buildings: [],
       findEffects: [],
+      wayfinder: null,
+      surveyTargetTileKey: null,
+      surveyTent: null,
     });
   });
 
@@ -20,6 +23,9 @@ describe("renderer view state", () => {
       roadPreviewTileKeys: ["2,0"],
       buildings: [{ tileKey: "1,0", type: "lumber-camp", state: "construction" }],
       findEffects: [{ tileKey: "0,1", resource: "wood" }],
+      wayfinder: { tileKey: "0,0", state: "training" },
+      surveyTargetTileKey: "2,-1",
+      surveyTent: { state: "construction" },
     });
 
     expect(patchViewState(initial, { roadTileKeys: ["1,0", "2,0"] })).toEqual({
@@ -28,6 +34,9 @@ describe("renderer view state", () => {
       roadPreviewTileKeys: ["2,0"],
       buildings: [{ tileKey: "1,0", type: "lumber-camp", state: "construction" }],
       findEffects: [{ tileKey: "0,1", resource: "wood" }],
+      wayfinder: { tileKey: "0,0", state: "training" },
+      surveyTargetTileKey: "2,-1",
+      surveyTent: { state: "construction" },
     });
   });
 
@@ -50,5 +59,28 @@ describe("renderer view state", () => {
     expect(complete.roadTileKeys).toEqual(["1,0"]);
     expect(complete.buildings).toEqual([{ tileKey: "2,0", type: "quarry", state: "complete" }]);
     expect(complete.findEffects).toEqual([]);
+  });
+
+  it("updates and explicitly clears exploration visuals", () => {
+    const initial = initialViewState({
+      wayfinder: { tileKey: "0,0", state: "training" },
+      surveyTargetTileKey: "1,-1",
+      surveyTent: { state: "construction" },
+    });
+    const active = patchViewState(initial, {
+      wayfinder: { tileKey: "1,0", state: "active" },
+      surveyTent: { state: "complete" },
+    });
+
+    expect(active.wayfinder).toEqual({ tileKey: "1,0", state: "active" });
+    expect(active.surveyTargetTileKey).toBe("1,-1");
+    expect(active.surveyTent).toEqual({ state: "complete" });
+    expect(
+      patchViewState(active, {
+        wayfinder: null,
+        surveyTargetTileKey: null,
+        surveyTent: null,
+      }),
+    ).toMatchObject({ wayfinder: null, surveyTargetTileKey: null, surveyTent: null });
   });
 });

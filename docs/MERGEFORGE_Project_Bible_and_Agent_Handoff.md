@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** M1-Vertikalscheibe und M2-Weltziele umgesetzt; Issue #10 Steinloop auf `feature/m2-2-stone-loop` in Abnahme (31. Oktober 2026)
+**Stand:** M1-Vertikalscheibe und M2-Steinloop umgesetzt; Issue #11 Wegfinder auf `feature/m2-3-pathfinder-survey` in Abnahme (31. Oktober 2026)
 
 ## Vision
 
@@ -93,11 +93,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M1.2:** zusammenhängender Straßenbau, Kosten, Aufdeckung und Kapitelziel umgesetzt
 - **M1.3:** einmalige Wald-Oberflächenfunde, Holzfällerlager, 10-Minuten-Welttakt, Offline-Nachholung und versionierter lokaler Spielstand umgesetzt
 - **M2.1 / Issue #9:** garantierte, erreichbare Steinquelle und deterministische Relaisplatzierung als Weltziele umgesetzt
-- **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt; Abnahme läuft
+- **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt
+- **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt; Abnahme läuft
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m2-2-stone-loop`
-- **Aktuelles Issue:** #10 — Steinfunde, Steinbruch und persistente Steinproduktion
+- **Aktueller Arbeitsbranch:** `feature/m2-3-pathfinder-survey`
+- **Aktuelles Issue:** #11 — Wegfinder, Vermessung und Vermesserzelt
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -151,6 +152,28 @@ Issue #10 macht Stein als zweite Ressource erstmals vollständig spielbar:
 - kein Resonanzkern, Signalnetz oder Spielerkontakt
 - keine Multiplayer-, Backend- oder Accountlogik
 - kein vollständiger Kapitel-3-Abschluss mit einmaligen Questbelohnungen; dieser wird in Issue #12 orchestriert
+
+### Issue #11 — Abnahmegrenze
+
+Issue #11 führt die erste bewegliche Einheit und eine gezielte Alternative zur Straßenaufdeckung ein:
+
+- Der Wegfinder wird am Dorf für 2 Holz und 2 Stein in 10 Minuten ausgebildet.
+- Nach Abschluss bewegt er sich sofort und kostenlos zwischen Dorf und Feldern des verbundenen Straßennetzes.
+- Am Straßenkopf kann er für genau 1 Expeditionsladung exakt ein unbekanntes Hex in axialer Distanz 2 vermessen. Die Reichweite berücksichtigt, dass die Straße ihre direkten Nachbarn bereits aufdeckt.
+- Expeditionsladungen entstehen im 10-Minuten-Welttakt, werden offline nachgeholt und besitzen zunächst ein Maximum von 6.
+- Das Vermesserzelt kostet 3 Holz und 1 Stein, benötigt 10 Minuten Bauzeit und erhöht den Ladungsspeicher dauerhaft auf 12.
+- Wegfinderstatus, Position, Ladungen und Vermesserzelt sind Teil des validierten lokalen Spielstands.
+- Die Kartenoberfläche zeigt Ausbildung, Ladungsstand, gültige Straßenbewegung, ein einzelnes Vermessungsziel und Zeltbau mit touch-tauglichen Aktionen.
+- Die Kapitelanzeige bereitet innerhalb der Steinlinie den Wegfinder als sichtbares Zwischenziel vor; automatische, einmalige Kapitelabschlüsse bleiben Issue #12 vorbehalten.
+
+**Nicht-Ziele von Issue #11:**
+
+- keine freie Bewegung außerhalb von Dorf und verbundenem Straßennetz
+- keine Aufdeckung mehrerer Hexfelder pro Vermessungsaktion
+- kein Besitz, Straßenanschluss oder automatischer Ressourcenabbau durch bloße Vermessung
+- keine Relaisinteraktion, Reparatur oder Aktivierung des Signalwerks
+- keine Kapitelbelohnungen, Werkstatt, Resonanzkern oder Spielerkontakte
+- keine Kampf-, Verlust-, Ausrüstungs- oder weitere Einheitentypen
 
 ## Noch offene Produktentscheidungen
 

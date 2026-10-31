@@ -14,12 +14,28 @@ export interface FindEffectVisual {
   readonly resource: FindEffectResource;
 }
 
+export type WayfinderVisualState = "training" | "active";
+
+export interface WayfinderVisual {
+  readonly tileKey: string;
+  readonly state: WayfinderVisualState;
+}
+
+export type SurveyTentVisualState = "construction" | "complete";
+
+export interface SurveyTentVisual {
+  readonly state: SurveyTentVisualState;
+}
+
 export interface HexWorldViewState {
   readonly selectedTileKey?: string | null;
   readonly roadTileKeys?: readonly string[];
   readonly roadPreviewTileKeys?: readonly string[];
   readonly buildings?: readonly BuildingVisual[];
   readonly findEffects?: readonly FindEffectVisual[];
+  readonly wayfinder?: WayfinderVisual | null;
+  readonly surveyTargetTileKey?: string | null;
+  readonly surveyTent?: SurveyTentVisual | null;
 }
 
 export interface NormalizedViewState {
@@ -28,6 +44,9 @@ export interface NormalizedViewState {
   readonly roadPreviewTileKeys: readonly string[];
   readonly buildings: readonly BuildingVisual[];
   readonly findEffects: readonly FindEffectVisual[];
+  readonly wayfinder: WayfinderVisual | null;
+  readonly surveyTargetTileKey: string | null;
+  readonly surveyTent: SurveyTentVisual | null;
 }
 
 export function initialViewState(options: HexWorldViewState | undefined): NormalizedViewState {
@@ -37,6 +56,9 @@ export function initialViewState(options: HexWorldViewState | undefined): Normal
     roadPreviewTileKeys: options?.roadPreviewTileKeys ?? [],
     buildings: options?.buildings ?? [],
     findEffects: options?.findEffects ?? [],
+    wayfinder: options?.wayfinder ?? null,
+    surveyTargetTileKey: options?.surveyTargetTileKey ?? null,
+    surveyTent: options?.surveyTent ?? null,
   };
 }
 
@@ -55,5 +77,11 @@ export function patchViewState(
     roadPreviewTileKeys: patch.roadPreviewTileKeys ?? current.roadPreviewTileKeys,
     buildings: patch.buildings ?? current.buildings,
     findEffects: patch.findEffects ?? current.findEffects,
+    wayfinder: patch.wayfinder === undefined ? current.wayfinder : patch.wayfinder,
+    surveyTargetTileKey:
+      patch.surveyTargetTileKey === undefined
+        ? current.surveyTargetTileKey
+        : patch.surveyTargetTileKey,
+    surveyTent: patch.surveyTent === undefined ? current.surveyTent : patch.surveyTent,
   };
 }

@@ -2,6 +2,7 @@ import type { HexCoord, WorldSnapshot } from "@mergeforge/domain";
 import { Application, Container, Graphics } from "pixi.js";
 
 import { axialKey, axialToPixel, hexCorners, pixelToAxial, type PixelPoint } from "./hex.js";
+import { filterExplorationVisuals } from "./exploration-visuals.js";
 import { visibleWorldSites } from "./site-visuals.js";
 import {
   initialViewState,
@@ -13,6 +14,10 @@ import {
   type FindEffectVisual,
   type HexWorldViewState,
   type NormalizedViewState,
+  type SurveyTentVisual,
+  type SurveyTentVisualState,
+  type WayfinderVisual,
+  type WayfinderVisualState,
 } from "./view-state.js";
 import { filterVisibleVisualOverlays } from "./visual-overlays.js";
 
@@ -23,6 +28,10 @@ export type {
   FindEffectResource,
   FindEffectVisual,
   HexWorldViewState,
+  SurveyTentVisual,
+  SurveyTentVisualState,
+  WayfinderVisual,
+  WayfinderVisualState,
 } from "./view-state.js";
 
 const HEX_SIZE = 42;
@@ -488,6 +497,120 @@ function drawQuarry(target: Container, coord: HexCoord, state: BuildingVisualSta
   target.addChild(quarry);
 }
 
+function drawWayfinder(target: Container, coord: HexCoord, state: WayfinderVisualState): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const unit = new Container();
+  unit.position.set(center.x, center.y + 2);
+
+  const active = state === "active";
+  const shadow = new Graphics().ellipse(0, 12, 19, 8).fill({ color: 0x07100f, alpha: 0.42 });
+  const marker = new Graphics()
+    .circle(0, 4, 16)
+    .fill({ color: active ? 0x54d4c2 : 0xe2b861, alpha: 0.12 })
+    .stroke({ color: active ? 0x76e3d3 : 0xe9c578, width: 2, alpha: 0.78 });
+  const body = new Graphics()
+    .circle(0, -12, 5)
+    .fill({ color: 0xd7b889, alpha: active ? 1 : 0.68 })
+    .poly([-8, 8, -5, -8, 0, -13, 6, -7, 9, 9])
+    .fill({ color: active ? 0x276d69 : 0x8a744e, alpha: active ? 1 : 0.68 })
+    .stroke({ color: active ? 0x163f42 : 0x59482e, width: 1.2, alpha: 0.9 });
+  const pack = new Graphics()
+    .roundRect(-10, -7, 7, 12, 2)
+    .fill({ color: 0x70472c, alpha: active ? 1 : 0.68 });
+  const staff = new Graphics()
+    .moveTo(8, 10)
+    .lineTo(12, -16)
+    .stroke({ color: 0x6e4a2d, width: 2.3, alpha: active ? 1 : 0.72 })
+    .poly([12, -21, 16, -16, 12, -11, 8, -16])
+    .fill({ color: active ? 0x76ece1 : 0xe5bf66, alpha: active ? 0.92 : 0.58 });
+  unit.addChild(shadow, marker, pack, body, staff);
+
+  if (!active) {
+    const trainingRing = new Graphics()
+      .arc(0, 2, 21, Math.PI * 0.05, Math.PI * 0.62)
+      .stroke({ color: 0xf1ca73, width: 2.3, alpha: 0.78 })
+      .arc(0, 2, 21, Math.PI * 1.05, Math.PI * 1.62)
+      .stroke({ color: 0xf1ca73, width: 2.3, alpha: 0.78 });
+    unit.addChild(trainingRing);
+  }
+
+  target.addChild(unit);
+}
+
+function drawSurveyTent(
+  target: Container,
+  villageCoord: HexCoord,
+  state: SurveyTentVisualState,
+): void {
+  const center = axialToPixel(villageCoord, HEX_SIZE);
+  const tent = new Container();
+  tent.position.set(center.x - 29, center.y + 10);
+  const shadow = new Graphics().ellipse(0, 8, 21, 8).fill({ color: 0x07100d, alpha: 0.38 });
+  tent.addChild(shadow);
+
+  if (state === "construction") {
+    const frame = new Graphics()
+      .moveTo(-15, 7)
+      .lineTo(0, -13)
+      .lineTo(15, 7)
+      .moveTo(0, -13)
+      .lineTo(0, 8)
+      .stroke({ color: 0x8b6239, width: 2.5 })
+      .roundRect(-12, 3, 17, 6, 3)
+      .fill({ color: 0x4f8580, alpha: 0.78 });
+    tent.addChild(frame);
+    target.addChild(tent);
+    return;
+  }
+
+  const canvas = new Graphics()
+    .poly([-17, 8, 0, -15, 17, 8])
+    .fill({ color: 0x3e8580 })
+    .stroke({ color: 0x1b514f, width: 1.3 })
+    .poly([0, -15, 17, 8, 2, 6])
+    .fill({ color: 0x2d6d69 })
+    .moveTo(0, -15)
+    .lineTo(0, 8)
+    .stroke({ color: 0xc6a263, width: 1.7 });
+  const flag = new Graphics()
+    .moveTo(0, -15)
+    .lineTo(0, -25)
+    .stroke({ color: 0x745035, width: 1.6 })
+    .poly([0, -25, 10, -21, 0, -17])
+    .fill({ color: 0xe0b85c });
+  const tripod = new Graphics()
+    .circle(19, -1, 3)
+    .fill({ color: 0xd7c581 })
+    .moveTo(19, 2)
+    .lineTo(14, 11)
+    .moveTo(19, 2)
+    .lineTo(24, 11)
+    .stroke({ color: 0x60452f, width: 1.8 });
+  tent.addChild(canvas, flag, tripod);
+  target.addChild(tent);
+}
+
+function drawSurveyTarget(target: Container, coord: HexCoord): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const corners = polygonPoints(hexCorners(center, HEX_SIZE - 5));
+  const overlay = new Graphics()
+    .poly(corners)
+    .fill({ color: 0x62e2d8, alpha: 0.12 })
+    .stroke({ color: 0x9ffff4, width: 3, alpha: 0.95 })
+    .circle(center.x, center.y, 11)
+    .stroke({ color: 0xe3fffb, width: 2, alpha: 0.88 })
+    .moveTo(center.x - 17, center.y)
+    .lineTo(center.x - 8, center.y)
+    .moveTo(center.x + 8, center.y)
+    .lineTo(center.x + 17, center.y)
+    .moveTo(center.x, center.y - 17)
+    .lineTo(center.x, center.y - 8)
+    .moveTo(center.x, center.y + 8)
+    .lineTo(center.x, center.y + 17)
+    .stroke({ color: 0xffffff, width: 2, alpha: 0.82 });
+  target.addChild(overlay);
+}
+
 function drawDataDrivenVisuals(
   target: Container,
   world: WorldSnapshot,
@@ -652,6 +775,13 @@ function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { la
   const layer = new Container();
   const terrainLayer = new Container();
   const visible = new Set(world.visibleTileKeys);
+  const tileCoordinates = new Map(world.tiles.map((tile) => [axialKey(tile.coord), tile.coord]));
+  const exploration = filterExplorationVisuals(
+    viewState.wayfinder,
+    viewState.surveyTargetTileKey,
+    world.visibleTileKeys,
+    [...tileCoordinates.keys()],
+  );
   const orderedTiles = [...world.tiles].sort((left, right) => {
     const leftPoint = axialToPixel(left.coord, HEX_SIZE);
     const rightPoint = axialToPixel(right.coord, HEX_SIZE);
@@ -685,10 +815,25 @@ function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { la
   );
   if (visible.has(axialKey(world.village.coord))) {
     drawVillage(landmarkLayer, world.village.coord);
+    if (viewState.surveyTent !== null) {
+      drawSurveyTent(landmarkLayer, world.village.coord, viewState.surveyTent.state);
+    }
+  }
+  if (exploration.wayfinder !== null) {
+    const coord = tileCoordinates.get(exploration.wayfinder.tileKey);
+    if (coord !== undefined) {
+      drawWayfinder(landmarkLayer, coord, exploration.wayfinder.state);
+    }
   }
 
   const interactionLayer = new Container();
   drawInteractionOverlay(interactionLayer, world, viewState);
+  if (exploration.surveyTargetTileKey !== null) {
+    const coord = tileCoordinates.get(exploration.surveyTargetTileKey);
+    if (coord !== undefined) {
+      drawSurveyTarget(interactionLayer, coord);
+    }
+  }
   layer.addChild(terrainLayer, roadLayer, landmarkLayer, interactionLayer);
 
   return { layer, bounds: worldBounds(world) };
