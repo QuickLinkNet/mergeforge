@@ -30,6 +30,15 @@ export interface RelaySite {
   readonly tileKey: string;
 }
 
+export type SurfaceFindResourceType = "stone";
+
+export interface SurfaceFind {
+  readonly id: string;
+  readonly resourceType: SurfaceFindResourceType;
+  readonly tileKey: string;
+  readonly amount: number;
+}
+
 export interface WorldSnapshot {
   readonly seed: string;
   readonly generatorVersion: string;
@@ -39,6 +48,7 @@ export interface WorldSnapshot {
   readonly visibleTileKeys: readonly string[];
   readonly resourceSites: readonly ResourceSite[];
   readonly relaySite: RelaySite;
+  readonly surfaceFinds: readonly SurfaceFind[];
 }
 
 export interface ResourceStock {
@@ -58,7 +68,17 @@ export interface LumberCamp {
   readonly lastProductionAtMs: number;
 }
 
-export type Building = LumberCamp;
+export interface Quarry {
+  readonly id: string;
+  readonly type: "quarry";
+  readonly tileKey: string;
+  readonly status: BuildingStatus;
+  readonly startedAtMs: number;
+  readonly completesAtMs: number;
+  readonly lastProductionAtMs: number;
+}
+
+export type Building = LumberCamp | Quarry;
 
 /** Mutable game progress represented as an immutable, serializable value. */
 export interface GameState {
@@ -105,6 +125,22 @@ export type StartLumberCampResult =
       readonly state: GameState;
     };
 
+export type StartQuarryRejection =
+  | "tile-not-found"
+  | "not-stone-site"
+  | "road-required"
+  | "already-built"
+  | "build-slot-occupied"
+  | "insufficient-resources";
+
+export type StartQuarryResult =
+  | { readonly ok: true; readonly state: GameState }
+  | {
+      readonly ok: false;
+      readonly reason: StartQuarryRejection;
+      readonly state: GameState;
+    };
+
 export const GAME_STATE_SCHEMA_VERSION = 1 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
@@ -112,13 +148,20 @@ export const STARTING_RESOURCES: ResourceStock = {
   stone: 6,
 };
 
+export const MAX_WOOD_STORAGE = 300;
+export const MAX_STONE_STORAGE = 150;
 export const ROAD_WOOD_COST = 1;
 export const FOREST_SURFACE_WOOD = 1;
+export const STONE_SURFACE_FIND_TOTAL = 4;
 export const WORLD_PULSE_MS = 10 * 60 * 1_000;
 export const LUMBER_CAMP_BUILD_MS = WORLD_PULSE_MS;
 export const LUMBER_CAMP_WOOD_COST = 4;
 export const LUMBER_CAMP_STONE_COST = 1;
 export const LUMBER_CAMP_WOOD_PER_PULSE = 2;
+export const QUARRY_BUILD_MS = WORLD_PULSE_MS;
+export const QUARRY_WOOD_COST = 3;
+export const QUARRY_STONE_COST = 1;
+export const QUARRY_STONE_PER_PULSE = 1;
 
 /** A stable, serialization-friendly key for an axial coordinate. */
 export function hexKey(coord: HexCoord): string {
@@ -185,11 +228,25 @@ export function buildRoad(state: GameState, target: HexCoord): BuildRoadResult {
     if (tilesByKey.has(neighborKey)) visibleKeys.add(neighborKey);
   }
 
+  const surfaceFindsByTileKey = new Map(
+    state.world.surfaceFinds.map((find) => [find.tileKey, find] as const),
+  );
   const newlyVisibleForestKeys = [...visibleKeys].filter((tileKey) => {
     if (state.visibleTileKeys.includes(tileKey)) return false;
     if (state.claimedSurfaceFindTileKeys.includes(tileKey)) return false;
+    if (surfaceFindsByTileKey.has(tileKey)) return false;
     return tilesByKey.get(tileKey)?.terrain === "forest";
   });
+  const newlyVisibleStoneFinds = state.world.surfaceFinds.filter((find) => {
+    if (find.resourceType !== "stone") return false;
+    if (!visibleKeys.has(find.tileKey)) return false;
+    if (state.visibleTileKeys.includes(find.tileKey)) return false;
+    return !state.claimedSurfaceFindTileKeys.includes(find.tileKey);
+  });
+  const foundStone = newlyVisibleStoneFinds.reduce(
+    (total, find) => total + find.amount,
+    0,
+  );
 
   return {
     ok: true,
@@ -197,16 +254,20 @@ export function buildRoad(state: GameState, target: HexCoord): BuildRoadResult {
       ...state,
       resources: {
         ...state.resources,
-        wood:
+        wood: Math.min(
+          MAX_WOOD_STORAGE,
           state.resources.wood -
-          ROAD_WOOD_COST +
-          newlyVisibleForestKeys.length * FOREST_SURFACE_WOOD,
+            ROAD_WOOD_COST +
+            newlyVisibleForestKeys.length * FOREST_SURFACE_WOOD,
+        ),
+        stone: Math.min(MAX_STONE_STORAGE, state.resources.stone + foundStone),
       },
       roadTileKeys: [...state.roadTileKeys, targetKey],
       visibleTileKeys: [...visibleKeys],
       claimedSurfaceFindTileKeys: [
         ...state.claimedSurfaceFindTileKeys,
         ...newlyVisibleForestKeys,
+        ...newlyVisibleStoneFinds.map(({ tileKey }) => tileKey),
       ],
     },
   };
@@ -275,6 +336,67 @@ export function startLumberCamp(
   };
 }
 
+/** Starts a quarry on a connected, data-driven stone resource site. */
+export function startQuarry(
+  state: GameState,
+  target: HexCoord,
+  nowMs: number,
+): StartQuarryResult {
+  const settledState = advanceTime(state, nowMs);
+  const targetKey = hexKey(target);
+  const targetTile = settledState.world.tiles.find(
+    (tile) => hexKey(tile.coord) === targetKey,
+  );
+
+  if (targetTile === undefined) return quarryRejected(settledState, "tile-not-found");
+  if (
+    !settledState.world.resourceSites.some(
+      (site) => site.type === "stone" && site.tileKey === targetKey,
+    )
+  ) {
+    return quarryRejected(settledState, "not-stone-site");
+  }
+  if (!settledState.roadTileKeys.includes(targetKey)) {
+    return quarryRejected(settledState, "road-required");
+  }
+  if (settledState.buildings.some((building) => building.tileKey === targetKey)) {
+    return quarryRejected(settledState, "already-built");
+  }
+  if (settledState.buildings.some((building) => building.status === "constructing")) {
+    return quarryRejected(settledState, "build-slot-occupied");
+  }
+  if (
+    settledState.resources.wood < QUARRY_WOOD_COST ||
+    settledState.resources.stone < QUARRY_STONE_COST
+  ) {
+    return quarryRejected(settledState, "insufficient-resources");
+  }
+
+  const completesAtMs = nowMs + QUARRY_BUILD_MS;
+  assertTime(completesAtMs);
+  const quarry: Quarry = {
+    id: `quarry:${targetKey}`,
+    type: "quarry",
+    tileKey: targetKey,
+    status: "constructing",
+    startedAtMs: nowMs,
+    completesAtMs,
+    lastProductionAtMs: nowMs,
+  };
+
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      resources: {
+        wood: settledState.resources.wood - QUARRY_WOOD_COST,
+        stone: settledState.resources.stone - QUARRY_STONE_COST,
+      },
+      buildings: [...settledState.buildings, quarry],
+    },
+  };
+}
+
 /**
  * Settles every completed 10-minute pulse up to explicit time. The first pulse
  * both completes construction and produces the lumber camp's first two wood.
@@ -287,13 +409,18 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
   if (nowMs === state.lastAdvancedAtMs) return state;
 
   let producedWood = 0;
+  let producedStone = 0;
   const buildings = state.buildings.map((building): Building => {
     if (nowMs < building.completesAtMs) return building;
 
     const completedPulses = Math.floor(
       (nowMs - building.lastProductionAtMs) / WORLD_PULSE_MS,
     );
-    producedWood += completedPulses * LUMBER_CAMP_WOOD_PER_PULSE;
+    if (building.type === "lumber-camp") {
+      producedWood += completedPulses * LUMBER_CAMP_WOOD_PER_PULSE;
+    } else {
+      producedStone += completedPulses * QUARRY_STONE_PER_PULSE;
+    }
 
     return {
       ...building,
@@ -306,9 +433,12 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
   return {
     ...state,
     resources:
-      producedWood === 0
+      producedWood === 0 && producedStone === 0
         ? state.resources
-        : { ...state.resources, wood: state.resources.wood + producedWood },
+        : {
+            wood: Math.min(MAX_WOOD_STORAGE, state.resources.wood + producedWood),
+            stone: Math.min(MAX_STONE_STORAGE, state.resources.stone + producedStone),
+          },
     buildings,
     lastAdvancedAtMs: nowMs,
   };
@@ -329,6 +459,13 @@ function lumberCampRejected(
   state: GameState,
   reason: StartLumberCampRejection,
 ): StartLumberCampResult {
+  return { ok: false, reason, state };
+}
+
+function quarryRejected(
+  state: GameState,
+  reason: StartQuarryRejection,
+): StartQuarryResult {
   return { ok: false, reason, state };
 }
 

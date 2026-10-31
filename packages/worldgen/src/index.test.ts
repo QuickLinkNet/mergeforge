@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { axialNeighbors, hexKey, type WorldSnapshot } from "@mergeforge/domain";
+import {
+  axialNeighbors,
+  hexKey,
+  STONE_SURFACE_FIND_TOTAL,
+  type WorldSnapshot,
+} from "@mergeforge/domain";
 
 import {
   GENERATOR_VERSION,
@@ -83,6 +88,7 @@ describe("generateWorld", () => {
     expect(snapshot.generatorVersion).toBe(GENERATOR_VERSION);
     expect(snapshot.resourceSites).toEqual(repeat.resourceSites);
     expect(snapshot.relaySite).toEqual(repeat.relaySite);
+    expect(snapshot.surfaceFinds).toEqual(repeat.surfaceFinds);
     expect(stoneSite).toBeDefined();
     expect(stoneSite?.id).toBe(`stone:${stoneSite?.tileKey}`);
     expect(snapshot.relaySite.id).toBe(`relay:local:${snapshot.relaySite.tileKey}`);
@@ -106,6 +112,29 @@ describe("generateWorld", () => {
       expect(relayDistance).toBeGreaterThanOrEqual(RELAY_MIN_DISTANCE);
       expect(relayDistance).toBeLessThanOrEqual(RELAY_MAX_DISTANCE);
       expect(snapshot.visibleTileKeys).not.toContain(snapshot.relaySite.tileKey);
+
+      const totalStone = snapshot.surfaceFinds.reduce(
+        (total, find) => total + find.amount,
+        0,
+      );
+      expect(totalStone).toBeGreaterThanOrEqual(STONE_SURFACE_FIND_TOTAL);
+      expect(new Set(snapshot.surfaceFinds.map(({ id }) => id)).size).toBe(
+        snapshot.surfaceFinds.length,
+      );
+      expect(new Set(snapshot.surfaceFinds.map(({ tileKey }) => tileKey)).size).toBe(
+        snapshot.surfaceFinds.length,
+      );
+
+      for (const find of snapshot.surfaceFinds) {
+        expect(find.id).toBe(`surface-find:stone:${find.tileKey}`);
+        expect(find.resourceType).toBe("stone");
+        expect(snapshot.visibleTileKeys).not.toContain(find.tileKey);
+        expect(shortestTraversableDistance(snapshot, find.tileKey)).toBeLessThanOrEqual(
+          STONE_MAX_DISTANCE,
+        );
+        const tile = snapshot.tiles.find(({ coord }) => hexKey(coord) === find.tileKey);
+        expect(tile?.terrain).toBe("meadow");
+      }
     },
   );
 

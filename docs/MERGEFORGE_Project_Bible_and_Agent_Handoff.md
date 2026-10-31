@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** M1-Vertikalscheibe umgesetzt; M2 beginnt mit Issue #9 auf `feature/m2-1-world-objectives` (31. Oktober 2026)
+**Stand:** M1-Vertikalscheibe und M2-Weltziele umgesetzt; Issue #10 Steinloop auf `feature/m2-2-stone-loop` in Abnahme (31. Oktober 2026)
 
 ## Vision
 
@@ -92,10 +92,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M1.1:** deterministische Hexwelt, Dorf, Fog of War sowie Pan/Zoom umgesetzt
 - **M1.2:** zusammenhängender Straßenbau, Kosten, Aufdeckung und Kapitelziel umgesetzt
 - **M1.3:** einmalige Wald-Oberflächenfunde, Holzfällerlager, 10-Minuten-Welttakt, Offline-Nachholung und versionierter lokaler Spielstand umgesetzt
+- **M2.1 / Issue #9:** garantierte, erreichbare Steinquelle und deterministische Relaisplatzierung als Weltziele umgesetzt
+- **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt; Abnahme läuft
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m2-1-world-objectives`
-- **Aktuelles Issue:** #9 — garantierte Steinquelle und deterministische Relaisplatzierung
+- **Aktueller Arbeitsbranch:** `feature/m2-2-stone-loop`
+- **Aktuelles Issue:** #10 — Steinfunde, Steinbruch und persistente Steinproduktion
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -127,6 +129,28 @@ Issue #9 liefert ausschließlich die deterministische Weltgrundlage für die nac
 - kein Resonanzkern, Signalnetz oder Hinweis auf andere Spieler
 - keine Multiplayer-, Backend- oder Accountlogik
 - keine neue allgemeine Ressourcen- oder Gebäude-UI; #9 stellt nur die Welt- und Domänendaten bereit
+
+### Issue #10 — Abnahmegrenze
+
+Issue #10 macht Stein als zweite Ressource erstmals vollständig spielbar:
+
+- Explizite, datengetriebene Oberflächenfunde liefern in Summe 4 Stein und werden beim Aufdecken durch verbundenen Straßenbau genau einmal eingesammelt.
+- `claimedSurfaceFindTileKeys` bleibt die persistierte Historie aller bereits geborgenen Wald- und Steinfunde, auch bei vollem Lager.
+- Ein Steinbruch kann nur auf einem ausgewiesenen, per Straße verbundenen Steinvorkommen entstehen.
+- Der Steinbruch kostet 3 Holz und 1 Stein, benötigt 10 Minuten Bauzeit und produziert danach 1 Stein je 10-Minuten-Welttakt.
+- Offline-Nachholung und Lagergrenzen gelten einheitlich: maximal 300 Holz und 150 Stein; verstrichene Takte werden auch bei vollem Lager verbraucht.
+- Renderer und Weboberfläche verwenden generische Gebäude- und Fundmodelle für Holz und Stein statt ressourcenspezifischer Sonderpfade.
+- Der lokale Spielstand akzeptiert Steinbrüche nur auf weiterhin gültigen Steinquellen und verwirft manipulierte oder strukturell ungültige Daten kontrolliert.
+- Nach Beauftragung des Holzfällerlagers weist die Kapitelanzeige in Richtung Steinlinie; der vollständige Prolog-Kapitelabschluss bleibt Issue #12 vorbehalten.
+
+**Nicht-Ziele von Issue #10:**
+
+- kein Wegfinder, keine Expeditionsladungen, Bewegung oder Vermessungsaktion
+- kein Vermesserzelt und keine zusätzliche Aufdeckungsmechanik
+- keine Relaisinteraktion, Reparatur oder Aktivierung des Signalwerks
+- kein Resonanzkern, Signalnetz oder Spielerkontakt
+- keine Multiplayer-, Backend- oder Accountlogik
+- kein vollständiger Kapitel-3-Abschluss mit einmaligen Questbelohnungen; dieser wird in Issue #12 orchestriert
 
 ## Noch offene Produktentscheidungen
 

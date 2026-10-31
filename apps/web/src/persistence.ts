@@ -1,5 +1,7 @@
 import {
   GAME_STATE_SCHEMA_VERSION,
+  MAX_STONE_STORAGE,
+  MAX_WOOD_STORAGE,
   type Building,
   type GameState,
   type ResourceStock,
@@ -94,11 +96,15 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const tileByKey = new Map<string, WorldSnapshot['tiles'][number]>(
     world.tiles.map((tile) => [`${tile.coord.q},${tile.coord.r}`, tile]),
   );
+  const stoneSiteKeys = new Set(
+    world.resourceSites.filter((site) => site.type === 'stone').map((site) => site.tileKey),
+  );
+  const explicitFindKeys = new Set(world.surfaceFinds.map((find) => find.tileKey));
   const resources = parseResources(value.resources);
   const roadTileKeys = parseTileKeys(value.roadTileKeys, tileByKey);
   const visibleTileKeys = parseTileKeys(value.visibleTileKeys, tileByKey);
   const claimedSurfaceFindTileKeys = parseTileKeys(value.claimedSurfaceFindTileKeys, tileByKey);
-  const buildings = parseBuildings(value.buildings, tileByKey);
+  const buildings = parseBuildings(value.buildings, tileByKey, stoneSiteKeys);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -116,7 +122,11 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const roads = new Set(roadTileKeys);
   if (roadTileKeys.some((key) => !visible.has(key))) return reset(storage, 'corrupt');
   if (claimedSurfaceFindTileKeys.some((key) => !visible.has(key))) return reset(storage, 'corrupt');
-  if (claimedSurfaceFindTileKeys.some((key) => tileByKey.get(key)?.terrain !== 'forest')) {
+  if (
+    claimedSurfaceFindTileKeys.some(
+      (key) => tileByKey.get(key)?.terrain !== 'forest' && !explicitFindKeys.has(key),
+    )
+  ) {
     return reset(storage, 'corrupt');
   }
   if (buildings.some((building) => !roads.has(building.tileKey))) return reset(storage, 'corrupt');
@@ -138,6 +148,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
 
 function parseResources(value: unknown): ResourceStock | null {
   if (!isRecord(value) || !isCount(value.wood) || !isCount(value.stone)) return null;
+  if (value.wood > MAX_WOOD_STORAGE || value.stone > MAX_STONE_STORAGE) return null;
   return { wood: value.wood, stone: value.stone };
 }
 
@@ -155,6 +166,7 @@ function parseTileKeys(
 function parseBuildings(
   value: unknown,
   tileByKey: ReadonlyMap<string, WorldSnapshot['tiles'][number]>,
+  stoneSiteKeys: ReadonlySet<string>,
 ): readonly Building[] | null {
   if (!Array.isArray(value)) return null;
   const buildings: Building[] = [];
@@ -168,7 +180,7 @@ function parseBuildings(
     const lastProductionAtMs = parseTimestamp(candidate.lastProductionAtMs);
     if (
       typeof candidate.id !== 'string' ||
-      candidate.type !== 'lumber-camp' ||
+      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry') ||
       typeof candidate.tileKey !== 'string' ||
       (candidate.status !== 'constructing' && candidate.status !== 'active') ||
       startedAtMs === null ||
@@ -180,13 +192,20 @@ function parseBuildings(
       return null;
     }
     const tile = tileByKey.get(candidate.tileKey);
-    if (tile?.terrain !== 'forest' || completesAtMs < startedAtMs) return null;
+    if (
+      tile === undefined ||
+      completesAtMs < startedAtMs ||
+      (candidate.type === 'lumber-camp' && tile.terrain !== 'forest') ||
+      (candidate.type === 'quarry' && !stoneSiteKeys.has(candidate.tileKey))
+    ) {
+      return null;
+    }
 
     ids.add(candidate.id);
     tileKeys.add(candidate.tileKey);
     buildings.push({
       id: candidate.id,
-      type: 'lumber-camp',
+      type: candidate.type,
       tileKey: candidate.tileKey,
       status: candidate.status,
       startedAtMs,

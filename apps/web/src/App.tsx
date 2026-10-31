@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FOREST_SURFACE_WOOD,
-  LUMBER_CAMP_BUILD_MS,
   LUMBER_CAMP_STONE_COST,
   LUMBER_CAMP_WOOD_COST,
   LUMBER_CAMP_WOOD_PER_PULSE,
+  QUARRY_STONE_COST,
+  QUARRY_STONE_PER_PULSE,
+  QUARRY_WOOD_COST,
   ROAD_WOOD_COST,
   WORLD_PULSE_MS,
   advanceTime,
   buildRoad,
   createInitialGameState,
   startLumberCamp,
+  startQuarry,
   type BuildRoadRejection,
   type GameState,
   type StartLumberCampRejection,
+  type StartQuarryRejection,
   type WorldSnapshot,
 } from '@mergeforge/domain';
 import {
   mountHexWorld,
   type HexSelectionEvent,
   type HexWorldViewState,
+  type FindEffectVisual,
   type MountedHexWorld,
 } from '@mergeforge/renderer-pixi';
 import { generateWorld } from '@mergeforge/worldgen';
@@ -52,6 +57,15 @@ const lumberFailureCopy: Readonly<Record<StartLumberCampRejection, string>> = {
   'already-built': 'Auf diesem Waldfeld steht bereits ein Holzfällerlager.',
   'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Gebäude.',
   'insufficient-resources': 'Für das Holzfällerlager fehlen Rohstoffe.',
+};
+
+const quarryFailureCopy: Readonly<Record<StartQuarryRejection, string>> = {
+  'tile-not-found': 'Dieses Feld gehört nicht zur bekannten Welt.',
+  'not-stone-site': 'Ein Steinbruch benötigt ein ausgewiesenes Steinvorkommen.',
+  'road-required': 'Das Steinvorkommen muss zuerst per Straße verbunden werden.',
+  'already-built': 'Auf diesem Vorkommen steht bereits ein Steinbruch.',
+  'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Gebäude.',
+  'insufficient-resources': 'Für den Steinbruch fehlen Rohstoffe.',
 };
 
 function bootstrapGame(nowMs: number): BootstrapResult {
@@ -134,7 +148,7 @@ export function App() {
   const [nowMs, setNowMs] = useState(bootstrapNowRef.current);
   const [systemNotice, setSystemNotice] = useState<string | null>(bootstrap.ok ? bootstrap.notice : null);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
-  const [highlightedFindTileKeys, setHighlightedFindTileKeys] = useState<readonly string[]>([]);
+  const [highlightedFindEffects, setHighlightedFindEffects] = useState<readonly FindEffectVisual[]>([]);
 
   const selectedWorldTile = useMemo(
     () =>
@@ -149,24 +163,70 @@ export function App() {
     () => gameState?.buildings.find((building) => building.tileKey === selectedTile?.key),
     [gameState?.buildings, selectedTile?.key],
   );
+  const selectedStoneSite =
+    gameState?.world.resourceSites.find(
+      (site) => site.type === 'stone' && site.tileKey === selectedTile?.key,
+    ) ?? null;
   const isLumberCampSite =
     gameState !== null &&
     selectedTile !== null &&
     selectedBuilding === undefined &&
+    selectedStoneSite === null &&
     selectedWorldTile?.terrain === 'forest' &&
     gameState.roadTileKeys.includes(selectedTile.key);
+  const isQuarrySite =
+    gameState !== null &&
+    selectedTile !== null &&
+    selectedBuilding === undefined &&
+    gameState.roadTileKeys.includes(selectedTile.key) &&
+    selectedStoneSite !== null;
   const commandNowMs = gameState === null ? nowMs : Math.max(nowMs, gameState.lastAdvancedAtMs);
 
   const roadPreview = useMemo(() => {
-    if (gameState === null || selectedTile === null || isLumberCampSite || selectedBuilding !== undefined) {
+    if (
+      gameState === null ||
+      selectedTile === null ||
+      isLumberCampSite ||
+      isQuarrySite ||
+      selectedBuilding !== undefined
+    ) {
       return null;
     }
     return buildRoad(gameState, selectedTile.coord);
-  }, [gameState, isLumberCampSite, selectedBuilding, selectedTile]);
+  }, [gameState, isLumberCampSite, isQuarrySite, selectedBuilding, selectedTile]);
   const lumberCampPreview = useMemo(() => {
     if (gameState === null || selectedTile === null || !isLumberCampSite) return null;
     return startLumberCamp(gameState, selectedTile.coord, commandNowMs);
   }, [commandNowMs, gameState, isLumberCampSite, selectedTile]);
+  const quarryPreview = useMemo(() => {
+    if (gameState === null || selectedTile === null || !isQuarrySite) return null;
+    return startQuarry(gameState, selectedTile.coord, commandNowMs);
+  }, [commandNowMs, gameState, isQuarrySite, selectedTile]);
+
+  const buildingPlan =
+    lumberCampPreview !== null
+      ? {
+          type: 'lumber-camp' as const,
+          name: 'Holzfällerlager',
+          icon: '♜',
+          result: lumberCampPreview,
+          woodCost: LUMBER_CAMP_WOOD_COST,
+          stoneCost: LUMBER_CAMP_STONE_COST,
+          output: `+${LUMBER_CAMP_WOOD_PER_PULSE} Holz / Takt`,
+          action: 'Lager errichten',
+        }
+      : quarryPreview !== null
+        ? {
+            type: 'quarry' as const,
+            name: 'Steinbruch',
+            icon: '◆',
+            result: quarryPreview,
+            woodCost: QUARRY_WOOD_COST,
+            stoneCost: QUARRY_STONE_COST,
+            output: `+${QUARRY_STONE_PER_PULSE} Stein / Takt`,
+            action: 'Steinbruch errichten',
+          }
+        : null;
 
   const newlyRevealedCount = useMemo(() => {
     if (gameState === null || roadPreview?.ok !== true) return 0;
@@ -184,14 +244,15 @@ export function App() {
       roadTileKeys: gameState?.roadTileKeys ?? [],
       roadPreviewTileKeys:
         selectedTile !== null && roadPreview?.ok === true ? [selectedTile.key] : [],
-      lumberCamps:
+      buildings:
         gameState?.buildings.map((building) => ({
           tileKey: building.tileKey,
+          type: building.type,
           state: building.status === 'constructing' ? 'construction' : 'complete',
         })) ?? [],
-      woodFindTileKeys: highlightedFindTileKeys,
+      findEffects: highlightedFindEffects,
     }),
-    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindTileKeys, roadPreview, selectedTile],
+    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, roadPreview, selectedTile],
   );
 
   if (effectiveWorld !== null) latestRenderRef.current = { world: effectiveWorld, view: rendererView };
@@ -223,10 +284,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (highlightedFindTileKeys.length === 0) return;
-    const timer = window.setTimeout(() => setHighlightedFindTileKeys([]), 4_000);
+    if (highlightedFindEffects.length === 0) return;
+    const timer = window.setTimeout(() => setHighlightedFindEffects([]), 4_000);
     return () => window.clearTimeout(timer);
-  }, [highlightedFindTileKeys]);
+  }, [highlightedFindEffects]);
 
   useEffect(() => {
     if (eventMessage === null) return;
@@ -253,11 +314,12 @@ export function App() {
       selectedTileKey: null,
       roadTileKeys: bootstrap.state.roadTileKeys,
       roadPreviewTileKeys: [],
-      lumberCamps: bootstrap.state.buildings.map((building) => ({
+      buildings: bootstrap.state.buildings.map((building) => ({
         tileKey: building.tileKey,
+        type: building.type,
         state: building.status === 'constructing' ? 'construction' : 'complete',
       })),
-      woodFindTileKeys: [],
+      findEffects: [],
       onHexSelect: handleHexSelect,
     })
       .then((mountedRenderer) => {
@@ -299,17 +361,44 @@ export function App() {
     setGameState(result.state);
     setSelectedTile(null);
     if (newFindKeys.length > 0) {
-      setHighlightedFindTileKeys(newFindKeys);
-      setEventMessage(`Fallholz geborgen · +${newFindKeys.length * FOREST_SURFACE_WOOD} Holz`);
+      const effects: FindEffectVisual[] = [];
+      let foundWood = 0;
+      let foundStone = 0;
+      for (const key of newFindKeys) {
+        const stoneFind = gameState.world.surfaceFinds.find(
+          (find) => find.resourceType === 'stone' && find.tileKey === key,
+        );
+        if (stoneFind !== undefined) {
+          effects.push({ tileKey: key, resource: 'stone' });
+          foundStone += stoneFind.amount;
+          continue;
+        }
+        effects.push({ tileKey: key, resource: 'wood' });
+        foundWood += FOREST_SURFACE_WOOD;
+      }
+      setHighlightedFindEffects(effects);
+      const rewards = [
+        foundWood > 0 ? `+${foundWood} Holz` : null,
+        foundStone > 0 ? `+${foundStone} Stein` : null,
+      ].filter((reward): reward is string => reward !== null);
+      const findLabel = foundWood > 0 && foundStone > 0
+        ? 'Funde geborgen'
+        : foundStone > 0
+          ? 'Steinfund geborgen'
+          : 'Fallholz geborgen';
+      setEventMessage(`${findLabel} · ${rewards.join(' · ')}`);
     }
   }, [gameState, selectedTile]);
 
-  const confirmLumberCamp = useCallback(() => {
-    if (gameState === null || selectedTile === null) return;
-    const result = startLumberCamp(gameState, selectedTile.coord, commandNowMs);
+  const confirmBuilding = useCallback(() => {
+    if (gameState === null || selectedTile === null || buildingPlan === null) return;
+    const result =
+      buildingPlan.type === 'lumber-camp'
+        ? startLumberCamp(gameState, selectedTile.coord, commandNowMs)
+        : startQuarry(gameState, selectedTile.coord, commandNowMs);
     setGameState(result.state);
-    if (result.ok) setEventMessage('Holzfällerlager beauftragt · Fertigstellung in 10:00');
-  }, [commandNowMs, gameState, selectedTile]);
+    if (result.ok) setEventMessage(`${buildingPlan.name} beauftragt · Fertigstellung in 10:00`);
+  }, [buildingPlan, commandNowMs, gameState, selectedTile]);
 
   const cancelSelection = useCallback(() => setSelectedTile(null), []);
 
@@ -317,6 +406,32 @@ export function App() {
   const roadsBuilt = gameState?.roadTileKeys.length ?? 0;
   const chapterProgress = Math.min(roadsBuilt, CHAPTER_ONE_ROAD_TARGET);
   const chapterComplete = chapterProgress === CHAPTER_ONE_ROAD_TARGET;
+  const hasLumberCamp = gameState?.buildings.some((building) => building.type === 'lumber-camp') ?? false;
+  const quarry = gameState?.buildings.find((building) => building.type === 'quarry');
+  const quarryActive = quarry?.status === 'active';
+  const chapterNumber = !chapterComplete ? 1 : hasLumberCamp ? 3 : 2;
+  const chapterName = !chapterComplete ? 'Gründungsring' : hasLumberCamp ? 'Steinlinie' : 'Waldlinie';
+  const missionTitle = !chapterComplete
+    ? 'Ein Weg ins Unbekannte'
+    : hasLumberCamp
+      ? 'Die Ader im Fels'
+      : 'Die Waldlinie';
+  const missionDescription = !chapterComplete
+    ? 'Wählt ein sichtbares Feld neben dem Dorf oder einer Straße. Jede Straße öffnet den Nebel entlang eures Weges.'
+    : hasLumberCamp
+      ? 'Folgt dem zweiten Straßenarm zum markierten Steinvorkommen und sichert die Versorgung mit einem Steinbruch.'
+      : 'Verbindet ein Waldfeld mit eurem Straßennetz und errichtet das erste Holzfällerlager.';
+  const missionObjective = !chapterComplete
+    ? 'Zwei Straßenfelder errichten'
+    : hasLumberCamp
+      ? 'Steinbruch aktivieren'
+      : 'Holzfällerlager beauftragen';
+  const missionProgress = !chapterComplete
+    ? `${chapterProgress} / ${CHAPTER_ONE_ROAD_TARGET}`
+    : hasLumberCamp
+      ? `${quarryActive ? 1 : 0} / 1`
+      : '0 / 1';
+  const missionComplete = !chapterComplete ? false : hasLumberCamp ? quarryActive : false;
 
   const buildingRemainingMs =
     selectedBuilding === undefined
@@ -326,8 +441,19 @@ export function App() {
         : selectedBuilding.lastProductionAtMs + WORLD_PULSE_MS - commandNowMs;
   const constructionProgress =
     selectedBuilding?.status === 'constructing'
-      ? Math.min(1, Math.max(0, (commandNowMs - selectedBuilding.startedAtMs) / LUMBER_CAMP_BUILD_MS))
+      ? Math.min(
+          1,
+          Math.max(
+            0,
+            (commandNowMs - selectedBuilding.startedAtMs) /
+              (selectedBuilding.completesAtMs - selectedBuilding.startedAtMs),
+          ),
+        )
       : 1;
+  const selectedBuildingName = selectedBuilding?.type === 'quarry' ? 'Steinbruch' : 'Holzfällerlager';
+  const selectedBuildingResource = selectedBuilding?.type === 'quarry' ? 'Stein' : 'Holz';
+  const selectedBuildingYield =
+    selectedBuilding?.type === 'quarry' ? QUARRY_STONE_PER_PULSE : LUMBER_CAMP_WOOD_PER_PULSE;
 
   return (
     <main className="game-shell" aria-label="MERGEFORGE Weltansicht">
@@ -355,36 +481,39 @@ export function App() {
             <i className="resource-dot stone" aria-hidden="true" /><span>Stein</span>
             <strong>{gameState?.resources.stone ?? 0}</strong>
           </span>
-          <span className={`chapter-status ${chapterComplete ? 'complete' : ''}`}>
-            Kapitel 1 · {chapterComplete ? 'Ziel erreicht' : 'Gründungsring'}
+          <span className={`chapter-status ${missionComplete ? 'complete' : ''}`}>
+            Kapitel {chapterNumber} · {chapterName}
           </span>
         </div>
       </header>
 
       <section className="mission-card" aria-labelledby="mission-title">
-        <div className="mission-kicker"><span>Erstes Ziel</span><span className="prototype-badge">Lokaler Prototyp</span></div>
-        <h1 id="mission-title">Ein Weg ins Unbekannte</h1>
-        <p>
-          Wählt ein sichtbares Feld neben dem Dorf oder einer Straße. Verbundene Waldfelder können
-          anschließend ein Holzfällerlager tragen.
-        </p>
-        <div className={`objective ${chapterComplete ? 'complete' : ''}`} aria-label="Kapitelziel">
-          <span className="objective-icon" aria-hidden="true">{chapterComplete ? '✓' : '◇'}</span>
-          <span><small>{chapterComplete ? 'Kapitelziel erreicht' : 'Aktuelles Kapitelziel'}</small>Zwei Straßenfelder errichten</span>
-          <strong aria-live="polite">{chapterProgress} / {CHAPTER_ONE_ROAD_TARGET}</strong>
+        <div className="mission-kicker"><span>Kapitel {chapterNumber}</span><span className="prototype-badge">Lokaler Prototyp</span></div>
+        <h1 id="mission-title">{missionTitle}</h1>
+        <p>{missionDescription}</p>
+        <div className={`objective ${missionComplete ? 'complete' : ''}`} aria-label="Kapitelziel">
+          <span className="objective-icon" aria-hidden="true">{missionComplete ? '✓' : '◇'}</span>
+          <span><small>{missionComplete ? 'Kapitelziel erreicht' : 'Aktuelles Kapitelziel'}</small>{missionObjective}</span>
+          <strong aria-live="polite">{missionProgress}</strong>
         </div>
         <p className="mission-note">
-          {chapterComplete
-            ? 'Wählt nun ein verbundenes Waldfeld und beauftragt das erste Holzfällerlager.'
-            : 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'}
+          {!chapterComplete
+            ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
+            : hasLumberCamp
+              ? quarryActive
+                ? 'Die Steinversorgung läuft. Der Wegfinder folgt im nächsten Issue.'
+                : 'Der Steinbruch kostet 3 Holz und 1 Stein und produziert 1 Stein je Welttakt.'
+              : 'Das Holzfällerlager kostet 4 Holz und 1 Stein.'}
         </p>
       </section>
 
       {selectedBuilding !== undefined && (
         <section className="build-card building-status-card" aria-labelledby="building-title">
           <div className="build-card-heading">
-            <span className="road-symbol camp-symbol" aria-hidden="true">♜</span>
-            <span><small>Holzfällerlager</small><h2 id="building-title">{selectedBuilding.status === 'constructing' ? 'Bau läuft' : 'Produktion aktiv'}</h2></span>
+            <span className={`road-symbol ${selectedBuilding.type === 'quarry' ? 'quarry-symbol' : 'camp-symbol'}`} aria-hidden="true">
+              {selectedBuilding.type === 'quarry' ? '◆' : '♜'}
+            </span>
+            <span><small>{selectedBuildingName}</small><h2 id="building-title">{selectedBuilding.status === 'constructing' ? 'Bau läuft' : 'Produktion aktiv'}</h2></span>
           </div>
           <div
             className="construction-progress"
@@ -395,42 +524,48 @@ export function App() {
             aria-valuenow={Math.round(constructionProgress * 100)}
           ><span style={{ width: `${constructionProgress * 100}%` }} /></div>
           <div className="building-timer">
-            <span>{selectedBuilding.status === 'constructing' ? 'Fertig in' : `Nächste +${LUMBER_CAMP_WOOD_PER_PULSE} Holz in`}</span>
+            <span>{selectedBuilding.status === 'constructing' ? 'Fertig in' : `Nächste +${selectedBuildingYield} ${selectedBuildingResource} in`}</span>
             <strong aria-live="polite">{formatRemaining(buildingRemainingMs)}</strong>
           </div>
           <p className="build-explanation">
             {selectedBuilding.status === 'constructing'
-              ? 'Am Bauende wird das Lager aktiv und liefert sofort die ersten 2 Holz.'
-              : 'Das Lager produziert automatisch 2 Holz je 10-Minuten-Welttakt.'}
+              ? `Am Bauende wird ${selectedBuildingName === 'Steinbruch' ? 'der' : 'das'} ${selectedBuildingName} aktiv und liefert sofort ${selectedBuildingYield} ${selectedBuildingResource}.`
+              : `${selectedBuildingName} produziert automatisch ${selectedBuildingYield} ${selectedBuildingResource} je 10-Minuten-Welttakt.`}
           </p>
           <div className="build-actions single"><button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button></div>
         </section>
       )}
 
-      {selectedBuilding === undefined && lumberCampPreview !== null && (
+      {selectedBuilding === undefined && buildingPlan !== null && (
         <section className="build-card" aria-labelledby="build-title">
           <div className="build-card-heading">
-            <span className="road-symbol camp-symbol" aria-hidden="true">♜</span>
-            <span><small>Gebäude planen</small><h2 id="build-title">Holzfällerlager</h2></span>
+            <span className={`road-symbol ${buildingPlan.type === 'quarry' ? 'quarry-symbol' : 'camp-symbol'}`} aria-hidden="true">{buildingPlan.icon}</span>
+            <span><small>Gebäude planen</small><h2 id="build-title">{buildingPlan.name}</h2></span>
           </div>
-          {lumberCampPreview.ok ? (
+          {buildingPlan.result.ok ? (
             <>
               <dl className="build-preview">
-                <div><dt>Kosten</dt><dd>{LUMBER_CAMP_WOOD_COST} Holz · {LUMBER_CAMP_STONE_COST} Stein</dd></div>
+                <div><dt>Kosten</dt><dd>{buildingPlan.woodCost} Holz · {buildingPlan.stoneCost} Stein</dd></div>
                 <div><dt>Bauzeit</dt><dd>10:00</dd></div>
-                <div><dt>Ertrag</dt><dd>+{LUMBER_CAMP_WOOD_PER_PULSE} Holz / Takt</dd></div>
+                <div><dt>Ertrag</dt><dd>{buildingPlan.output}</dd></div>
               </dl>
               <p className="build-explanation">Nur ein Gebäude kann gleichzeitig im Bau sein.</p>
             </>
-          ) : <p className="build-warning" role="status">{lumberFailureCopy[lumberCampPreview.reason]}</p>}
+          ) : (
+            <p className="build-warning" role="status">
+              {buildingPlan.type === 'quarry'
+                ? quarryFailureCopy[buildingPlan.result.reason]
+                : lumberFailureCopy[buildingPlan.result.reason]}
+            </p>
+          )}
           <div className="build-actions">
             <button className="secondary-action" type="button" onClick={cancelSelection}>Abbrechen</button>
-            <button className="primary-action" type="button" disabled={!lumberCampPreview.ok} onClick={confirmLumberCamp}>Lager errichten</button>
+            <button className="primary-action" type="button" disabled={!buildingPlan.result.ok} onClick={confirmBuilding}>{buildingPlan.action}</button>
           </div>
         </section>
       )}
 
-      {selectedBuilding === undefined && lumberCampPreview === null && selectedTile !== null && roadPreview !== null && (
+      {selectedBuilding === undefined && buildingPlan === null && selectedTile !== null && roadPreview !== null && (
         <section className="build-card" aria-labelledby="build-title">
           <div className="build-card-heading">
             <span className="road-symbol" aria-hidden="true">⌁</span>
@@ -443,7 +578,7 @@ export function App() {
                 <div><dt>Aufdeckung</dt><dd>{newlyRevealedCount} {newlyRevealedCount === 1 ? 'neues Feld' : 'neue Felder'}</dd></div>
                 <div><dt>Bauzeit</dt><dd>Sofort</dd></div>
               </dl>
-              <p className="build-explanation">Fallholz auf neu entdeckten Waldfeldern wird direkt eingelagert.</p>
+              <p className="build-explanation">Oberflächenfunde auf neu entdeckten Feldern werden direkt eingelagert.</p>
             </>
           ) : <p className="build-warning" role="status">{roadFailureCopy[roadPreview.reason]}</p>}
           <div className="build-actions">

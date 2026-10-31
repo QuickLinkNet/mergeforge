@@ -1,9 +1,11 @@
 import {
   LUMBER_CAMP_BUILD_MS,
+  QUARRY_BUILD_MS,
   advanceTime,
   buildRoad,
   createInitialGameState,
   startLumberCamp,
+  startQuarry,
   type WorldSnapshot,
 } from '@mergeforge/domain';
 import { describe, expect, it } from 'vitest';
@@ -23,11 +25,13 @@ const world: WorldSnapshot = {
   tiles: [
     { coord: { q: 0, r: 0 }, terrain: 'meadow', elevation: 1 },
     { coord: { q: 1, r: 0 }, terrain: 'forest', elevation: 2 },
+    { coord: { q: 0, r: 1 }, terrain: 'hills', elevation: 3 },
   ],
   village: { id: 'village-0', name: 'Genesis', coord: { q: 0, r: 0 } },
-  visibleTileKeys: ['0,0', '1,0'],
-  resourceSites: [{ id: 'stone:1,0', type: 'stone', tileKey: '1,0' }],
+  visibleTileKeys: ['0,0', '1,0', '0,1'],
+  resourceSites: [{ id: 'stone:0,1', type: 'stone', tileKey: '0,1' }],
   relaySite: { id: 'relay:local:1,0', tileKey: '1,0' },
+  surfaceFinds: [],
 };
 
 function stateWithLumberCamp() {
@@ -36,6 +40,14 @@ function stateWithLumberCamp() {
   const camp = startLumberCamp(road.state, { q: 1, r: 0 }, 2_000);
   if (!camp.ok) throw new Error(camp.reason);
   return camp.state;
+}
+
+function stateWithQuarry() {
+  const road = buildRoad(createInitialGameState(world, 1_000), { q: 0, r: 1 });
+  if (!road.ok) throw new Error(road.reason);
+  const quarry = startQuarry(road.state, { q: 0, r: 1 }, 2_000);
+  if (!quarry.ok) throw new Error(quarry.reason);
+  return quarry.state;
 }
 
 describe('versioned local game persistence', () => {
@@ -66,6 +78,30 @@ describe('versioned local game persistence', () => {
 
     expect(restored.buildings[0]?.status).toBe('active');
     expect(restored.resources.wood).toBe(state.resources.wood + 2);
+  });
+
+  it('round-trips a quarry and restores its elapsed stone production', () => {
+    const storage = new MemoryStorage();
+    const state = stateWithQuarry();
+    saveGame(storage, state);
+
+    const loaded = loadGame(storage, world);
+    expect(loaded.kind).toBe('loaded');
+    if (loaded.kind !== 'loaded') return;
+
+    expect(loaded.state.buildings).toEqual(state.buildings);
+    const restored = advanceTime(loaded.state, 2_000 + QUARRY_BUILD_MS);
+    expect(restored.buildings[0]).toMatchObject({ type: 'quarry', status: 'active' });
+    expect(restored.resources.stone).toBe(state.resources.stone + 1);
+  });
+
+  it('rejects a persisted quarry when its stone site no longer exists', () => {
+    const storage = new MemoryStorage();
+    saveGame(storage, stateWithQuarry());
+    const worldWithoutSite: WorldSnapshot = { ...world, resourceSites: [] };
+
+    expect(loadGame(storage, worldWithoutSite)).toEqual({ kind: 'reset', reason: 'corrupt' });
+    expect(storage.getItem(GAME_SAVE_KEY)).toBeNull();
   });
 
   it('removes malformed saves and requests a controlled reset', () => {
