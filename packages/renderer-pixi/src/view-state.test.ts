@@ -8,8 +8,8 @@ describe("renderer view state", () => {
       selectedTileKey: null,
       roadTileKeys: [],
       roadPreviewTileKeys: [],
-      lumberCamps: [],
-      woodFindTileKeys: [],
+      buildings: [],
+      findEffects: [],
     });
   });
 
@@ -18,16 +18,16 @@ describe("renderer view state", () => {
       selectedTileKey: "0,0",
       roadTileKeys: ["1,0"],
       roadPreviewTileKeys: ["2,0"],
-      lumberCamps: [{ tileKey: "1,0", state: "construction" }],
-      woodFindTileKeys: ["0,1"],
+      buildings: [{ tileKey: "1,0", type: "lumber-camp", state: "construction" }],
+      findEffects: [{ tileKey: "0,1", resource: "wood" }],
     });
 
     expect(patchViewState(initial, { roadTileKeys: ["1,0", "2,0"] })).toEqual({
       selectedTileKey: "0,0",
       roadTileKeys: ["1,0", "2,0"],
       roadPreviewTileKeys: ["2,0"],
-      lumberCamps: [{ tileKey: "1,0", state: "construction" }],
-      woodFindTileKeys: ["0,1"],
+      buildings: [{ tileKey: "1,0", type: "lumber-camp", state: "construction" }],
+      findEffects: [{ tileKey: "0,1", resource: "wood" }],
     });
   });
 
@@ -36,19 +36,19 @@ describe("renderer view state", () => {
     expect(patchViewState(initial, { selectedTileKey: null }).selectedTileKey).toBeNull();
   });
 
-  it("updates and clears lumber visuals without changing roads", () => {
+  it("updates and clears data-driven visuals without changing roads", () => {
     const initial = initialViewState({
       roadTileKeys: ["1,0"],
-      lumberCamps: [{ tileKey: "2,0", state: "construction" }],
-      woodFindTileKeys: ["1,-1"],
+      buildings: [{ tileKey: "2,0", type: "quarry", state: "construction" }],
+      findEffects: [{ tileKey: "1,-1", resource: "stone" }],
     });
     const complete = patchViewState(initial, {
-      lumberCamps: [{ tileKey: "2,0", state: "complete" }],
-      woodFindTileKeys: [],
+      buildings: [{ tileKey: "2,0", type: "quarry", state: "complete" }],
+      findEffects: [],
     });
 
     expect(complete.roadTileKeys).toEqual(["1,0"]);
-    expect(complete.lumberCamps).toEqual([{ tileKey: "2,0", state: "complete" }]);
-    expect(complete.woodFindTileKeys).toEqual([]);
+    expect(complete.buildings).toEqual([{ tileKey: "2,0", type: "quarry", state: "complete" }]);
+    expect(complete.findEffects).toEqual([]);
   });
 });

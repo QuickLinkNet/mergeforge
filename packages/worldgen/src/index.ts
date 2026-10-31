@@ -1,17 +1,19 @@
 import {
   axialNeighbors,
   hexKey,
+  STONE_SURFACE_FIND_TOTAL,
   type HexCoord,
   type HexTile,
   type RelaySite,
   type ResourceSite,
+  type SurfaceFind,
   type Terrain,
   type WorldSnapshot,
 } from "@mergeforge/domain";
 
 export type { WorldSnapshot } from "@mergeforge/domain";
 
-export const GENERATOR_VERSION = "m2.1-v1";
+export const GENERATOR_VERSION = "m2.2-v1";
 export const MINIMUM_WORLD_RADIUS = 8;
 export const STONE_MIN_DISTANCE = 3;
 export const STONE_MAX_DISTANCE = 5;
@@ -50,9 +52,17 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
     RELAY_MIN_DISTANCE,
     Math.min(RELAY_MAX_DISTANCE, radius),
   );
+  const stoneSurfaceFindCoords = selectStoneSurfaceFindCoords(
+    seed,
+    new Set([hexKey(stoneCoord), hexKey(relayCoord)]),
+  );
   const forcedTraversableKeys = new Set(INITIAL_VISIBLE_KEYS);
   addStraightPath(forcedTraversableKeys, stoneCoord);
   addStraightPath(forcedTraversableKeys, relayCoord);
+  for (const findCoord of stoneSurfaceFindCoords) {
+    addStraightPath(forcedTraversableKeys, findCoord);
+  }
+  const stoneSurfaceFindKeys = new Set(stoneSurfaceFindCoords.map(hexKey));
 
   const tiles: HexTile[] = [];
 
@@ -62,8 +72,11 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
 
     for (let r = minimumR; r <= maximumR; r += 1) {
       const coord = { q, r };
-      const value = hash32(`${GENERATOR_VERSION}|${seed}|terrain|${hexKey(coord)}`);
-      const terrain = terrainFor(value, forcedTraversableKeys.has(hexKey(coord)));
+      const tileKey = hexKey(coord);
+      const value = hash32(`${GENERATOR_VERSION}|${seed}|terrain|${tileKey}`);
+      const terrain = stoneSurfaceFindKeys.has(tileKey)
+        ? "meadow"
+        : terrainFor(value, forcedTraversableKeys.has(tileKey));
 
       tiles.push({
         coord,
@@ -82,6 +95,15 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
     id: `relay:local:${relayKey}`,
     tileKey: relayKey,
   };
+  const surfaceFinds: readonly SurfaceFind[] = stoneSurfaceFindCoords.map((coord) => {
+    const tileKey = hexKey(coord);
+    return {
+      id: `surface-find:stone:${tileKey}`,
+      resourceType: "stone",
+      tileKey,
+      amount: 1,
+    };
+  });
 
   return {
     seed,
@@ -96,6 +118,7 @@ export function generateWorld({ seed, radius }: GenerateWorldOptions): WorldSnap
     visibleTileKeys: INITIAL_VISIBLE_COORDS.map(hexKey),
     resourceSites,
     relaySite,
+    surfaceFinds,
   };
 }
 
@@ -125,15 +148,60 @@ function selectSiteCoord(
   };
 }
 
-function addStraightPath(keys: Set<string>, target: HexCoord): void {
-  const distance = axialDistance(ORIGIN, target);
-  const direction = {
-    q: target.q / distance,
-    r: target.r / distance,
-  };
+function selectStoneSurfaceFindCoords(
+  seed: string,
+  excludedKeys: ReadonlySet<string>,
+): readonly HexCoord[] {
+  const candidates: { readonly coord: HexCoord; readonly score: number }[] = [];
 
-  for (let step = 1; step <= distance; step += 1) {
-    keys.add(hexKey({ q: direction.q * step, r: direction.r * step }));
+  for (let q = -STONE_MAX_DISTANCE; q <= STONE_MAX_DISTANCE; q += 1) {
+    const minimumR = Math.max(-STONE_MAX_DISTANCE, -q - STONE_MAX_DISTANCE);
+    const maximumR = Math.min(STONE_MAX_DISTANCE, -q + STONE_MAX_DISTANCE);
+
+    for (let r = minimumR; r <= maximumR; r += 1) {
+      const coord = { q, r };
+      const tileKey = hexKey(coord);
+      const distance = axialDistance(ORIGIN, coord);
+      if (distance < 2 || distance > STONE_MAX_DISTANCE) continue;
+      if (INITIAL_VISIBLE_KEYS.has(tileKey) || excludedKeys.has(tileKey)) continue;
+
+      candidates.push({
+        coord,
+        score: hash32(`${GENERATOR_VERSION}|${seed}|surface_finds|stone|${tileKey}`),
+      });
+    }
+  }
+
+  candidates.sort(
+    (first, second) => {
+      const scoreOrder = first.score - second.score;
+      if (scoreOrder !== 0) return scoreOrder;
+      const firstKey = hexKey(first.coord);
+      const secondKey = hexKey(second.coord);
+      return firstKey < secondKey ? -1 : firstKey > secondKey ? 1 : 0;
+    },
+  );
+  const selected = candidates
+    .slice(0, STONE_SURFACE_FIND_TOTAL)
+    .map(({ coord }) => coord);
+  if (selected.length !== STONE_SURFACE_FIND_TOTAL) {
+    throw new Error("Unable to place the guaranteed stone surface finds.");
+  }
+  return selected;
+}
+
+function addStraightPath(keys: Set<string>, target: HexCoord): void {
+  let current = ORIGIN;
+  while (hexKey(current) !== hexKey(target)) {
+    const remainingDistance = axialDistance(current, target);
+    const next = axialNeighbors(current).find(
+      (candidate) => axialDistance(candidate, target) < remainingDistance,
+    );
+    if (next === undefined) {
+      throw new Error(`Unable to create a traversable route to ${hexKey(target)}.`);
+    }
+    keys.add(hexKey(next));
+    current = next;
   }
 }
 

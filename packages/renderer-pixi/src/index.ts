@@ -6,16 +6,23 @@ import { visibleWorldSites } from "./site-visuals.js";
 import {
   initialViewState,
   patchViewState,
+  type BuildingVisual,
+  type BuildingVisualState,
+  type BuildingVisualType,
+  type FindEffectResource,
+  type FindEffectVisual,
   type HexWorldViewState,
-  type LumberCampVisual,
-  type LumberCampVisualState,
   type NormalizedViewState,
 } from "./view-state.js";
+import { filterVisibleVisualOverlays } from "./visual-overlays.js";
 
 export type {
+  BuildingVisual,
+  BuildingVisualState,
+  BuildingVisualType,
+  FindEffectResource,
+  FindEffectVisual,
   HexWorldViewState,
-  LumberCampVisual,
-  LumberCampVisualState,
 } from "./view-state.js";
 
 const HEX_SIZE = 42;
@@ -303,10 +310,45 @@ function drawWoodFind(target: Container, coord: HexCoord): void {
   target.addChild(marker);
 }
 
+function drawStoneFind(target: Container, coord: HexCoord): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const marker = new Container();
+  marker.position.set(center.x, center.y + 7);
+
+  const glow = new Graphics().circle(0, 0, 20).fill({ color: 0xd9d3a2, alpha: 0.14 });
+  const stones = new Graphics()
+    .poly([-15, 7, -10, -5, -2, -8, 3, 7])
+    .fill({ color: 0x929a97 })
+    .stroke({ color: 0x4c5657, width: 1 })
+    .poly([-2, 8, 3, -7, 12, -10, 17, 7])
+    .fill({ color: 0x737e81 })
+    .stroke({ color: 0x424c50, width: 1 })
+    .poly([3, -7, 12, -10, 8, -1])
+    .fill({ color: 0xb9bfba, alpha: 0.62 });
+  const spark = new Graphics()
+    .moveTo(0, -14)
+    .lineTo(0, -22)
+    .moveTo(-11, -10)
+    .lineTo(-16, -16)
+    .moveTo(12, -9)
+    .lineTo(18, -14)
+    .stroke({ color: 0xf4dc85, width: 1.8, alpha: 0.82 });
+  marker.addChild(glow, stones, spark);
+  target.addChild(marker);
+}
+
+function drawFindEffect(target: Container, coord: HexCoord, resource: FindEffectResource): void {
+  if (resource === "stone") {
+    drawStoneFind(target, coord);
+    return;
+  }
+  drawWoodFind(target, coord);
+}
+
 function drawLumberCamp(
   target: Container,
   coord: HexCoord,
-  state: LumberCampVisualState,
+  state: BuildingVisualState,
 ): void {
   const center = axialToPixel(coord, HEX_SIZE);
   const camp = new Container();
@@ -378,27 +420,103 @@ function drawLumberCamp(
   target.addChild(camp);
 }
 
-function drawLumberVisuals(
+function drawQuarry(target: Container, coord: HexCoord, state: BuildingVisualState): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const quarry = new Container();
+  quarry.position.set(center.x, center.y + 4);
+
+  const shadow = new Graphics().ellipse(0, 12, 34, 14).fill({ color: 0x090c0e, alpha: 0.46 });
+  const rim = new Graphics()
+    .ellipse(0, 8, 31, 14)
+    .fill({ color: 0x747a72 })
+    .stroke({ color: 0xaaa98f, width: 1.4, alpha: 0.74 })
+    .ellipse(0, 7, 22, 10)
+    .fill({ color: state === "construction" ? 0x4f5552 : 0x30383a });
+  quarry.addChild(shadow, rim);
+
+  if (state === "construction") {
+    const stakes = new Graphics()
+      .rect(-23, -7, 3, 20)
+      .fill({ color: 0x8b6138 })
+      .rect(20, -7, 3, 20)
+      .fill({ color: 0x8b6138 })
+      .moveTo(-21, -3)
+      .lineTo(21, 9)
+      .moveTo(-21, 9)
+      .lineTo(21, -3)
+      .stroke({ color: 0xd1a14f, width: 1.7, alpha: 0.9 });
+    const looseStone = new Graphics()
+      .poly([-15, 11, -9, 0, -2, 4, 2, 12])
+      .fill({ color: 0x929a98 })
+      .poly([7, 11, 11, 1, 19, 5, 21, 12])
+      .fill({ color: 0x697477 });
+    quarry.addChild(stakes, looseStone);
+    target.addChild(quarry);
+    return;
+  }
+
+  const cutFaces = new Graphics()
+    .poly([-21, 4, -12, -5, -5, 2, -8, 11])
+    .fill({ color: 0x687276 })
+    .poly([-7, 10, -3, -2, 7, -6, 11, 9])
+    .fill({ color: 0x535f64 })
+    .poly([10, 9, 14, -1, 22, 4, 24, 11])
+    .fill({ color: 0x7c8583 });
+  const hoist = new Graphics()
+    .moveTo(-17, 7)
+    .lineTo(-10, -22)
+    .lineTo(0, -28)
+    .lineTo(11, -21)
+    .lineTo(18, 7)
+    .moveTo(-10, -22)
+    .lineTo(11, -21)
+    .stroke({ color: 0x6b472b, width: 4 })
+    .moveTo(1, -24)
+    .lineTo(1, 1)
+    .stroke({ color: 0x2e3333, width: 1.7 })
+    .roundRect(-5, 0, 12, 8, 2)
+    .fill({ color: 0x9a7550 })
+    .stroke({ color: 0x4d3929, width: 1 });
+  const blocks = new Graphics()
+    .rect(18, 4, 10, 8)
+    .fill({ color: 0xa3a9a3 })
+    .stroke({ color: 0x565f60, width: 1 })
+    .rect(23, -4, 10, 8)
+    .fill({ color: 0x858e8b })
+    .stroke({ color: 0x4e5859, width: 1 });
+  quarry.addChild(cutFaces, hoist, blocks);
+  target.addChild(quarry);
+}
+
+function drawDataDrivenVisuals(
   target: Container,
   world: WorldSnapshot,
-  lumberCamps: readonly LumberCampVisual[],
-  woodFindTileKeys: readonly string[],
+  buildings: readonly BuildingVisual[],
+  findEffects: readonly FindEffectVisual[],
 ): void {
-  const visible = new Set(world.visibleTileKeys);
   const tileCoordinates = new Map(world.tiles.map((tile) => [axialKey(tile.coord), tile.coord]));
+  const overlays = filterVisibleVisualOverlays(
+    buildings,
+    findEffects,
+    world.visibleTileKeys,
+    [...tileCoordinates.keys()],
+  );
 
-  for (const key of new Set(woodFindTileKeys)) {
-    const coord = tileCoordinates.get(key);
-    if (coord !== undefined && visible.has(key)) {
-      drawWoodFind(target, coord);
+  for (const effect of overlays.findEffects) {
+    const coord = tileCoordinates.get(effect.tileKey);
+    if (coord !== undefined) {
+      drawFindEffect(target, coord, effect.resource);
     }
   }
 
-  const campsByTile = new Map(lumberCamps.map((camp) => [camp.tileKey, camp]));
-  for (const camp of campsByTile.values()) {
-    const coord = tileCoordinates.get(camp.tileKey);
-    if (coord !== undefined && visible.has(camp.tileKey)) {
-      drawLumberCamp(target, coord, camp.state);
+  for (const building of overlays.buildings) {
+    const coord = tileCoordinates.get(building.tileKey);
+    if (coord !== undefined) {
+      if (building.type === "quarry") {
+        drawQuarry(target, coord, building.state);
+      } else {
+        drawLumberCamp(target, coord, building.state);
+      }
     }
   }
 }
@@ -559,11 +677,11 @@ function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { la
 
   const landmarkLayer = new Container();
   drawWorldSiteVisuals(landmarkLayer, world);
-  drawLumberVisuals(
+  drawDataDrivenVisuals(
     landmarkLayer,
     world,
-    viewState.lumberCamps,
-    viewState.woodFindTileKeys,
+    viewState.buildings,
+    viewState.findEffects,
   );
   if (visible.has(axialKey(world.village.coord))) {
     drawVillage(landmarkLayer, world.village.coord);

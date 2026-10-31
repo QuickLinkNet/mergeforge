@@ -326,6 +326,12 @@ a {
   color: #acd29f;
 }
 
+.quarry-symbol {
+  background: rgb(125 144 151 / 16%);
+  border-color: rgb(162 181 184 / 32%);
+  color: #c2d1ce;
+}
+
 .build-preview {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

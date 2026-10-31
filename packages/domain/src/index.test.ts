@@ -7,7 +7,11 @@ import {
   createInitialGameState,
   hexKey,
   startLumberCamp,
+  startQuarry,
   LUMBER_CAMP_BUILD_MS,
+  MAX_STONE_STORAGE,
+  MAX_WOOD_STORAGE,
+  QUARRY_BUILD_MS,
   WORLD_PULSE_MS,
   type GameState,
   type HexTile,
@@ -64,6 +68,31 @@ describe("road building", () => {
     }
 
     expect(overlappingReveal.state.resources.wood).toBe(11);
+    expect(overlappingReveal.state.claimedSurfaceFindTileKeys).toEqual(["2,0"]);
+  });
+
+  it("grants data-driven stone finds exactly once and respects storage capacity", () => {
+    const world = createWorld([], [
+      {
+        id: "surface-find:stone:2,0",
+        resourceType: "stone",
+        tileKey: "2,0",
+        amount: 4,
+      },
+    ]);
+    const initial: GameState = {
+      ...createInitialGameState(world),
+      resources: { wood: 12, stone: 149 },
+    };
+    const first = buildRoad(initial, { q: 1, r: 0 });
+    if (!first.ok) throw new Error("Expected first road build to succeed.");
+
+    expect(first.state.resources).toEqual({ wood: 11, stone: MAX_STONE_STORAGE });
+    expect(first.state.claimedSurfaceFindTileKeys).toEqual(["2,0"]);
+
+    const overlappingReveal = buildRoad(first.state, { q: 1, r: -1 });
+    if (!overlappingReveal.ok) throw new Error("Expected overlapping road.");
+    expect(overlappingReveal.state.resources.stone).toBe(MAX_STONE_STORAGE);
     expect(overlappingReveal.state.claimedSurfaceFindTileKeys).toEqual(["2,0"]);
   });
 
@@ -283,6 +312,109 @@ describe("lumber camp construction and production", () => {
     expect(() => advanceTime(state, 4_999)).toThrow(RangeError);
     expect(() => advanceTime(state, Number.NaN)).toThrow(RangeError);
   });
+
+  it("caps offline wood production without leaving a production backlog", () => {
+    const construction = startLumberCamp(
+      createLumberCampReadyState(),
+      { q: 2, r: 0 },
+      0,
+    );
+    if (!construction.ok) throw new Error("Expected lumber camp construction.");
+    const nearlyFull: GameState = {
+      ...construction.state,
+      resources: { ...construction.state.resources, wood: MAX_WOOD_STORAGE - 1 },
+    };
+
+    const settled = advanceTime(nearlyFull, 10 * WORLD_PULSE_MS);
+    expect(settled.resources.wood).toBe(MAX_WOOD_STORAGE);
+    expect(settled.buildings[0]?.lastProductionAtMs).toBe(10 * WORLD_PULSE_MS);
+  });
+});
+
+describe("quarry construction and production", () => {
+  it("starts on a connected stone site and reserves 3 wood and 1 stone", () => {
+    const ready = createQuarryReadyState();
+    const result = startQuarry(ready, { q: 2, r: 0 }, 1_000);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.resources).toEqual({ wood: 7, stone: 5 });
+    expect(result.state.buildings).toEqual([
+      {
+        id: "quarry:2,0",
+        type: "quarry",
+        tileKey: "2,0",
+        status: "constructing",
+        startedAtMs: 1_000,
+        completesAtMs: 1_000 + QUARRY_BUILD_MS,
+        lastProductionAtMs: 1_000,
+      },
+    ]);
+  });
+
+  it("produces one stone on completion and catches up offline once", () => {
+    const construction = startQuarry(createQuarryReadyState(), { q: 2, r: 0 }, 0);
+    if (!construction.ok) throw new Error("Expected quarry construction.");
+
+    const completed = advanceTime(construction.state, QUARRY_BUILD_MS);
+    expect(completed.buildings[0]?.status).toBe("active");
+    expect(completed.resources.stone).toBe(6);
+
+    const caughtUp = advanceTime(completed, 6 * WORLD_PULSE_MS + WORLD_PULSE_MS / 2);
+    expect(caughtUp.resources.stone).toBe(11);
+    expect(caughtUp.buildings[0]?.lastProductionAtMs).toBe(6 * WORLD_PULSE_MS);
+    expect(advanceTime(caughtUp, caughtUp.lastAdvancedAtMs)).toBe(caughtUp);
+  });
+
+  it("caps stone production and consumes elapsed pulses without backlog", () => {
+    const construction = startQuarry(createQuarryReadyState(), { q: 2, r: 0 }, 0);
+    if (!construction.ok) throw new Error("Expected quarry construction.");
+    const nearlyFull: GameState = {
+      ...construction.state,
+      resources: { ...construction.state.resources, stone: MAX_STONE_STORAGE - 1 },
+    };
+
+    const settled = advanceTime(nearlyFull, 10 * WORLD_PULSE_MS);
+    expect(settled.resources.stone).toBe(MAX_STONE_STORAGE);
+    expect(settled.buildings[0]?.lastProductionAtMs).toBe(10 * WORLD_PULSE_MS);
+  });
+
+  it("rejects invalid quarry commands without breaking the shared build slot", () => {
+    const initial = createInitialGameState(createWorld());
+    expect(startQuarry(initial, { q: 9, r: 9 }, 0)).toMatchObject({
+      ok: false,
+      reason: "tile-not-found",
+    });
+    expect(startQuarry(initial, { q: 1, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "not-stone-site",
+    });
+    expect(startQuarry(initial, { q: 2, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "road-required",
+    });
+
+    const ready = createQuarryReadyState();
+    const poor: GameState = { ...ready, resources: { wood: 2, stone: 0 } };
+    expect(startQuarry(poor, { q: 2, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "insufficient-resources",
+    });
+
+    const readyWithoutForestRoad = createQuarryReadyState(["-1,0"]);
+    const forestRoad = buildRoad(readyWithoutForestRoad, { q: -1, r: 0 });
+    if (!forestRoad.ok) throw new Error("Expected connected forest road.");
+    const quarry = startQuarry(forestRoad.state, { q: 2, r: 0 }, 0);
+    if (!quarry.ok) throw new Error("Expected quarry construction.");
+    expect(startLumberCamp(quarry.state, { q: -1, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "build-slot-occupied",
+    });
+    expect(startQuarry(quarry.state, { q: 2, r: 0 }, 0)).toMatchObject({
+      ok: false,
+      reason: "already-built",
+    });
+  });
 });
 
 function createLumberCampReadyState(): GameState {
@@ -294,7 +426,19 @@ function createLumberCampReadyState(): GameState {
   return forestRoad.state;
 }
 
-function createWorld(forestTileKeys: readonly string[] = []): WorldSnapshot {
+function createQuarryReadyState(forestTileKeys: readonly string[] = []): GameState {
+  const initial = createInitialGameState(createWorld(forestTileKeys));
+  const firstRoad = buildRoad(initial, { q: 1, r: 0 });
+  if (!firstRoad.ok) throw new Error("Expected first road.");
+  const stoneRoad = buildRoad(firstRoad.state, { q: 2, r: 0 });
+  if (!stoneRoad.ok) throw new Error("Expected stone road.");
+  return stoneRoad.state;
+}
+
+function createWorld(
+  forestTileKeys: readonly string[] = [],
+  surfaceFinds: WorldSnapshot["surfaceFinds"] = [],
+): WorldSnapshot {
   const terrainOverrides = new Map<string, Terrain>([["0,1", "water"]]);
   for (const tileKey of forestTileKeys) terrainOverrides.set(tileKey, "forest");
   const tiles: HexTile[] = [];
@@ -323,5 +467,6 @@ function createWorld(forestTileKeys: readonly string[] = []): WorldSnapshot {
     visibleTileKeys: ["0,0", "1,0", "1,-1", "0,-1", "-1,0", "-1,1", "0,1"],
     resourceSites: [{ id: "stone:2,0", type: "stone", tileKey: "2,0" }],
     relaySite: { id: "relay:local:2,-2", tileKey: "2,-2" },
+    surfaceFinds,
   };
 }
