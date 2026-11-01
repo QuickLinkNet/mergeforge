@@ -22,6 +22,7 @@ import {
   hasCompletedChapter,
   hasPrologueEvent,
   movePathfinder,
+  rotateSignalwerkRune,
   startPathfinderTraining,
   startLumberCamp,
   startQuarry,
@@ -44,6 +45,11 @@ import {
   type FindEffectVisual,
   type MountedHexWorld,
 } from '@mergeforge/renderer-pixi';
+import {
+  createSignalwerkPuzzle,
+  tileConnections,
+  type SignalDirection,
+} from '@mergeforge/signalwerk';
 import { generateWorld } from '@mergeforge/worldgen';
 import { loadGame, saveGame } from './persistence';
 
@@ -167,6 +173,13 @@ function formatRemaining(milliseconds: number): string {
   return `${minutesPart}:${secondsPart}`;
 }
 
+const directionCopy: Readonly<Record<SignalDirection, string>> = {
+  north: 'Norden',
+  east: 'Osten',
+  south: 'Süden',
+  west: 'Westen',
+};
+
 function nextSettlementAt(state: GameState): number {
   const surveyTent = state.buildings.find((building) => building.type === 'survey-tent');
   const maxCharges = surveyTent?.status === 'active'
@@ -206,6 +219,7 @@ export function App() {
   const [systemNotice, setSystemNotice] = useState<string | null>(bootstrap.ok ? bootstrap.notice : null);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
   const [highlightedFindEffects, setHighlightedFindEffects] = useState<readonly FindEffectVisual[]>([]);
+  const [signalwerkOpen, setSignalwerkOpen] = useState(false);
 
   const selectedWorldTile = useMemo(
     () =>
@@ -226,6 +240,14 @@ export function App() {
   const pathfinder = gameState?.units.find((unit) => unit.type === 'pathfinder');
   const surveyTent = gameState?.buildings.find((building) => building.type === 'survey-tent');
   const relayDiscovered = gameState === null ? false : hasPrologueEvent(gameState, 'relay_discovered');
+  const signalwerkUnlocked = gameState === null ? false : hasCompletedChapter(gameState, 5);
+  const signalwerkSolved = gameState?.signalwerk.solved ?? false;
+  const isRelaySelected =
+    selectedTile?.key === gameState?.world.relaySite.tileKey && signalwerkUnlocked;
+  const signalwerkPuzzle = useMemo(
+    () => gameState === null ? null : createSignalwerkPuzzle(gameState.signalwerk.seed),
+    [gameState?.signalwerk.seed],
+  );
   const villageTileKey = gameState === null
     ? null
     : `${gameState.world.village.coord.q},${gameState.world.village.coord.r}`;
@@ -283,11 +305,12 @@ export function App() {
       || trainingPreview !== null
       || surveyTentPreview !== null
       || surveyPreview !== null
+      || isRelaySelected
     ) {
       return null;
     }
     return buildRoad(gameState, selectedTile.coord);
-  }, [gameState, isLumberCampSite, isQuarrySite, isVillageSelected, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview]);
+  }, [gameState, isLumberCampSite, isQuarrySite, isRelaySelected, isVillageSelected, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview]);
   const lumberCampPreview = useMemo(() => {
     if (gameState === null || selectedTile === null || !isLumberCampSite) return null;
     return startLumberCamp(gameState, selectedTile.coord, commandNowMs);
@@ -420,6 +443,15 @@ export function App() {
     const timer = window.setTimeout(() => setEventMessage(null), 4_000);
     return () => window.clearTimeout(timer);
   }, [eventMessage]);
+
+  useEffect(() => {
+    if (!signalwerkOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSignalwerkOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [signalwerkOpen]);
 
   useEffect(() => {
     const host = mapHostRef.current;
@@ -590,6 +622,16 @@ export function App() {
     if (result.ok) setEventMessage('Vermesserzelt beauftragt · Fertigstellung in 10:00');
   }, [commandNowMs, gameState]);
 
+  const rotateRune = useCallback((index: number) => {
+    if (gameState === null) return;
+    const wasSolved = gameState.signalwerk.solved;
+    const result = rotateSignalwerkRune(gameState, index);
+    setGameState(result.state);
+    if (result.ok && !wasSolved && result.state.signalwerk.solved) {
+      setEventMessage('Signalwerk gelöst · Resonanzkern geborgen');
+    }
+  }, [gameState]);
+
   const cancelSelection = useCallback(() => setSelectedTile(null), []);
 
   const generatorVersion = gameState?.world.generatorVersion ?? 'unbekannt';
@@ -604,7 +646,7 @@ export function App() {
   const chapterFiveComplete = gameState === null ? false : hasCompletedChapter(gameState, 5);
   const surveyTentActive = surveyTent?.status === 'active';
   const relayVisible = gameState?.visibleTileKeys.includes(gameState.world.relaySite.tileKey) ?? false;
-  const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : 5;
+  const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : !chapterFiveComplete ? 5 : 6;
   const chapterNumber = !chapterComplete ? 1 : !hasLumberCamp ? 2 : prologueChapter;
   const chapterName = chapterNumber === 1
     ? 'Gründungsring'
@@ -614,7 +656,9 @@ export function App() {
         ? 'Steinlinie'
         : chapterNumber === 4
           ? 'Weggabel'
-          : 'Totes Signal';
+          : chapterNumber === 5
+            ? 'Totes Signal'
+            : 'Resonanzkern';
   const missionTitle = chapterNumber === 1
     ? 'Ein Weg ins Unbekannte'
     : chapterNumber === 2
@@ -624,7 +668,9 @@ export function App() {
         : chapterNumber === 4
           ? 'Die Weggabel'
           : chapterFiveComplete
-            ? 'Das Relais ist gefunden'
+            ? signalwerkSolved
+              ? 'Resonanzkern geborgen'
+              : 'Das Signalwerk'
             : 'Das tote Signal';
   const missionDescription = chapterNumber === 1
     ? 'Wählt ein sichtbares Feld neben dem Dorf oder einer Straße. Jede Straße öffnet den Nebel entlang eures Weges.'
@@ -635,7 +681,9 @@ export function App() {
         : chapterNumber === 4
           ? 'Baut das Straßennetz auf acht Felder aus und aktiviert das Vermesserzelt.'
           : chapterFiveComplete
-            ? 'Der M2-Prolog ist abgeschlossen. Die Ruine wartet auf das Signalwerk aus M3.'
+            ? signalwerkSolved
+              ? 'Der einzigartige Kern liegt sicher im Inventar und bleibt bis zu einem späteren Issue uninstalliert.'
+              : 'Wählt das entdeckte Relais und richtet im Signalwerk eine durchgehende Energieverbindung ein.'
             : 'Folgt Straße und Wegfinder tiefer in den Nebel, bis die verlassene Relaisstation sichtbar wird.';
   const missionObjective = chapterNumber === 1
     ? 'Zwei Straßenfelder errichten'
@@ -650,7 +698,9 @@ export function App() {
             ? 'Acht Straßenfelder verbinden'
             : 'Vermesserzelt aktivieren'
           : chapterFiveComplete
-            ? 'M2-Prolog abgeschlossen'
+            ? signalwerkSolved
+              ? 'Uninstallierten Resonanzkern sichern'
+              : 'Signalwerk lösen'
             : 'Verlassenes Relais aufdecken';
   const missionProgress = chapterNumber === 1
     ? `${chapterProgress} / ${CHAPTER_ONE_ROAD_TARGET}`
@@ -662,8 +712,10 @@ export function App() {
           ? roadsBuilt < 8
             ? `${Math.min(roadsBuilt, 8)} / 8`
             : `${surveyTentActive ? 1 : 0} / 1`
-          : `${relayDiscovered && relayVisible ? 1 : 0} / 1`;
-  const missionComplete = chapterNumber === 5 && chapterFiveComplete;
+          : chapterFiveComplete
+            ? `${signalwerkSolved ? 1 : 0} / 1`
+            : `${relayDiscovered && relayVisible ? 1 : 0} / 1`;
+  const missionComplete = chapterNumber === 6 && signalwerkSolved;
   const missionNote = chapterNumber === 1
     ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
     : chapterNumber === 2
@@ -673,7 +725,9 @@ export function App() {
         : chapterNumber === 4
           ? `Straßen ${Math.min(roadsBuilt, 8)} / 8 · Vermesserzelt ${surveyTentActive ? '✓' : '◇'}`
           : chapterFiveComplete
-            ? 'Signalwerk, Resonanzkern und Reparatur folgen erst in M3.'
+            ? signalwerkSolved
+              ? 'Kern 1 / 1 · nicht installiert · keine Relaisaktivierung in diesem Issue.'
+              : 'Das 5×5-Raster bleibt beim Schließen und nach einem Reload unverändert erhalten.'
             : 'Das Relais wird erst sichtbar, wenn sein Hex durch Straße oder Vermessung aufgedeckt wurde.';
 
   const buildingRemainingMs =
@@ -747,6 +801,12 @@ export function App() {
               <strong>{pathfinder.charges}/{maxPathfinderCharges}</strong>
             </span>
           )}
+          {gameState?.inventory.resonanceCore === 1 && (
+            <span className="resource core" aria-label="Resonanzkern: 1, nicht installiert">
+              <i className="resource-dot core" aria-hidden="true" /><span>Resonanzkern</span>
+              <strong>1</strong>
+            </span>
+          )}
           <span className={`chapter-status ${missionComplete ? 'complete' : ''}`}>
             Kapitel {chapterNumber} · {chapterName}
           </span>
@@ -764,6 +824,29 @@ export function App() {
         </div>
         <p className="mission-note">{missionNote}</p>
       </section>
+
+      {isRelaySelected && (
+        <section className="build-card relay-card" aria-labelledby="relay-title">
+          <div className="build-card-heading">
+            <span className="road-symbol relay-symbol" aria-hidden="true">◉</span>
+            <span><small>Verlassenes Relais</small><h2 id="relay-title">{signalwerkSolved ? 'Signalwerk stabil' : 'Signalwerk zugänglich'}</h2></span>
+          </div>
+          <dl className="build-preview">
+            <div><dt>Raster</dt><dd>5 × 5</dd></div>
+            <div><dt>Status</dt><dd>{signalwerkSolved ? 'Gelöst' : 'Unterbrochen'}</dd></div>
+            <div><dt>Kern</dt><dd>{gameState?.inventory.resonanceCore ?? 0} / 1</dd></div>
+          </dl>
+          <p className="build-explanation">
+            {signalwerkSolved
+              ? 'Der Resonanzkern ist geborgen, aber noch nicht im Relais installiert.'
+              : 'Dreht die Runenplatten, bis blaue Quelle und goldenes Ziel verbunden sind.'}
+          </p>
+          <div className="build-actions">
+            <button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button>
+            <button className="primary-action" type="button" onClick={() => setSignalwerkOpen(true)}>{signalwerkSolved ? 'Lösung ansehen' : 'Signalwerk öffnen'}</button>
+          </div>
+        </section>
+      )}
 
       {trainingPreview !== null && (
         <section className="build-card exploration-card" aria-labelledby="training-title">
@@ -994,6 +1077,63 @@ export function App() {
         </section>
       )}
       {eventMessage !== null && <div className="event-toast" role="status">{eventMessage}</div>}
+
+      {signalwerkOpen && gameState !== null && signalwerkPuzzle !== null && (
+        <section className="signalwerk-backdrop" role="dialog" aria-modal="true" aria-labelledby="signalwerk-title">
+          <div className="signalwerk-panel">
+            <header className="signalwerk-header">
+              <div>
+                <span className="signalwerk-kicker">Relaismodul · 5×5</span>
+                <h2 id="signalwerk-title">Signalwerk</h2>
+                <p>{signalwerkSolved ? 'Energiefluss stabil. Der einzigartige Kern wurde geborgen.' : 'Jede Platte dreht sich um 90°. Verbindet die blaue Quelle links mit dem goldenen Ziel rechts.'}</p>
+              </div>
+              <button className="signalwerk-close" type="button" aria-label="Signalwerk schließen" onClick={() => setSignalwerkOpen(false)}>×</button>
+            </header>
+
+            <div className={`signalwerk-stage ${signalwerkSolved ? 'solved' : ''}`}>
+              <span className="signal-terminal source-terminal" aria-hidden="true"><i />Quelle</span>
+              <div className="signalwerk-grid" role="grid" aria-label="Signalwerk Runenraster">
+                {signalwerkPuzzle.tiles.map((tile, index) => {
+                  const rotation = gameState.signalwerk.rotations[index] ?? 0;
+                  const connections = tileConnections(tile, rotation);
+                  const isSource = index === signalwerkPuzzle.sourceIndex;
+                  const isTarget = index === signalwerkPuzzle.targetIndex;
+                  const connectionLabel = connections.map((direction) => directionCopy[direction]).join(', ');
+                  return (
+                    <button
+                      className={`signal-rune ${isSource ? 'source-rune' : ''} ${isTarget ? 'target-rune' : ''}`}
+                      key={index}
+                      type="button"
+                      role="gridcell"
+                      aria-label={`Rune ${index + 1}${isSource ? ', Quelle' : ''}${isTarget ? ', Ziel' : ''}, ${rotation * 90} Grad, offen nach ${connectionLabel}`}
+                      disabled={signalwerkSolved}
+                      onClick={() => rotateRune(index)}
+                    >
+                      <span className="rune-lines" aria-hidden="true">
+                        {connections.map((direction) => <i className={`rune-line ${direction}`} key={direction} />)}
+                        <b />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="signal-terminal target-terminal" aria-hidden="true">Ziel<i /></span>
+            </div>
+
+            <footer className="signalwerk-footer">
+              {signalwerkSolved ? (
+                <div className="core-result" role="status">
+                  <span className="core-glyph" aria-hidden="true">◈</span>
+                  <span><small>Inventar</small><strong>1 Resonanzkern · nicht installiert</strong></span>
+                </div>
+              ) : (
+                <p>Fortschritt wird nach jeder Drehung automatisch gespeichert. Schließen setzt das Raster nicht zurück.</p>
+              )}
+              <button className="secondary-action signalwerk-done" type="button" onClick={() => setSignalwerkOpen(false)}>Zurück zur Karte</button>
+            </footer>
+          </div>
+        </section>
+      )}
 
       <aside className="world-badge" aria-label="Weltdaten">
         <span className="signal-dot" aria-hidden="true" />

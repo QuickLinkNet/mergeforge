@@ -1,3 +1,10 @@
+import {
+  createSignalwerkPuzzle,
+  isSignalwerkSolved,
+  rotateSignalwerkTile,
+  type SignalRotation,
+} from "@mergeforge/signalwerk";
+
 export type Terrain = "meadow" | "forest" | "hills" | "water";
 
 export interface HexCoord {
@@ -105,13 +112,23 @@ export interface Pathfinder {
 export type Unit = Pathfinder;
 
 export type PrologueChapterId = 3 | 4 | 5;
-export type PrologueEventId = "relay_discovered";
+export type PrologueEventId = "relay_discovered" | "signalwerk_solved";
 
 export interface PrologueProgress {
   readonly stoneProductionObserved: boolean;
   readonly pathfinderSurveysCompleted: number;
   readonly completedChapterIds: readonly PrologueChapterId[];
   readonly eventIds: readonly PrologueEventId[];
+}
+
+export interface SignalwerkState {
+  readonly seed: string;
+  readonly rotations: readonly SignalRotation[];
+  readonly solved: boolean;
+}
+
+export interface Inventory {
+  readonly resonanceCore: 0 | 1;
 }
 
 /** Mutable game progress represented as an immutable, serializable value. */
@@ -125,6 +142,8 @@ export interface GameState {
   readonly buildings: readonly Building[];
   readonly units: readonly Unit[];
   readonly prologue: PrologueProgress;
+  readonly signalwerk: SignalwerkState;
+  readonly inventory: Inventory;
   readonly lastAdvancedAtMs: number;
 }
 
@@ -235,7 +254,20 @@ export type StartSurveyTentResult =
       readonly state: GameState;
     };
 
-export const GAME_STATE_SCHEMA_VERSION = 3 as const;
+export type RotateSignalwerkRuneRejection =
+  | "locked"
+  | "already-solved"
+  | "tile-not-found";
+
+export type RotateSignalwerkRuneResult =
+  | { readonly ok: true; readonly state: GameState }
+  | {
+      readonly ok: false;
+      readonly reason: RotateSignalwerkRuneRejection;
+      readonly state: GameState;
+    };
+
+export const GAME_STATE_SCHEMA_VERSION = 4 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -289,6 +321,8 @@ export function axialNeighbors(coord: HexCoord): readonly HexCoord[] {
 /** Creates player progress without modifying the generated world snapshot. */
 export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameState {
   assertTime(nowMs);
+  const signalwerkSeed = `${world.seed}:signalwerk:${world.relaySite.tileKey}`;
+  const signalwerkPuzzle = createSignalwerkPuzzle(signalwerkSeed);
 
   return {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
@@ -305,6 +339,12 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
       completedChapterIds: [],
       eventIds: [],
     },
+    signalwerk: {
+      seed: signalwerkSeed,
+      rotations: [...signalwerkPuzzle.initialRotations],
+      solved: false,
+    },
+    inventory: { resonanceCore: 0 },
     lastAdvancedAtMs: nowMs,
   };
 }
@@ -321,6 +361,54 @@ export function hasPrologueEvent(
   eventId: PrologueEventId,
 ): boolean {
   return state.prologue.eventIds.includes(eventId);
+}
+
+/** Rotates one Signalwerk rune and awards the unique core on first solution. */
+export function rotateSignalwerkRune(
+  state: GameState,
+  index: number,
+): RotateSignalwerkRuneResult {
+  if (
+    !hasCompletedChapter(state, 5) ||
+    !hasPrologueEvent(state, "relay_discovered")
+  ) {
+    return rotateSignalwerkRuneRejected(state, "locked");
+  }
+  if (state.signalwerk.solved) {
+    return rotateSignalwerkRuneRejected(state, "already-solved");
+  }
+  if (
+    !Number.isSafeInteger(index) ||
+    index < 0 ||
+    index >= state.signalwerk.rotations.length
+  ) {
+    return rotateSignalwerkRuneRejected(state, "tile-not-found");
+  }
+
+  const puzzle = createSignalwerkPuzzle(state.signalwerk.seed);
+  const rotations = rotateSignalwerkTile(state.signalwerk.rotations, index);
+  const solved = isSignalwerkSolved(puzzle, rotations);
+  const eventIds =
+    solved && !state.prologue.eventIds.includes("signalwerk_solved")
+      ? [...state.prologue.eventIds, "signalwerk_solved" as const]
+      : state.prologue.eventIds;
+
+  return {
+    ok: true,
+    state: {
+      ...state,
+      signalwerk: {
+        ...state.signalwerk,
+        rotations,
+        solved,
+      },
+      inventory: solved ? { resonanceCore: 1 } : state.inventory,
+      prologue:
+        eventIds === state.prologue.eventIds
+          ? state.prologue
+          : { ...state.prologue, eventIds },
+    },
+  };
 }
 
 /**
@@ -986,6 +1074,13 @@ function surveyTentRejected(
   state: GameState,
   reason: StartSurveyTentRejection,
 ): StartSurveyTentResult {
+  return { ok: false, reason, state };
+}
+
+function rotateSignalwerkRuneRejected(
+  state: GameState,
+  reason: RotateSignalwerkRuneRejection,
+): RotateSignalwerkRuneResult {
   return { ok: false, reason, state };
 }
 

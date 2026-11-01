@@ -10,6 +10,11 @@ import {
   type Unit,
   type WorldSnapshot,
 } from '@mergeforge/domain';
+import {
+  createSignalwerkPuzzle,
+  isSignalwerkSolved,
+  type SignalRotation,
+} from '@mergeforge/signalwerk';
 
 export const GAME_SAVE_KEY = 'mergeforge.game.v1';
 const SAVE_FORMAT_VERSION = 1;
@@ -40,6 +45,8 @@ interface PersistedStateV1 {
   readonly buildings: readonly Building[];
   readonly units: readonly Unit[];
   readonly prologue: GameState['prologue'];
+  readonly signalwerk: GameState['signalwerk'];
+  readonly inventory: GameState['inventory'];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -59,6 +66,8 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     buildings: state.buildings,
     units: state.units,
     prologue: state.prologue,
+    signalwerk: state.signalwerk,
+    inventory: state.inventory,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -119,6 +128,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     : PATHFINDER_BASE_MAX_CHARGES;
   const units = parseUnits(value.units, tileByKey, new Set(roadTileKeys ?? []), villageTileKey, maxCharges);
   const prologue = parsePrologue(value.prologue);
+  const signalwerk = parseSignalwerk(value.signalwerk, world);
+  const inventory = parseInventory(value.inventory);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -129,6 +140,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     buildings === null ||
     units === null ||
     prologue === null ||
+    signalwerk === null ||
+    inventory === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -163,6 +176,12 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     (prologue.completedChapterIds.includes(5) &&
       (!relayVisible || !prologue.eventIds.includes('relay_discovered')))
   ) return reset(storage, 'corrupt');
+  const signalwerkEvent = prologue.eventIds.includes('signalwerk_solved');
+  if (
+    signalwerk.solved !== signalwerkEvent ||
+    signalwerk.solved !== (inventory.resonanceCore === 1) ||
+    (signalwerk.solved && !prologue.completedChapterIds.includes(5))
+  ) return reset(storage, 'corrupt');
 
   return {
     kind: 'loaded',
@@ -176,6 +195,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
       buildings,
       units,
       prologue,
+      signalwerk,
+      inventory,
       lastAdvancedAtMs,
     },
   };
@@ -320,20 +341,50 @@ function parsePrologue(value: unknown): GameState['prologue'] | null {
   const eventIds = value.eventIds;
   if (
     completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5) ||
-    eventIds.some((eventId) => eventId !== 'relay_discovered') ||
+    eventIds.some((eventId) => eventId !== 'relay_discovered' && eventId !== 'signalwerk_solved') ||
     new Set(completedChapterIds).size !== completedChapterIds.length ||
     new Set(eventIds).size !== eventIds.length
   ) return null;
 
   const completedSequence = completedChapterIds.join(',');
   if (!['', '3', '3,4', '3,4,5'].includes(completedSequence)) return null;
+  const eventSequence = eventIds.join(',');
+  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved'].includes(eventSequence)) {
+    return null;
+  }
 
   return {
     stoneProductionObserved: value.stoneProductionObserved,
     pathfinderSurveysCompleted: value.pathfinderSurveysCompleted,
     completedChapterIds: [...completedChapterIds] as (3 | 4 | 5)[],
-    eventIds: [...eventIds] as 'relay_discovered'[],
+    eventIds: [...eventIds] as ('relay_discovered' | 'signalwerk_solved')[],
   };
+}
+
+function parseSignalwerk(
+  value: unknown,
+  world: WorldSnapshot,
+): GameState['signalwerk'] | null {
+  const expectedSeed = `${world.seed}:signalwerk:${world.relaySite.tileKey}`;
+  if (
+    !isRecord(value) ||
+    value.seed !== expectedSeed ||
+    !Array.isArray(value.rotations) ||
+    value.rotations.length !== 25 ||
+    value.rotations.some((rotation) =>
+      rotation !== 0 && rotation !== 1 && rotation !== 2 && rotation !== 3
+    ) ||
+    typeof value.solved !== 'boolean'
+  ) return null;
+  const rotations = [...value.rotations] as SignalRotation[];
+  const puzzle = createSignalwerkPuzzle(expectedSeed);
+  if (isSignalwerkSolved(puzzle, rotations) !== value.solved) return null;
+  return { seed: expectedSeed, rotations, solved: value.solved };
+}
+
+function parseInventory(value: unknown): GameState['inventory'] | null {
+  if (!isRecord(value) || (value.resonanceCore !== 0 && value.resonanceCore !== 1)) return null;
+  return { resonanceCore: value.resonanceCore };
 }
 
 function parseTimestamp(value: unknown): number | null {

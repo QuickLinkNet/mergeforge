@@ -6,6 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const task = process.argv[2];
 
 const projects = {
+  signalwerk: path.join(root, "packages", "signalwerk"),
   domain: path.join(root, "packages", "domain"),
   worldgen: path.join(root, "packages", "worldgen"),
   renderer: path.join(root, "packages", "renderer-pixi"),
@@ -40,6 +41,7 @@ function runNode(script, args, cwd) {
 }
 
 async function typecheck() {
+  await runNode(tools.tsc, ["-p", "tsconfig.json"], projects.signalwerk);
   await runNode(tools.tsc, ["-p", "tsconfig.json"], projects.domain);
   await runNode(tools.tsc, ["-p", "tsconfig.json"], projects.worldgen);
   await runNode(tools.tsc, ["-p", "tsconfig.json", "--noEmit"], projects.renderer);

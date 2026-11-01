@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createSignalwerkPuzzle } from '@mergeforge/signalwerk';
 import { App } from './App';
 import { GAME_SAVE_KEY } from './persistence';
 
@@ -30,6 +31,11 @@ vi.mock('@mergeforge/worldgen', () => ({
       forest(2, 0),
       hills(3, 0),
       meadow(2, -1),
+      meadow(4, 0),
+      meadow(5, 0),
+      meadow(6, 0),
+      meadow(7, 0),
+      meadow(8, 0),
       meadow(1, -1),
       meadow(0, -1),
       meadow(-1, 0),
@@ -68,6 +74,44 @@ async function renderReadyApp() {
     expect(screen.queryByText('Genesis wird kartiert')).toBeNull();
   });
   return view;
+}
+
+function seedSignalwerkReadySave() {
+  const signalwerkSeed = 'mergeforge-genesis-001:signalwerk:8,0';
+  const puzzle = createSignalwerkPuzzle(signalwerkSeed);
+  window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify({
+    formatVersion: 1,
+    gameSchemaVersion: 4,
+    world: { seed: 'mergeforge-genesis-001', generatorVersion: '1.0.0', radius: 12 },
+    resources: { wood: 20, stone: 12 },
+    roadTileKeys: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '8,0'],
+    visibleTileKeys: [...visibleTileKeys, '2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '8,0'],
+    claimedSurfaceFindTileKeys: [],
+    buildings: [
+      {
+        id: 'lumber-camp:2,0', type: 'lumber-camp', tileKey: '2,0', status: 'active',
+        startedAtMs: 0, completesAtMs: 0, lastProductionAtMs: 0,
+      },
+      {
+        id: 'survey-tent:0,0', type: 'survey-tent', tileKey: '0,0', status: 'active',
+        startedAtMs: 0, completesAtMs: 0,
+      },
+    ],
+    units: [{
+      id: 'pathfinder', type: 'pathfinder', status: 'active', tileKey: '8,0', charges: 1,
+      startedAtMs: 0, completesAtMs: 0, lastChargeAtMs: 0,
+    }],
+    prologue: {
+      stoneProductionObserved: true,
+      pathfinderSurveysCompleted: 1,
+      completedChapterIds: [3, 4, 5],
+      eventIds: ['relay_discovered'],
+    },
+    signalwerk: { seed: signalwerkSeed, rotations: puzzle.initialRotations, solved: false },
+    inventory: { resonanceCore: 0 },
+    lastAdvancedAtMs: 0,
+  }));
+  return puzzle;
 }
 
 describe('MERGEFORGE web shell', () => {
@@ -210,6 +254,38 @@ describe('MERGEFORGE web shell', () => {
       expect.anything(),
       expect.objectContaining({ wayfinder: expect.objectContaining({ state: 'training', tileKey: '0,0' }) }),
     );
+
+    view.unmount();
+  });
+
+  it('opens, solves, and persists Signalwerk without duplicating the resonance core', async () => {
+    const puzzle = seedSignalwerkReadySave();
+    const view = await renderReadyApp();
+    const selectHex = rendererHarness.onHexSelect;
+
+    expect(screen.getByText('Kapitel 6 · Resonanzkern')).toBeTruthy();
+    act(() => selectHex?.({ key: '8,0', coord: { q: 8, r: 0 } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Signalwerk öffnen' }));
+    expect(screen.getByRole('dialog', { name: 'Signalwerk' })).toBeTruthy();
+
+    const runes = screen.getAllByRole('gridcell');
+    puzzle.solutionRotations.forEach((target, index) => {
+      const current = puzzle.initialRotations[index] ?? 0;
+      const turns = (target - current + 4) % 4;
+      for (let turn = 0; turn < turns; turn += 1) fireEvent.click(runes[index]!);
+    });
+
+    expect(screen.getByText('1 Resonanzkern · nicht installiert')).toBeTruthy();
+    expect(screen.getByLabelText('Resonanzkern: 1, nicht installiert')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('1 / 1');
+    await waitFor(() => {
+      const saved = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as {
+        inventory?: { resonanceCore?: number };
+        prologue?: { eventIds?: string[] };
+      };
+      expect(saved.inventory?.resonanceCore).toBe(1);
+      expect(saved.prologue?.eventIds).toEqual(['relay_discovered', 'signalwerk_solved']);
+    });
 
     view.unmount();
   });

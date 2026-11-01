@@ -10,5 +10,13 @@
     "build": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json",
     "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json",
     "test": "node ../../node_modules/vitest/vitest.mjs run"
+  },
+  "dependencies": {
+    "@mergeforge/signalwerk": "workspace:*"
+  },
+  "dependenciesMeta": {
+    "@mergeforge/signalwerk": {
+      "injected": true
+    }
   }
 }

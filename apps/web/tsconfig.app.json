@@ -7,6 +7,7 @@
     "paths": {
       "@mergeforge/domain": ["../../packages/domain/src/index.ts"],
       "@mergeforge/renderer-pixi": ["../../packages/renderer-pixi/src/index.ts"],
+      "@mergeforge/signalwerk": ["../../packages/signalwerk/src/index.ts"],
       "@mergeforge/worldgen": ["../../packages/worldgen/src/index.ts"]
     }
   },
