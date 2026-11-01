@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       '@mergeforge/domain': workspaceSource('../../packages/domain/src/index.ts'),
       '@mergeforge/renderer-pixi': workspaceSource('../../packages/renderer-pixi/src/index.ts'),
+      '@mergeforge/signalwerk': workspaceSource('../../packages/signalwerk/src/index.ts'),
       '@mergeforge/worldgen': workspaceSource('../../packages/worldgen/src/index.ts'),
     },
   },

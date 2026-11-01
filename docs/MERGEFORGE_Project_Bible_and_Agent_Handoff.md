@@ -95,11 +95,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M2.1 / Issue #9:** garantierte, erreichbare Steinquelle und deterministische Relaisplatzierung als Weltziele umgesetzt
 - **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt
 - **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt
-- **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt; Abnahme läuft
+- **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt und in `dev` integriert
+- **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt; Abnahme läuft
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m2-4-relay-prologue`
-- **Aktuelles Issue:** #12 — Kapitel 3–5 und Relaisentdeckung
+- **Aktueller Arbeitsbranch:** `feature/m3-1-signalwerk`
+- **Aktuelles Issue:** #17 — Signalwerk-Minispiel und einmaliger Resonanzkern
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -197,6 +198,25 @@ Issue #12 schließt M2 mit einem strikt sequenziellen, persistenten Prolog ab:
 - keine Aktivierung des Relais oder Signalnetzes
 - kein Richtungsimpuls, Spielersignal oder Kontakt zu anderen Siedlungen
 - keine neue Ressource, Kampfeinheit, PvE- oder PvP-Mechanik
+
+### Issue #17 — Abnahmegrenze
+
+Issue #17 eröffnet Kapitel 6 als ersten isolierten Minispiel-Slot:
+
+- Das Signalwerk ist erst nach abgeschlossenem Kapitel 5 und `relay_discovered` erreichbar.
+- Ein eigenständiges Pure-TS-Paket erzeugt aus Welt-Seed und Relaisposition ein deterministisches, garantiert lösbares 5×5-Rotationspuzzle.
+- Maus- und Touch-Eingaben drehen genau eine Runenplatte um 90 Grad; die Domain validiert den vollständigen Energiepfad unabhängig von der UI.
+- Plattenrotationen werden nach jeder Aktion gespeichert und bleiben beim Schließen oder Reload erhalten.
+- Die erste gültige Lösung setzt `signalwerk_solved` genau einmal und vergibt exakt einen einzigartigen, noch nicht installierten Resonanzkern.
+- Der Kern ist keine Ressource oder Währung: Er kann in diesem Issue weder verbraucht, gehandelt, verloren noch erneut gewonnen werden.
+- Das Overlay besitzt keinen Zeitdruck und keinen Zustand mit Ressourcenverlust.
+
+**Nicht-Ziele von Issue #17:**
+
+- keine Werkstatt und keine Relaisreparatur
+- keine Installation oder Aktivierung des Resonanzkerns
+- kein Signalnetz, Richtungsimpuls oder Kontakt zu fremden Sektoren
+- noch kein allgemeines Contributor-Modulmanifest; das isolierte Paket liefert nur die erste belastbare Schnittstelle
 
 ## Noch offene Produktentscheidungen
 

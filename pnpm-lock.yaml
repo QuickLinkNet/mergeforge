@@ -30,6 +30,9 @@ importers:
       '@mergeforge/renderer-pixi':
         specifier: workspace:*
         version: file:packages/renderer-pixi
+      '@mergeforge/signalwerk':
+        specifier: workspace:*
+        version: file:packages/signalwerk
       '@mergeforge/worldgen':
         specifier: workspace:*
         version: file:packages/worldgen
@@ -43,6 +46,8 @@ importers:
       '@mergeforge/domain':
         injected: true
       '@mergeforge/renderer-pixi':
+        injected: true
+      '@mergeforge/signalwerk':
         injected: true
       '@mergeforge/worldgen':
         injected: true
@@ -72,7 +77,14 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(jsdom@27.0.1)(vite@8.3.5)
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      '@mergeforge/signalwerk':
+        specifier: workspace:*
+        version: file:packages/signalwerk
+    dependenciesMeta:
+      '@mergeforge/signalwerk':
+        injected: true
 
   packages/renderer-pixi:
     dependencies:
@@ -85,6 +97,8 @@ importers:
     dependenciesMeta:
       '@mergeforge/domain':
         injected: true
+
+  packages/signalwerk: {}
 
   packages/worldgen:
     dependencies:
@@ -169,6 +183,9 @@ packages:
 
   '@mergeforge/renderer-pixi@file:packages/renderer-pixi':
     resolution: {directory: packages/renderer-pixi, type: directory}
+
+  '@mergeforge/signalwerk@file:packages/signalwerk':
+    resolution: {directory: packages/signalwerk, type: directory}
 
   '@mergeforge/worldgen@file:packages/worldgen':
     resolution: {directory: packages/worldgen, type: directory}
@@ -1042,12 +1059,16 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@mergeforge/domain@file:packages/domain': {}
+  '@mergeforge/domain@file:packages/domain':
+    dependencies:
+      '@mergeforge/signalwerk': file:packages/signalwerk
 
   '@mergeforge/renderer-pixi@file:packages/renderer-pixi':
     dependencies:
       '@mergeforge/domain': file:packages/domain
       pixi.js: 8.22.0
+
+  '@mergeforge/signalwerk@file:packages/signalwerk': {}
 
   '@mergeforge/worldgen@file:packages/worldgen':
     dependencies:

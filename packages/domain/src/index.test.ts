@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createSignalwerkPuzzle } from "@mergeforge/signalwerk";
 
 import {
   axialNeighbors,
@@ -9,6 +10,7 @@ import {
   hasPrologueEvent,
   hexKey,
   movePathfinder,
+  rotateSignalwerkRune,
   startLumberCamp,
   startPathfinderTraining,
   startQuarry,
@@ -58,7 +60,7 @@ describe("road building", () => {
     expect(state.visibleTileKeys).toEqual(state.world.visibleTileKeys);
     expect(state.visibleTileKeys).not.toBe(state.world.visibleTileKeys);
     expect(state).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       claimedSurfaceFindTileKeys: [],
       buildings: [],
       units: [],
@@ -68,8 +70,14 @@ describe("road building", () => {
         completedChapterIds: [],
         eventIds: [],
       },
+      inventory: { resonanceCore: 0 },
       lastAdvancedAtMs: 0,
     });
+    expect(state.signalwerk).toMatchObject({
+      seed: "domain-test:signalwerk:2,-2",
+      solved: false,
+    });
+    expect(state.signalwerk.rotations).toHaveLength(25);
   });
 
   it("grants a forest surface find exactly once when the tile is first revealed", () => {
@@ -794,6 +802,128 @@ describe("prologue chapters and relay discovery", () => {
     expect(reconciled.prologue.eventIds).toEqual(["relay_discovered"]);
   });
 });
+
+describe("Signalwerk domain integration", () => {
+  it("keeps rotation locked until both chapter 5 and relay discovery", () => {
+    const initial = createInitialGameState(createWorld());
+    expect(rotateSignalwerkRune(initial, 0)).toEqual({
+      ok: false,
+      reason: "locked",
+      state: initial,
+    });
+
+    const chapterOnly: GameState = {
+      ...initial,
+      prologue: { ...initial.prologue, completedChapterIds: [3, 4, 5] },
+    };
+    expect(rotateSignalwerkRune(chapterOnly, 0)).toMatchObject({
+      ok: false,
+      reason: "locked",
+    });
+
+    const eventOnly: GameState = {
+      ...initial,
+      prologue: { ...initial.prologue, eventIds: ["relay_discovered"] },
+    };
+    expect(rotateSignalwerkRune(eventOnly, 0)).toMatchObject({
+      ok: false,
+      reason: "locked",
+    });
+  });
+
+  it("rotates exactly one of 25 runes by 90 degrees without time or resource cost", () => {
+    const unlocked = createUnlockedSignalwerkState();
+    const beforeRotations = unlocked.signalwerk.rotations;
+    const result = rotateSignalwerkRune(unlocked, 0);
+    if (!result.ok) throw new Error("Expected Signalwerk rotation.");
+
+    expect(result.state.signalwerk.rotations).toHaveLength(25);
+    expect(result.state.signalwerk.rotations[0]).toBe(
+      ((beforeRotations[0] ?? 0) + 1) % 4,
+    );
+    expect(result.state.signalwerk.rotations.slice(1)).toEqual(
+      beforeRotations.slice(1),
+    );
+    expect(result.state.resources).toBe(unlocked.resources);
+    expect(result.state.lastAdvancedAtMs).toBe(unlocked.lastAdvancedAtMs);
+
+    for (const index of [-1, 25, 1.5, Number.NaN]) {
+      expect(rotateSignalwerkRune(unlocked, index)).toEqual({
+        ok: false,
+        reason: "tile-not-found",
+        state: unlocked,
+      });
+    }
+  });
+
+  it("awards the unique resonance core and solved event atomically on first solution", () => {
+    const unlocked = createUnlockedSignalwerkState();
+    const solved = solveSignalwerk(unlocked);
+
+    expect(solved.signalwerk.solved).toBe(true);
+    expect(solved.inventory).toEqual({ resonanceCore: 1 });
+    expect(solved.prologue.eventIds).toEqual([
+      "relay_discovered",
+      "signalwerk_solved",
+    ]);
+    expect(solved.resources).toBe(unlocked.resources);
+    expect(solved.lastAdvancedAtMs).toBe(unlocked.lastAdvancedAtMs);
+  });
+
+  it("rejects solved puzzles after JSON reload without duplicating event or core", () => {
+    const solved = solveSignalwerk(createUnlockedSignalwerkState());
+    const reloaded = JSON.parse(JSON.stringify(solved)) as GameState;
+    const repeated = rotateSignalwerkRune(reloaded, 0);
+
+    expect(repeated).toEqual({
+      ok: false,
+      reason: "already-solved",
+      state: reloaded,
+    });
+    expect(
+      repeated.state.prologue.eventIds.filter(
+        (eventId) => eventId === "signalwerk_solved",
+      ),
+    ).toHaveLength(1);
+    expect(repeated.state.inventory.resonanceCore).toBe(1);
+  });
+});
+
+function createUnlockedSignalwerkState(): GameState {
+  const initial = createInitialGameState(createWorld());
+  return {
+    ...initial,
+    prologue: {
+      ...initial.prologue,
+      stoneProductionObserved: true,
+      pathfinderSurveysCompleted: 1,
+      completedChapterIds: [3, 4, 5],
+      eventIds: ["relay_discovered"],
+    },
+  };
+}
+
+function solveSignalwerk(state: GameState): GameState {
+  const puzzle = createSignalwerkPuzzle(state.signalwerk.seed);
+  let current = state;
+
+  for (let index = 0; index < puzzle.solutionRotations.length; index += 1) {
+    const solutionRotation = puzzle.solutionRotations[index];
+    if (solutionRotation === undefined) throw new Error("Missing solution rotation.");
+    while (
+      !current.signalwerk.solved &&
+      current.signalwerk.rotations[index] !== solutionRotation
+    ) {
+      const rotated = rotateSignalwerkRune(current, index);
+      if (!rotated.ok) throw new Error(`Unexpected rotation rejection: ${rotated.reason}`);
+      current = rotated.state;
+    }
+    if (current.signalwerk.solved) break;
+  }
+
+  if (!current.signalwerk.solved) throw new Error("Expected Signalwerk solution.");
+  return current;
+}
 
 function createRoadheadState(forestTileKeys: readonly string[] = []): GameState {
   const initial = createInitialGameState(createWorld(forestTileKeys));
