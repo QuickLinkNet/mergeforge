@@ -15,14 +15,23 @@ describe("world site visual discovery", () => {
     expect(visibleWorldSites(source, ["0,0", "2,-1"])).toEqual({
       stoneSites: [{ id: "stone-near", type: "stone", tileKey: "2,-1" }],
       relaySite: null,
+      relayDiscoveryHighlight: false,
     });
   });
 
   it("keeps the relay hidden until its own tile is visible", () => {
-    expect(visibleWorldSites(source, ["5,-3"]).relaySite).toBeNull();
+    expect(visibleWorldSites(source, ["5,-3"], true)).toMatchObject({
+      relaySite: null,
+      relayDiscoveryHighlight: false,
+    });
     expect(visibleWorldSites(source, ["6,-2"]).relaySite).toEqual({
       id: "relay-1",
       tileKey: "6,-2",
     });
+  });
+
+  it("shows a requested discovery highlight only for a visible relay", () => {
+    expect(visibleWorldSites(source, ["6,-2"], true).relayDiscoveryHighlight).toBe(true);
+    expect(visibleWorldSites(source, ["6,-2"], false).relayDiscoveryHighlight).toBe(false);
   });
 });

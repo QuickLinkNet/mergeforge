@@ -19,6 +19,8 @@ import {
   advanceTime,
   buildRoad,
   createInitialGameState,
+  hasCompletedChapter,
+  hasPrologueEvent,
   movePathfinder,
   startPathfinderTraining,
   startLumberCamp,
@@ -223,6 +225,7 @@ export function App() {
   );
   const pathfinder = gameState?.units.find((unit) => unit.type === 'pathfinder');
   const surveyTent = gameState?.buildings.find((building) => building.type === 'survey-tent');
+  const relayDiscovered = gameState === null ? false : hasPrologueEvent(gameState, 'relay_discovered');
   const villageTileKey = gameState === null
     ? null
     : `${gameState.world.village.coord.q},${gameState.world.village.coord.r}`;
@@ -373,8 +376,9 @@ export function App() {
       surveyTent: surveyTent === undefined
         ? null
         : { state: surveyTent.status === 'constructing' ? 'construction' : 'complete' },
+      relayDiscoveryHighlight: relayDiscovered,
     }),
-    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, pathfinder, roadPreview, selectedTile, surveyPreview, surveyTent],
+    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, pathfinder, relayDiscovered, roadPreview, selectedTile, surveyPreview, surveyTent],
   );
 
   if (effectiveWorld !== null) latestRenderRef.current = { world: effectiveWorld, view: rendererView };
@@ -457,6 +461,7 @@ export function App() {
           ? null
           : { state: initialTent.status === 'constructing' ? 'construction' : 'complete' };
       })(),
+      relayDiscoveryHighlight: hasPrologueEvent(bootstrap.state, 'relay_discovered'),
       onHexSelect: handleHexSelect,
     })
       .then((mountedRenderer) => {
@@ -491,9 +496,12 @@ export function App() {
 
   const confirmRoad = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
+    const relayWasDiscovered = hasPrologueEvent(gameState, 'relay_discovered');
     const previousFinds = new Set(gameState.claimedSurfaceFindTileKeys);
     const result = buildRoad(gameState, selectedTile.coord);
     if (!result.ok) return;
+    const relayJustDiscovered =
+      !relayWasDiscovered && hasPrologueEvent(result.state, 'relay_discovered');
     const newFindKeys = result.state.claimedSurfaceFindTileKeys.filter((key) => !previousFinds.has(key));
     setGameState(result.state);
     setSelectedTile(null);
@@ -523,7 +531,13 @@ export function App() {
         : foundStone > 0
           ? 'Steinfund geborgen'
           : 'Fallholz geborgen';
-      setEventMessage(`${findLabel} · ${rewards.join(' · ')}`);
+      setEventMessage(
+        relayJustDiscovered
+          ? `Relais entdeckt · ${rewards.join(' · ')}`
+          : `${findLabel} · ${rewards.join(' · ')}`,
+      );
+    } else if (relayJustDiscovered) {
+      setEventMessage('Relais entdeckt · Das tote Signal liegt frei');
     }
   }, [gameState, selectedTile]);
 
@@ -556,10 +570,15 @@ export function App() {
 
   const confirmSurvey = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
+    const relayWasDiscovered = hasPrologueEvent(gameState, 'relay_discovered');
     const result = surveyWithPathfinder(gameState, selectedTile.coord, commandNowMs);
     setGameState(result.state);
     if (result.ok) {
-      setEventMessage('Vermessung abgeschlossen · 1 Hex kartiert');
+      setEventMessage(
+        !relayWasDiscovered && hasPrologueEvent(result.state, 'relay_discovered')
+          ? 'Relais entdeckt · Das tote Signal liegt frei'
+          : 'Vermessung abgeschlossen · 1 Hex kartiert',
+      );
       setSelectedTile(null);
     }
   }, [commandNowMs, gameState, selectedTile]);
@@ -578,36 +597,84 @@ export function App() {
   const chapterProgress = Math.min(roadsBuilt, CHAPTER_ONE_ROAD_TARGET);
   const chapterComplete = chapterProgress === CHAPTER_ONE_ROAD_TARGET;
   const hasLumberCamp = gameState?.buildings.some((building) => building.type === 'lumber-camp') ?? false;
-  const quarry = gameState?.buildings.find((building) => building.type === 'quarry');
-  const quarryActive = quarry?.status === 'active';
-  const pathfinderActive = pathfinder?.status === 'active';
-  const chapterNumber = !chapterComplete ? 1 : hasLumberCamp ? 3 : 2;
-  const chapterName = !chapterComplete ? 'Gründungsring' : hasLumberCamp ? 'Steinlinie' : 'Waldlinie';
-  const missionTitle = !chapterComplete
+  const stoneProductionObserved = gameState?.prologue.stoneProductionObserved ?? false;
+  const surveysCompleted = gameState?.prologue.pathfinderSurveysCompleted ?? 0;
+  const chapterThreeComplete = gameState === null ? false : hasCompletedChapter(gameState, 3);
+  const chapterFourComplete = gameState === null ? false : hasCompletedChapter(gameState, 4);
+  const chapterFiveComplete = gameState === null ? false : hasCompletedChapter(gameState, 5);
+  const surveyTentActive = surveyTent?.status === 'active';
+  const relayVisible = gameState?.visibleTileKeys.includes(gameState.world.relaySite.tileKey) ?? false;
+  const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : 5;
+  const chapterNumber = !chapterComplete ? 1 : !hasLumberCamp ? 2 : prologueChapter;
+  const chapterName = chapterNumber === 1
+    ? 'Gründungsring'
+    : chapterNumber === 2
+      ? 'Waldlinie'
+      : chapterNumber === 3
+        ? 'Steinlinie'
+        : chapterNumber === 4
+          ? 'Weggabel'
+          : 'Totes Signal';
+  const missionTitle = chapterNumber === 1
     ? 'Ein Weg ins Unbekannte'
-    : hasLumberCamp
-      ? 'Die Ader im Fels'
-      : 'Die Waldlinie';
-  const missionDescription = !chapterComplete
+    : chapterNumber === 2
+      ? 'Die Waldlinie'
+      : chapterNumber === 3
+        ? 'Stein und Sicht'
+        : chapterNumber === 4
+          ? 'Die Weggabel'
+          : chapterFiveComplete
+            ? 'Das Relais ist gefunden'
+            : 'Das tote Signal';
+  const missionDescription = chapterNumber === 1
     ? 'Wählt ein sichtbares Feld neben dem Dorf oder einer Straße. Jede Straße öffnet den Nebel entlang eures Weges.'
-    : hasLumberCamp
-      ? 'Folgt dem zweiten Straßenarm zum markierten Steinvorkommen und sichert die Versorgung mit einem Steinbruch.'
-      : 'Verbindet ein Waldfeld mit eurem Straßennetz und errichtet das erste Holzfällerlager.';
-  const missionObjective = !chapterComplete
+    : chapterNumber === 2
+      ? 'Verbindet ein Waldfeld mit eurem Straßennetz und errichtet das erste Holzfällerlager.'
+      : chapterNumber === 3
+        ? 'Sichert die erste Steinproduktion und beweist den Wegfinder mit einer einzelnen Vermessung.'
+        : chapterNumber === 4
+          ? 'Baut das Straßennetz auf acht Felder aus und aktiviert das Vermesserzelt.'
+          : chapterFiveComplete
+            ? 'Der M2-Prolog ist abgeschlossen. Die Ruine wartet auf das Signalwerk aus M3.'
+            : 'Folgt Straße und Wegfinder tiefer in den Nebel, bis die verlassene Relaisstation sichtbar wird.';
+  const missionObjective = chapterNumber === 1
     ? 'Zwei Straßenfelder errichten'
-    : hasLumberCamp
-      ? quarryActive
-        ? pathfinderActive
-          ? 'Wegfinder am Straßenkopf einsetzen'
-          : 'Wegfinder ausbilden'
-        : 'Steinbruch aktivieren'
-      : 'Holzfällerlager beauftragen';
-  const missionProgress = !chapterComplete
+    : chapterNumber === 2
+      ? 'Holzfällerlager beauftragen'
+      : chapterNumber === 3
+        ? !stoneProductionObserved
+          ? 'Erste Steinproduktion erhalten'
+          : 'Ein Nebelhex vermessen'
+        : chapterNumber === 4
+          ? roadsBuilt < 8
+            ? 'Acht Straßenfelder verbinden'
+            : 'Vermesserzelt aktivieren'
+          : chapterFiveComplete
+            ? 'M2-Prolog abgeschlossen'
+            : 'Verlassenes Relais aufdecken';
+  const missionProgress = chapterNumber === 1
     ? `${chapterProgress} / ${CHAPTER_ONE_ROAD_TARGET}`
-    : hasLumberCamp
-      ? `${quarryActive && pathfinderActive ? 1 : 0} / 1`
-      : '0 / 1';
-  const missionComplete = false;
+    : chapterNumber === 2
+      ? '0 / 1'
+      : chapterNumber === 3
+        ? `${Number(stoneProductionObserved) + Number(surveysCompleted >= 1)} / 2`
+        : chapterNumber === 4
+          ? roadsBuilt < 8
+            ? `${Math.min(roadsBuilt, 8)} / 8`
+            : `${surveyTentActive ? 1 : 0} / 1`
+          : `${relayDiscovered && relayVisible ? 1 : 0} / 1`;
+  const missionComplete = chapterNumber === 5 && chapterFiveComplete;
+  const missionNote = chapterNumber === 1
+    ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
+    : chapterNumber === 2
+      ? 'Das Holzfällerlager kostet 4 Holz und 1 Stein.'
+      : chapterNumber === 3
+        ? `Steinproduktion ${stoneProductionObserved ? '✓' : '◇'} · Vermessungen ${Math.min(surveysCompleted, 1)} / 1`
+        : chapterNumber === 4
+          ? `Straßen ${Math.min(roadsBuilt, 8)} / 8 · Vermesserzelt ${surveyTentActive ? '✓' : '◇'}`
+          : chapterFiveComplete
+            ? 'Signalwerk, Resonanzkern und Reparatur folgen erst in M3.'
+            : 'Das Relais wird erst sichtbar, wenn sein Hex durch Straße oder Vermessung aufgedeckt wurde.';
 
   const buildingRemainingMs =
     selectedBuilding === undefined
@@ -695,17 +762,7 @@ export function App() {
           <span><small>{missionComplete ? 'Kapitelziel erreicht' : 'Aktuelles Kapitelziel'}</small>{missionObjective}</span>
           <strong aria-live="polite">{missionProgress}</strong>
         </div>
-        <p className="mission-note">
-          {!chapterComplete
-            ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
-            : hasLumberCamp
-              ? quarryActive
-                ? pathfinderActive
-                  ? `Der Wegfinder ist bereit. Jede Vermessung kostet 1 Ladung; aktuell ${pathfinder?.charges ?? 0}/${maxPathfinderCharges}.`
-                  : 'Wählt den Dorfkern und beginnt die 10-minütige Wegfinder-Ausbildung.'
-                : 'Der Steinbruch kostet 3 Holz und 1 Stein und produziert 1 Stein je Welttakt.'
-              : 'Das Holzfällerlager kostet 4 Holz und 1 Stein.'}
-        </p>
+        <p className="mission-note">{missionNote}</p>
       </section>
 
       {trainingPreview !== null && (
