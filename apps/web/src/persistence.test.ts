@@ -74,6 +74,7 @@ describe('versioned local game persistence', () => {
     expect(loaded.state.resources).toEqual(state.resources);
     expect(loaded.state.claimedSurfaceFindTileKeys).toEqual(state.claimedSurfaceFindTileKeys);
     expect(loaded.state.buildings).toEqual(state.buildings);
+    expect(loaded.state.prologue).toEqual(state.prologue);
     expect(loaded.state.lastAdvancedAtMs).toBe(2_000);
   });
 
@@ -137,6 +138,48 @@ describe('versioned local game persistence', () => {
     const payload = JSON.parse(raw) as { units: Array<{ tileKey: string; charges: number }> };
     payload.units[0]!.tileKey = '0,1';
     payload.units[0]!.charges = PATHFINDER_BASE_MAX_CHARGES + 1;
+    storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
+
+    expect(loadGame(storage, world)).toEqual({ kind: 'reset', reason: 'corrupt' });
+    expect(storage.getItem(GAME_SAVE_KEY)).toBeNull();
+  });
+
+  it('round-trips completed chapter state without duplicating milestones on reload', () => {
+    const storage = new MemoryStorage();
+    const base = stateWithActivePathfinder();
+    const state = {
+      ...base,
+      prologue: {
+        stoneProductionObserved: true,
+        pathfinderSurveysCompleted: 1,
+        completedChapterIds: [3] as const,
+        eventIds: [] as const,
+      },
+    };
+
+    saveGame(storage, state);
+    const firstLoad = loadGame(storage, world);
+    expect(firstLoad.kind).toBe('loaded');
+    if (firstLoad.kind !== 'loaded') return;
+    expect(firstLoad.state.prologue.completedChapterIds).toEqual([3]);
+
+    saveGame(storage, firstLoad.state);
+    const secondLoad = loadGame(storage, world);
+    expect(secondLoad.kind).toBe('loaded');
+    if (secondLoad.kind !== 'loaded') return;
+    expect(secondLoad.state.prologue).toEqual(firstLoad.state.prologue);
+  });
+
+  it('rejects non-sequential chapter history and relay events still hidden by fog', () => {
+    const storage = new MemoryStorage();
+    saveGame(storage, stateWithActivePathfinder());
+    const raw = storage.getItem(GAME_SAVE_KEY);
+    if (raw === null) throw new Error('Expected save payload');
+    const payload = JSON.parse(raw) as {
+      prologue: { completedChapterIds: number[]; eventIds: string[] };
+    };
+    payload.prologue.completedChapterIds = [4];
+    payload.prologue.eventIds = ['relay_discovered'];
     storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
 
     expect(loadGame(storage, world)).toEqual({ kind: 'reset', reason: 'corrupt' });

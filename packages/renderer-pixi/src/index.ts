@@ -238,12 +238,25 @@ function drawStoneSource(target: Container, coord: HexCoord): void {
   target.addChild(site);
 }
 
-function drawRelayRuin(target: Container, coord: HexCoord): void {
+function drawRelayRuin(target: Container, coord: HexCoord, discoveryHighlight: boolean): void {
   const center = axialToPixel(coord, HEX_SIZE);
   const relay = new Container();
   relay.position.set(center.x, center.y + 2);
 
   const shadow = new Graphics().ellipse(0, 13, 34, 14).fill({ color: 0x060a0e, alpha: 0.48 });
+  const discovery = new Graphics();
+  if (discoveryHighlight) {
+    discovery
+      .circle(0, -3, 36)
+      .fill({ color: 0x55dbe0, alpha: 0.08 })
+      .arc(0, -3, 34, Math.PI * 0.08, Math.PI * 0.68)
+      .stroke({ color: 0x99f8f1, width: 2.8, alpha: 0.82 })
+      .arc(0, -3, 34, Math.PI * 1.08, Math.PI * 1.68)
+      .stroke({ color: 0x99f8f1, width: 2.8, alpha: 0.82 })
+      .poly([0, -52, 6, -45, 0, -38, -6, -45])
+      .fill({ color: 0xffd979, alpha: 0.96 })
+      .stroke({ color: 0x714f28, width: 1.2 });
+  }
   const plinth = new Graphics()
     .ellipse(0, 8, 31, 14)
     .fill({ color: 0x4c555b })
@@ -276,12 +289,16 @@ function drawRelayRuin(target: Container, coord: HexCoord): void {
     .fill({ color: 0x4ec3cc, alpha: 0.18 })
     .circle(0, 3, 3.5)
     .fill({ color: 0x80e7ea, alpha: 0.62 });
-  relay.addChild(shadow, plinth, brokenPillars, mast, dormantCore);
+  relay.addChild(shadow, discovery, plinth, brokenPillars, mast, dormantCore);
   target.addChild(relay);
 }
 
-function drawWorldSiteVisuals(target: Container, world: WorldSnapshot): void {
-  const sites = visibleWorldSites(world, world.visibleTileKeys);
+function drawWorldSiteVisuals(
+  target: Container,
+  world: WorldSnapshot,
+  relayDiscoveryHighlight: boolean,
+): void {
+  const sites = visibleWorldSites(world, world.visibleTileKeys, relayDiscoveryHighlight);
   const tileCoordinates = new Map(world.tiles.map((tile) => [axialKey(tile.coord), tile.coord]));
 
   for (const stoneSite of sites.stoneSites) {
@@ -294,7 +311,7 @@ function drawWorldSiteVisuals(target: Container, world: WorldSnapshot): void {
   if (sites.relaySite !== null) {
     const coord = tileCoordinates.get(sites.relaySite.tileKey);
     if (coord !== undefined) {
-      drawRelayRuin(target, coord);
+      drawRelayRuin(target, coord, sites.relayDiscoveryHighlight);
     }
   }
 }
@@ -806,7 +823,7 @@ function renderWorld(world: WorldSnapshot, viewState: NormalizedViewState): { la
   drawRoadNetwork(roadLayer, previewCoordinates, world.village.coord, true, allConnectedCoordinates);
 
   const landmarkLayer = new Container();
-  drawWorldSiteVisuals(landmarkLayer, world);
+  drawWorldSiteVisuals(landmarkLayer, world, viewState.relayDiscoveryHighlight);
   drawDataDrivenVisuals(
     landmarkLayer,
     world,

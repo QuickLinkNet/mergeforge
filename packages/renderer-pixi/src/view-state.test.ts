@@ -13,6 +13,7 @@ describe("renderer view state", () => {
       wayfinder: null,
       surveyTargetTileKey: null,
       surveyTent: null,
+      relayDiscoveryHighlight: false,
     });
   });
 
@@ -26,6 +27,7 @@ describe("renderer view state", () => {
       wayfinder: { tileKey: "0,0", state: "training" },
       surveyTargetTileKey: "2,-1",
       surveyTent: { state: "construction" },
+      relayDiscoveryHighlight: true,
     });
 
     expect(patchViewState(initial, { roadTileKeys: ["1,0", "2,0"] })).toEqual({
@@ -37,6 +39,7 @@ describe("renderer view state", () => {
       wayfinder: { tileKey: "0,0", state: "training" },
       surveyTargetTileKey: "2,-1",
       surveyTent: { state: "construction" },
+      relayDiscoveryHighlight: true,
     });
   });
 
@@ -82,5 +85,14 @@ describe("renderer view state", () => {
         surveyTent: null,
       }),
     ).toMatchObject({ wayfinder: null, surveyTargetTileKey: null, surveyTent: null });
+  });
+
+  it("patches and clears the one-shot relay highlight independently", () => {
+    const initial = initialViewState({ buildings: [], relayDiscoveryHighlight: false });
+    const highlighted = patchViewState(initial, { relayDiscoveryHighlight: true });
+    expect(highlighted.relayDiscoveryHighlight).toBe(true);
+    expect(highlighted.buildings).toEqual([]);
+    expect(patchViewState(highlighted, { relayDiscoveryHighlight: false }).relayDiscoveryHighlight)
+      .toBe(false);
   });
 });

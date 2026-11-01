@@ -104,6 +104,16 @@ export interface Pathfinder {
 
 export type Unit = Pathfinder;
 
+export type PrologueChapterId = 3 | 4 | 5;
+export type PrologueEventId = "relay_discovered";
+
+export interface PrologueProgress {
+  readonly stoneProductionObserved: boolean;
+  readonly pathfinderSurveysCompleted: number;
+  readonly completedChapterIds: readonly PrologueChapterId[];
+  readonly eventIds: readonly PrologueEventId[];
+}
+
 /** Mutable game progress represented as an immutable, serializable value. */
 export interface GameState {
   readonly schemaVersion: typeof GAME_STATE_SCHEMA_VERSION;
@@ -114,6 +124,7 @@ export interface GameState {
   readonly claimedSurfaceFindTileKeys: readonly string[];
   readonly buildings: readonly Building[];
   readonly units: readonly Unit[];
+  readonly prologue: PrologueProgress;
   readonly lastAdvancedAtMs: number;
 }
 
@@ -224,7 +235,7 @@ export type StartSurveyTentResult =
       readonly state: GameState;
     };
 
-export const GAME_STATE_SCHEMA_VERSION = 2 as const;
+export const GAME_STATE_SCHEMA_VERSION = 3 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -288,8 +299,28 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
     claimedSurfaceFindTileKeys: [],
     buildings: [],
     units: [],
+    prologue: {
+      stoneProductionObserved: false,
+      pathfinderSurveysCompleted: 0,
+      completedChapterIds: [],
+      eventIds: [],
+    },
     lastAdvancedAtMs: nowMs,
   };
+}
+
+export function hasCompletedChapter(
+  state: GameState,
+  chapterId: PrologueChapterId,
+): boolean {
+  return state.prologue.completedChapterIds.includes(chapterId);
+}
+
+export function hasPrologueEvent(
+  state: GameState,
+  eventId: PrologueEventId,
+): boolean {
+  return state.prologue.eventIds.includes(eventId);
 }
 
 /**
@@ -341,28 +372,33 @@ export function buildRoad(state: GameState, target: HexCoord): BuildRoadResult {
     0,
   );
 
+  const nextState: GameState = {
+    ...state,
+    resources: {
+      ...state.resources,
+      wood: Math.min(
+        MAX_WOOD_STORAGE,
+        state.resources.wood -
+          ROAD_WOOD_COST +
+          newlyVisibleForestKeys.length * FOREST_SURFACE_WOOD,
+      ),
+      stone: Math.min(MAX_STONE_STORAGE, state.resources.stone + foundStone),
+    },
+    roadTileKeys: [...state.roadTileKeys, targetKey],
+    visibleTileKeys: [...visibleKeys],
+    claimedSurfaceFindTileKeys: [
+      ...state.claimedSurfaceFindTileKeys,
+      ...newlyVisibleForestKeys,
+      ...newlyVisibleStoneFinds.map(({ tileKey }) => tileKey),
+    ],
+  };
+  const relayDiscovered =
+    !state.visibleTileKeys.includes(state.world.relaySite.tileKey) &&
+    visibleKeys.has(state.world.relaySite.tileKey);
+
   return {
     ok: true,
-    state: {
-      ...state,
-      resources: {
-        ...state.resources,
-        wood: Math.min(
-          MAX_WOOD_STORAGE,
-          state.resources.wood -
-            ROAD_WOOD_COST +
-            newlyVisibleForestKeys.length * FOREST_SURFACE_WOOD,
-        ),
-        stone: Math.min(MAX_STONE_STORAGE, state.resources.stone + foundStone),
-      },
-      roadTileKeys: [...state.roadTileKeys, targetKey],
-      visibleTileKeys: [...visibleKeys],
-      claimedSurfaceFindTileKeys: [
-        ...state.claimedSurfaceFindTileKeys,
-        ...newlyVisibleForestKeys,
-        ...newlyVisibleStoneFinds.map(({ tileKey }) => tileKey),
-      ],
-    },
+    state: reconcilePrologue(nextState, { relayDiscovered }),
   };
 }
 
@@ -610,15 +646,20 @@ export function surveyWithPathfinder(
     return surveyWithPathfinderRejected(settledState, "no-charges");
   }
 
+  const nextState: GameState = {
+    ...settledState,
+    visibleTileKeys: [...settledState.visibleTileKeys, targetKey],
+    units: settledState.units.map((unit) =>
+      unit.id === pathfinder.id ? { ...unit, charges: unit.charges - 1 } : unit,
+    ),
+  };
+
   return {
     ok: true,
-    state: {
-      ...settledState,
-      visibleTileKeys: [...settledState.visibleTileKeys, targetKey],
-      units: settledState.units.map((unit) =>
-        unit.id === pathfinder.id ? { ...unit, charges: unit.charges - 1 } : unit,
-      ),
-    },
+    state: reconcilePrologue(nextState, {
+      pathfinderSurveyCompleted: true,
+      relayDiscovered: targetKey === settledState.world.relaySite.tileKey,
+    }),
   };
 }
 
@@ -760,7 +801,7 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
     };
   });
 
-  return {
+  const nextState: GameState = {
     ...state,
     resources:
       producedWood === 0 && producedStone === 0
@@ -773,6 +814,10 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
     units,
     lastAdvancedAtMs: nowMs,
   };
+
+  return reconcilePrologue(nextState, {
+    stoneProductionObserved: producedStone > 0,
+  });
 }
 
 function hasOccupiedBuildSlot(state: GameState): boolean {
@@ -800,6 +845,75 @@ function connectedRoadNetworkTileKeys(state: GameState): ReadonlySet<string> {
   }
 
   return connectedKeys;
+}
+
+interface PrologueObservations {
+  readonly stoneProductionObserved?: boolean;
+  readonly pathfinderSurveyCompleted?: boolean;
+  readonly relayDiscovered?: boolean;
+}
+
+function reconcilePrologue(
+  state: GameState,
+  observations: PrologueObservations = {},
+): GameState {
+  const stoneProductionObserved =
+    state.prologue.stoneProductionObserved ||
+    observations.stoneProductionObserved === true;
+  const pathfinderSurveysCompleted =
+    state.prologue.pathfinderSurveysCompleted +
+    (observations.pathfinderSurveyCompleted === true ? 1 : 0);
+  const eventIds = state.prologue.eventIds.includes("relay_discovered")
+    ? state.prologue.eventIds
+    : observations.relayDiscovered === true
+      ? [...state.prologue.eventIds, "relay_discovered" as const]
+      : state.prologue.eventIds;
+
+  const completedChapterIds = new Set(state.prologue.completedChapterIds);
+  if (stoneProductionObserved && pathfinderSurveysCompleted >= 1) {
+    completedChapterIds.add(3);
+  }
+
+  const connectedRoadCount = connectedRoadNetworkTileKeys(state).size - 1;
+  const hasActiveSurveyTent = state.buildings.some(
+    (building) => building.type === "survey-tent" && building.status === "active",
+  );
+  if (
+    completedChapterIds.has(3) &&
+    connectedRoadCount >= 8 &&
+    hasActiveSurveyTent
+  ) {
+    completedChapterIds.add(4);
+  }
+  if (
+    completedChapterIds.has(4) &&
+    eventIds.includes("relay_discovered")
+  ) {
+    completedChapterIds.add(5);
+  }
+
+  const orderedChapterIds = ([3, 4, 5] as const).filter((chapterId) =>
+    completedChapterIds.has(chapterId),
+  );
+  const unchanged =
+    stoneProductionObserved === state.prologue.stoneProductionObserved &&
+    pathfinderSurveysCompleted === state.prologue.pathfinderSurveysCompleted &&
+    eventIds === state.prologue.eventIds &&
+    orderedChapterIds.length === state.prologue.completedChapterIds.length &&
+    orderedChapterIds.every(
+      (chapterId, index) => state.prologue.completedChapterIds[index] === chapterId,
+    );
+  if (unchanged) return state;
+
+  return {
+    ...state,
+    prologue: {
+      stoneProductionObserved,
+      pathfinderSurveysCompleted,
+      completedChapterIds: orderedChapterIds,
+      eventIds,
+    },
+  };
 }
 
 function isConnectedRoadhead(state: GameState, tileKey: string): boolean {

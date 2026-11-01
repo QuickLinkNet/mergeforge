@@ -36,6 +36,7 @@ export interface HexWorldViewState {
   readonly wayfinder?: WayfinderVisual | null;
   readonly surveyTargetTileKey?: string | null;
   readonly surveyTent?: SurveyTentVisual | null;
+  readonly relayDiscoveryHighlight?: boolean;
 }
 
 export interface NormalizedViewState {
@@ -47,6 +48,7 @@ export interface NormalizedViewState {
   readonly wayfinder: WayfinderVisual | null;
   readonly surveyTargetTileKey: string | null;
   readonly surveyTent: SurveyTentVisual | null;
+  readonly relayDiscoveryHighlight: boolean;
 }
 
 export function initialViewState(options: HexWorldViewState | undefined): NormalizedViewState {
@@ -59,6 +61,7 @@ export function initialViewState(options: HexWorldViewState | undefined): Normal
     wayfinder: options?.wayfinder ?? null,
     surveyTargetTileKey: options?.surveyTargetTileKey ?? null,
     surveyTent: options?.surveyTent ?? null,
+    relayDiscoveryHighlight: options?.relayDiscoveryHighlight ?? false,
   };
 }
 
@@ -83,5 +86,7 @@ export function patchViewState(
         ? current.surveyTargetTileKey
         : patch.surveyTargetTileKey,
     surveyTent: patch.surveyTent === undefined ? current.surveyTent : patch.surveyTent,
+    relayDiscoveryHighlight:
+      patch.relayDiscoveryHighlight ?? current.relayDiscoveryHighlight,
   };
 }

@@ -39,6 +39,7 @@ interface PersistedStateV1 {
   readonly claimedSurfaceFindTileKeys: readonly string[];
   readonly buildings: readonly Building[];
   readonly units: readonly Unit[];
+  readonly prologue: GameState['prologue'];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -57,6 +58,7 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     claimedSurfaceFindTileKeys: state.claimedSurfaceFindTileKeys,
     buildings: state.buildings,
     units: state.units,
+    prologue: state.prologue,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -116,6 +118,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     ? PATHFINDER_EXPANDED_MAX_CHARGES
     : PATHFINDER_BASE_MAX_CHARGES;
   const units = parseUnits(value.units, tileByKey, new Set(roadTileKeys ?? []), villageTileKey, maxCharges);
+  const prologue = parsePrologue(value.prologue);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -125,6 +128,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     claimedSurfaceFindTileKeys === null ||
     buildings === null ||
     units === null ||
+    prologue === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -133,6 +137,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const visible = new Set(visibleTileKeys);
   const roads = new Set(roadTileKeys);
   if (roadTileKeys.some((key) => !visible.has(key))) return reset(storage, 'corrupt');
+  if (!isConnectedRoadNetwork(roads, villageTileKey, tileByKey)) return reset(storage, 'corrupt');
   if (claimedSurfaceFindTileKeys.some((key) => !visible.has(key))) return reset(storage, 'corrupt');
   if (
     claimedSurfaceFindTileKeys.some(
@@ -148,6 +153,16 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const activeTimedOrders = buildings.filter((building) => building.status === 'constructing').length
     + units.filter((unit) => unit.status === 'training').length;
   if (activeTimedOrders > 1) return reset(storage, 'corrupt');
+  const tentActive = surveyTent?.status === 'active';
+  const relayVisible = visible.has(world.relaySite.tileKey);
+  if (
+    (prologue.completedChapterIds.includes(3) &&
+      (!prologue.stoneProductionObserved || prologue.pathfinderSurveysCompleted < 1)) ||
+    (prologue.completedChapterIds.includes(4) && (roadTileKeys.length < 8 || !tentActive)) ||
+    (prologue.eventIds.includes('relay_discovered') && !relayVisible) ||
+    (prologue.completedChapterIds.includes(5) &&
+      (!relayVisible || !prologue.eventIds.includes('relay_discovered')))
+  ) return reset(storage, 'corrupt');
 
   return {
     kind: 'loaded',
@@ -160,6 +175,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
       claimedSurfaceFindTileKeys,
       buildings,
       units,
+      prologue,
       lastAdvancedAtMs,
     },
   };
@@ -291,8 +307,69 @@ function parseUnits(
   return units;
 }
 
+function parsePrologue(value: unknown): GameState['prologue'] | null {
+  if (
+    !isRecord(value) ||
+    typeof value.stoneProductionObserved !== 'boolean' ||
+    !isCount(value.pathfinderSurveysCompleted) ||
+    !Array.isArray(value.completedChapterIds) ||
+    !Array.isArray(value.eventIds)
+  ) return null;
+
+  const completedChapterIds = value.completedChapterIds;
+  const eventIds = value.eventIds;
+  if (
+    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5) ||
+    eventIds.some((eventId) => eventId !== 'relay_discovered') ||
+    new Set(completedChapterIds).size !== completedChapterIds.length ||
+    new Set(eventIds).size !== eventIds.length
+  ) return null;
+
+  const completedSequence = completedChapterIds.join(',');
+  if (!['', '3', '3,4', '3,4,5'].includes(completedSequence)) return null;
+
+  return {
+    stoneProductionObserved: value.stoneProductionObserved,
+    pathfinderSurveysCompleted: value.pathfinderSurveysCompleted,
+    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5)[],
+    eventIds: [...eventIds] as 'relay_discovered'[],
+  };
+}
+
 function parseTimestamp(value: unknown): number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function isConnectedRoadNetwork(
+  roadTileKeys: ReadonlySet<string>,
+  villageTileKey: string,
+  tileByKey: ReadonlyMap<string, WorldSnapshot['tiles'][number]>,
+): boolean {
+  const reachedRoads = new Set<string>();
+  const queue = [villageTileKey];
+  const visited = new Set(queue);
+  while (queue.length > 0) {
+    const currentKey = queue.shift();
+    if (currentKey === undefined) break;
+    const current = tileByKey.get(currentKey);
+    if (current === undefined) return false;
+    const { q, r } = current.coord;
+    const neighborKeys = [
+      `${q + 1},${r}`,
+      `${q + 1},${r - 1}`,
+      `${q},${r - 1}`,
+      `${q - 1},${r}`,
+      `${q - 1},${r + 1}`,
+      `${q},${r + 1}`,
+    ];
+    for (const neighborKey of neighborKeys) {
+      if (!roadTileKeys.has(neighborKey) || visited.has(neighborKey)) continue;
+      visited.add(neighborKey);
+      reachedRoads.add(neighborKey);
+      queue.push(neighborKey);
+    }
+  }
+  return reachedRoads.size === roadTileKeys.size;
 }
 
 function isCount(value: unknown): value is number {

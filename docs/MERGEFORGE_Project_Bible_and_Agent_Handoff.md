@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** M1-Vertikalscheibe und M2-Steinloop umgesetzt; Issue #11 Wegfinder auf `feature/m2-3-pathfinder-survey` in Abnahme (31. Oktober 2026)
+**Stand:** M1 und M2.1–M2.3 umgesetzt; Issue #12 Relais-Prolog auf `feature/m2-4-relay-prologue` in Abnahme (1. November 2026)
 
 ## Vision
 
@@ -94,11 +94,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M1.3:** einmalige Wald-Oberflächenfunde, Holzfällerlager, 10-Minuten-Welttakt, Offline-Nachholung und versionierter lokaler Spielstand umgesetzt
 - **M2.1 / Issue #9:** garantierte, erreichbare Steinquelle und deterministische Relaisplatzierung als Weltziele umgesetzt
 - **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt
-- **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt; Abnahme läuft
+- **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt
+- **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt; Abnahme läuft
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m2-3-pathfinder-survey`
-- **Aktuelles Issue:** #11 — Wegfinder, Vermessung und Vermesserzelt
+- **Aktueller Arbeitsbranch:** `feature/m2-4-relay-prologue`
+- **Aktuelles Issue:** #12 — Kapitel 3–5 und Relaisentdeckung
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -174,6 +175,28 @@ Issue #11 führt die erste bewegliche Einheit und eine gezielte Alternative zur 
 - keine Relaisinteraktion, Reparatur oder Aktivierung des Signalwerks
 - keine Kapitelbelohnungen, Werkstatt, Resonanzkern oder Spielerkontakte
 - keine Kampf-, Verlust-, Ausrüstungs- oder weitere Einheitentypen
+
+### Issue #12 — Abnahmegrenze
+
+Issue #12 schließt M2 mit einem strikt sequenziellen, persistenten Prolog ab:
+
+- Die Oberfläche zeigt immer nur das aktuell erreichbare Kapitelziel; zukünftige Kapitel und Mechaniken werden nicht vorweggenommen.
+- Kapitel 3 endet erst nach beobachteter erster Steinproduktion und mindestens einer erfolgreichen Wegfinder-Vermessung.
+- Kapitel 4 endet erst mit mindestens acht verbundenen Straßenfeldern und einem aktiven Vermesserzelt.
+- Kapitel 5 endet, sobald das Relais-Hex durch Straßenbau oder Wegfinder-Vermessung sichtbar wird.
+- Jedes Ziel besitzt einen messbaren Fortschritt; bei kombinierten Zielen zeigt die UI zunächst den noch offenen Teilschritt.
+- Kapitelabschlüsse und `relay_discovered` werden als geordnete, eindeutige Prolog-Meilensteine im Spielstand gespeichert.
+- Laden und erneutes Speichern duplizieren weder Kapitelabschlüsse noch Relaisereignisse oder Belohnungen.
+- Das entdeckte Relais erhält einen sichtbaren Kartenhinweis, bleibt vor seiner Entdeckung aber vollständig im Fog of War.
+- Nach Kapitel 5 benennt die UI den M2-Prolog als abgeschlossen und verweist lediglich auf M3, ohne dessen Systeme vorzutäuschen.
+
+**Nicht-Ziele von Issue #12:**
+
+- kein Signalwerk-Minispiel und keine Minispielbelohnung
+- kein Resonanzkern, keine Werkstatt und keine Relaisreparatur
+- keine Aktivierung des Relais oder Signalnetzes
+- kein Richtungsimpuls, Spielersignal oder Kontakt zu anderen Siedlungen
+- keine neue Ressource, Kampfeinheit, PvE- oder PvP-Mechanik
 
 ## Noch offene Produktentscheidungen
 

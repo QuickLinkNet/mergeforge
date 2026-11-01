@@ -146,7 +146,9 @@ describe('MERGEFORGE web shell', () => {
     expect(screen.getByText('Fertig in')).toBeTruthy();
     expect(screen.getByText('Am Bauende wird das Holzfällerlager aktiv und liefert sofort 2 Holz.')).toBeTruthy();
     expect(screen.getByText('Kapitel 3 · Steinlinie')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Die Ader im Fels' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Stein und Sicht' })).toBeTruthy();
+    expect(screen.getByText('Erste Steinproduktion erhalten')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('0 / 2');
     view.unmount();
   });
 
