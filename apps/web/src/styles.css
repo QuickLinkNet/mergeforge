@@ -953,3 +953,60 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .loading-rune { animation: none; }
 }
+
+.signal-card {
+  border-color: rgb(104 218 207 / 28%);
+}
+
+.signal-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-item {
+  display: grid;
+  min-height: 56px;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgb(99 221 214 / 24%);
+  border-radius: 11px;
+  background: rgb(69 190 186 / 9%);
+}
+
+.signal-arrow {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgb(99 221 214 / 35%);
+  border-radius: 50%;
+  color: #83e5dc;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.signal-item small {
+  display: block;
+  color: #8da093;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signal-item strong {
+  display: block;
+  color: #fff5d3;
+  font-size: 15px;
+}
+
+.signal-item em {
+  color: #b9c9bf;
+  font-size: 12px;
+  font-style: normal;
+}

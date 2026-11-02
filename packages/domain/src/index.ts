@@ -4,6 +4,9 @@ import {
   rotateSignalwerkTile,
   type SignalRotation,
 } from "@mergeforge/signalwerk";
+import { createFarSignals, type FarSignal } from "./signals";
+
+export * from "./signals";
 
 export type Terrain = "meadow" | "forest" | "hills" | "water";
 
@@ -120,11 +123,15 @@ export interface Pathfinder {
 
 export type Unit = Pathfinder;
 
-export type PrologueChapterId = 3 | 4 | 5 | 6;
+export type PrologueChapterId = 3 | 4 | 5 | 6 | 7;
 export type PrologueEventId =
   | "relay_discovered"
   | "signalwerk_solved"
-  | "relay_repaired";
+  | "relay_repaired"
+  | "first_signals_received";
+
+/** Internal capabilities a module can later require; never a currency. */
+export type RelayCapability = "signal_network_active";
 
 export interface PrologueProgress {
   readonly stoneProductionObserved: boolean;
@@ -150,6 +157,7 @@ export type RelayState =
       readonly coreInstalled: true;
       readonly startedAtMs: number;
       readonly completesAtMs: number;
+      readonly capabilities: readonly RelayCapability[];
     };
 
 /** Mutable game progress represented as an immutable, serializable value. */
@@ -166,6 +174,8 @@ export interface GameState {
   readonly signalwerk: SignalwerkState;
   readonly inventory: Inventory;
   readonly relay: RelayState;
+  /** Coarse far signals; empty until chapter 7 has been completed. */
+  readonly signals: readonly FarSignal[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -311,7 +321,7 @@ export type StartRelayRepairResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: StartRelayRepairRejection; readonly state: GameState };
 
-export const GAME_STATE_SCHEMA_VERSION = 5 as const;
+export const GAME_STATE_SCHEMA_VERSION = 6 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -396,6 +406,7 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
     },
     inventory: { resonanceCore: 0 },
     relay: { status: "dormant", coreInstalled: false },
+    signals: [],
     lastAdvancedAtMs: nowMs,
   };
 }
@@ -405,6 +416,21 @@ export function hasCompletedChapter(
   chapterId: PrologueChapterId,
 ): boolean {
   return state.prologue.completedChapterIds.includes(chapterId);
+}
+
+export function hasRelayCapability(
+  state: GameState,
+  capability: RelayCapability,
+): boolean {
+  return state.relay.status !== "dormant" && state.relay.capabilities.includes(capability);
+}
+
+/**
+ * Re-evaluates prologue milestones without advancing time. Used when a saved
+ * game from an older schema is migrated.
+ */
+export function settlePrologue(state: GameState): GameState {
+  return reconcilePrologue(state);
 }
 
 export function hasPrologueEvent(
@@ -551,6 +577,7 @@ export function startRelayRepair(
         coreInstalled: true,
         startedAtMs: nowMs,
         completesAtMs,
+        capabilities: [],
       },
     },
   };
@@ -1143,14 +1170,37 @@ function reconcilePrologue(
   ) {
     completedChapterIds.add(6);
   }
+  // Chapter 7 follows chapter 6 exactly once: the active relay receives the
+  // capability and the two deterministic far signals in one atomic step.
+  let relay = state.relay;
+  let signals = state.signals;
+  if (
+    completedChapterIds.has(6) &&
+    !completedChapterIds.has(7) &&
+    relay.status === "active"
+  ) {
+    completedChapterIds.add(7);
+    if (!relay.capabilities.includes("signal_network_active")) {
+      relay = {
+        ...relay,
+        capabilities: [...relay.capabilities, "signal_network_active"],
+      };
+    }
+    signals = createFarSignals(state.world.seed, state.world.generatorVersion);
+    if (!eventIds.includes("first_signals_received")) {
+      eventIds = [...eventIds, "first_signals_received"];
+    }
+  }
 
-  const orderedChapterIds = ([3, 4, 5, 6] as const).filter((chapterId) =>
+  const orderedChapterIds = ([3, 4, 5, 6, 7] as const).filter((chapterId) =>
     completedChapterIds.has(chapterId),
   );
   const unchanged =
     stoneProductionObserved === state.prologue.stoneProductionObserved &&
     pathfinderSurveysCompleted === state.prologue.pathfinderSurveysCompleted &&
     eventIds === state.prologue.eventIds &&
+    relay === state.relay &&
+    signals === state.signals &&
     orderedChapterIds.length === state.prologue.completedChapterIds.length &&
     orderedChapterIds.every(
       (chapterId, index) => state.prologue.completedChapterIds[index] === chapterId,
@@ -1159,6 +1209,8 @@ function reconcilePrologue(
 
   return {
     ...state,
+    relay,
+    signals,
     prologue: {
       stoneProductionObserved,
       pathfinderSurveysCompleted,
