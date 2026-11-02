@@ -47,6 +47,7 @@ interface PersistedStateV1 {
   readonly prologue: GameState['prologue'];
   readonly signalwerk: GameState['signalwerk'];
   readonly inventory: GameState['inventory'];
+  readonly relay: GameState['relay'];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -68,6 +69,7 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     prologue: state.prologue,
     signalwerk: state.signalwerk,
     inventory: state.inventory,
+    relay: state.relay,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -130,6 +132,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const prologue = parsePrologue(value.prologue);
   const signalwerk = parseSignalwerk(value.signalwerk, world);
   const inventory = parseInventory(value.inventory);
+  const relay = parseRelay(value.relay);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -142,6 +145,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     prologue === null ||
     signalwerk === null ||
     inventory === null ||
+    relay === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -159,12 +163,13 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   ) {
     return reset(storage, 'corrupt');
   }
-  if (buildings.some((building) => building.type !== 'survey-tent' && !roads.has(building.tileKey))) {
+  if (buildings.some((building) => building.type !== 'survey-tent' && building.type !== 'workshop' && !roads.has(building.tileKey))) {
     return reset(storage, 'corrupt');
   }
   if (surveyTent !== undefined && units[0]?.status !== 'active') return reset(storage, 'corrupt');
   const activeTimedOrders = buildings.filter((building) => building.status === 'constructing').length
-    + units.filter((unit) => unit.status === 'training').length;
+    + units.filter((unit) => unit.status === 'training').length
+    + Number(relay.status === 'repairing');
   if (activeTimedOrders > 1) return reset(storage, 'corrupt');
   const tentActive = surveyTent?.status === 'active';
   const relayVisible = visible.has(world.relaySite.tileKey);
@@ -174,13 +179,20 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     (prologue.completedChapterIds.includes(4) && (roadTileKeys.length < 8 || !tentActive)) ||
     (prologue.eventIds.includes('relay_discovered') && !relayVisible) ||
     (prologue.completedChapterIds.includes(5) &&
-      (!relayVisible || !prologue.eventIds.includes('relay_discovered')))
+      (!relayVisible || !prologue.eventIds.includes('relay_discovered'))) ||
+    (prologue.completedChapterIds.includes(6) && relay.status !== 'active')
   ) return reset(storage, 'corrupt');
   const signalwerkEvent = prologue.eventIds.includes('signalwerk_solved');
+  const relayEvent = prologue.eventIds.includes('relay_repaired');
+  const workshop = buildings.find((building) => building.type === 'workshop');
   if (
     signalwerk.solved !== signalwerkEvent ||
-    signalwerk.solved !== (inventory.resonanceCore === 1) ||
-    (signalwerk.solved && !prologue.completedChapterIds.includes(5))
+    (signalwerk.solved && !prologue.completedChapterIds.includes(5)) ||
+    (!signalwerk.solved && (inventory.resonanceCore !== 0 || workshop !== undefined || relay.status !== 'dormant')) ||
+    (signalwerk.solved && Number(inventory.resonanceCore === 1) + Number(relay.coreInstalled) !== 1) ||
+    (relay.status !== 'dormant' && (workshop?.status !== 'active' || !relayVisible)) ||
+    (relay.status === 'active') !== relayEvent ||
+    (relay.status === 'active') !== prologue.completedChapterIds.includes(6)
   ) return reset(storage, 'corrupt');
 
   return {
@@ -197,6 +209,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
       prologue,
       signalwerk,
       inventory,
+      relay,
       lastAdvancedAtMs,
     },
   };
@@ -232,17 +245,19 @@ function parseBuildings(
 
   for (const candidate of value) {
     if (!isRecord(candidate)) return null;
+    const isVillageBuilding = candidate.type === 'survey-tent' || candidate.type === 'workshop';
     const startedAtMs = parseTimestamp(candidate.startedAtMs);
     const completesAtMs = parseTimestamp(candidate.completesAtMs);
     if (
       typeof candidate.id !== 'string' ||
-      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent') ||
+      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent' && candidate.type !== 'workshop') ||
       typeof candidate.tileKey !== 'string' ||
       (candidate.status !== 'constructing' && candidate.status !== 'active') ||
       startedAtMs === null ||
       completesAtMs === null ||
       ids.has(candidate.id) ||
-      tileKeys.has(candidate.tileKey)
+      (!isVillageBuilding && tileKeys.has(candidate.tileKey)) ||
+      (isVillageBuilding && buildings.some((building) => building.type === candidate.type))
     ) {
       return null;
     }
@@ -252,17 +267,17 @@ function parseBuildings(
       completesAtMs < startedAtMs ||
       (candidate.type === 'lumber-camp' && tile.terrain !== 'forest') ||
       (candidate.type === 'quarry' && !stoneSiteKeys.has(candidate.tileKey)) ||
-      (candidate.type === 'survey-tent' && candidate.tileKey !== villageTileKey)
+      ((candidate.type === 'survey-tent' || candidate.type === 'workshop') && candidate.tileKey !== villageTileKey)
     ) {
       return null;
     }
 
     ids.add(candidate.id);
-    tileKeys.add(candidate.tileKey);
-    if (candidate.type === 'survey-tent') {
+    if (!isVillageBuilding) tileKeys.add(candidate.tileKey);
+    if (candidate.type === 'survey-tent' || candidate.type === 'workshop') {
       buildings.push({
         id: candidate.id,
-        type: 'survey-tent',
+        type: candidate.type,
         tileKey: candidate.tileKey,
         status: candidate.status,
         startedAtMs,
@@ -340,24 +355,24 @@ function parsePrologue(value: unknown): GameState['prologue'] | null {
   const completedChapterIds = value.completedChapterIds;
   const eventIds = value.eventIds;
   if (
-    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5) ||
-    eventIds.some((eventId) => eventId !== 'relay_discovered' && eventId !== 'signalwerk_solved') ||
+    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5 && chapter !== 6) ||
+    eventIds.some((eventId) => eventId !== 'relay_discovered' && eventId !== 'signalwerk_solved' && eventId !== 'relay_repaired') ||
     new Set(completedChapterIds).size !== completedChapterIds.length ||
     new Set(eventIds).size !== eventIds.length
   ) return null;
 
   const completedSequence = completedChapterIds.join(',');
-  if (!['', '3', '3,4', '3,4,5'].includes(completedSequence)) return null;
+  if (!['', '3', '3,4', '3,4,5', '3,4,5,6'].includes(completedSequence)) return null;
   const eventSequence = eventIds.join(',');
-  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved'].includes(eventSequence)) {
+  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved', 'relay_discovered,signalwerk_solved,relay_repaired'].includes(eventSequence)) {
     return null;
   }
 
   return {
     stoneProductionObserved: value.stoneProductionObserved,
     pathfinderSurveysCompleted: value.pathfinderSurveysCompleted,
-    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5)[],
-    eventIds: [...eventIds] as ('relay_discovered' | 'signalwerk_solved')[],
+    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5 | 6)[],
+    eventIds: [...eventIds] as ('relay_discovered' | 'signalwerk_solved' | 'relay_repaired')[],
   };
 }
 
@@ -385,6 +400,20 @@ function parseSignalwerk(
 function parseInventory(value: unknown): GameState['inventory'] | null {
   if (!isRecord(value) || (value.resonanceCore !== 0 && value.resonanceCore !== 1)) return null;
   return { resonanceCore: value.resonanceCore };
+}
+
+function parseRelay(value: unknown): GameState['relay'] | null {
+  if (!isRecord(value) || typeof value.coreInstalled !== 'boolean') return null;
+  if (value.status === 'dormant' && value.coreInstalled === false) {
+    return { status: 'dormant', coreInstalled: false };
+  }
+  if ((value.status === 'repairing' || value.status === 'active') && value.coreInstalled === true) {
+    const startedAtMs = parseTimestamp(value.startedAtMs);
+    const completesAtMs = parseTimestamp(value.completesAtMs);
+    if (startedAtMs === null || completesAtMs === null || completesAtMs < startedAtMs) return null;
+    return { status: value.status, coreInstalled: true, startedAtMs, completesAtMs };
+  }
+  return null;
 }
 
 function parseTimestamp(value: unknown): number | null {

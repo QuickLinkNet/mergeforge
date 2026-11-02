@@ -354,6 +354,12 @@ a {
   box-shadow: inset 0 0 18px rgb(74 220 211 / 9%);
 }
 
+.workshop-symbol {
+  background: rgb(205 145 62 / 16%);
+  border-color: rgb(229 177 87 / 36%);
+  color: #f1c875;
+}
+
 .exploration-card {
   border-color: rgb(96 211 200 / 22%);
 }

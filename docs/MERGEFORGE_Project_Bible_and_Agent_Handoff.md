@@ -96,11 +96,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M2.2 / Issue #10:** datengetriebene Steinfunde, Steinbruch, generische Gebäude-/Funddarstellung und persistente Steinproduktion umgesetzt
 - **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt
 - **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt und in `dev` integriert
-- **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt; Abnahme läuft
+- **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt und in `dev` integriert
+- **M3.2 / Issue #19:** Relaiswerkstatt, Kerninstallation, 30-minütige Relaisreparatur und einmaliger Abschluss von Kapitel 6 in Umsetzung
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m3-1-signalwerk`
-- **Aktuelles Issue:** #17 — Signalwerk-Minispiel und einmaliger Resonanzkern
+- **Aktueller Arbeitsbranch:** `feature/m3-2-relay-repair`
+- **Aktuelles Issue:** #19 — Werkstatt, Resonanzkern und Relaisreparatur
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -217,6 +218,16 @@ Issue #17 eröffnet Kapitel 6 als ersten isolierten Minispiel-Slot:
 - keine Installation oder Aktivierung des Resonanzkerns
 - kein Signalnetz, Richtungsimpuls oder Kontakt zu fremden Sektoren
 - noch kein allgemeines Contributor-Modulmanifest; das isolierte Paket liefert nur die erste belastbare Schnittstelle
+
+### Issue #19 — Abnahmegrenze
+
+- Nach gelöstem Signalwerk kann am Dorf für 6 Holz und 4 Stein eine Relaiswerkstatt mit 20 Minuten Bauzeit errichtet werden.
+- Erst die aktive Werkstatt erlaubt am entdeckten Relais die einmalige Reparatur für 5 Holz, 6 Stein und den Resonanzkern.
+- Der Kern wechselt atomar aus dem Inventar in das Relais und bleibt dort als installierter Questgegenstand sichtbar.
+- Die Reparatur dauert 30 Minuten, wird offline nachberechnet und schließt Kapitel 6 genau einmal ab.
+- Werkstatt, Kerninstallation, Reparaturstatus und Kapitelereignis sind Teil des validierten Spielstands.
+
+**Nicht-Ziele von Issue #19:** kein Richtungsimpuls, keine fremden Sektoren, kein datengetriebenes Modul und keine Online-Persistenz.
 
 ## Noch offene Produktentscheidungen
 
