@@ -81,7 +81,7 @@ function seedSignalwerkReadySave() {
   const puzzle = createSignalwerkPuzzle(signalwerkSeed);
   window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify({
     formatVersion: 1,
-    gameSchemaVersion: 4,
+    gameSchemaVersion: 5,
     world: { seed: 'mergeforge-genesis-001', generatorVersion: '1.0.0', radius: 12 },
     resources: { wood: 20, stone: 12 },
     roadTileKeys: ['1,0', '2,0', '3,0', '4,0', '5,0', '6,0', '7,0', '8,0'],
@@ -109,9 +109,23 @@ function seedSignalwerkReadySave() {
     },
     signalwerk: { seed: signalwerkSeed, rotations: puzzle.initialRotations, solved: false },
     inventory: { resonanceCore: 0 },
+    relay: { status: 'dormant', coreInstalled: false },
     lastAdvancedAtMs: 0,
   }));
   return puzzle;
+}
+
+function seedRelayRepairReadySave() {
+  const puzzle = seedSignalwerkReadySave();
+  const saved = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as Record<string, any>;
+  saved.signalwerk = { ...saved.signalwerk, rotations: puzzle.solutionRotations, solved: true };
+  saved.inventory = { resonanceCore: 1 };
+  saved.prologue.eventIds = ['relay_discovered', 'signalwerk_solved'];
+  saved.buildings.push({
+    id: 'workshop:0,0', type: 'workshop', tileKey: '0,0', status: 'active',
+    startedAtMs: 0, completesAtMs: 0,
+  });
+  window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(saved));
 }
 
 describe('MERGEFORGE web shell', () => {
@@ -275,16 +289,47 @@ describe('MERGEFORGE web shell', () => {
       for (let turn = 0; turn < turns; turn += 1) fireEvent.click(runes[index]!);
     });
 
-    expect(screen.getByText('1 Resonanzkern · nicht installiert')).toBeTruthy();
-    expect(screen.getByLabelText('Resonanzkern: 1, nicht installiert')).toBeTruthy();
-    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('1 / 1');
+    expect(screen.getByText('1 Resonanzkern · bereit')).toBeTruthy();
+    expect(screen.getByLabelText('Resonanzkern: im Inventar')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('1 / 3');
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück zur Karte' }));
+    act(() => selectHex?.({ key: '0,0', coord: { q: 0, r: 0 } }));
+    expect(screen.getByRole('heading', { name: 'Relaiswerkstatt' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Werkstatt errichten' }));
+    expect(screen.getByLabelText('Stein: 8')).toBeTruthy();
     await waitFor(() => {
       const saved = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as {
         inventory?: { resonanceCore?: number };
         prologue?: { eventIds?: string[] };
+        buildings?: { type?: string; status?: string }[];
       };
       expect(saved.inventory?.resonanceCore).toBe(1);
       expect(saved.prologue?.eventIds).toEqual(['relay_discovered', 'signalwerk_solved']);
+      expect(saved.buildings).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'workshop', status: 'constructing' }),
+      ]));
+    });
+
+    view.unmount();
+  });
+
+  it('installs the core and persists the one-time relay repair', async () => {
+    seedRelayRepairReadySave();
+    const view = await renderReadyApp();
+    const selectHex = rendererHarness.onHexSelect;
+
+    act(() => selectHex?.({ key: '8,0', coord: { q: 8, r: 0 } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kern installieren · Reparatur starten' }));
+
+    expect(screen.getByLabelText('Resonanzkern: installiert')).toBeTruthy();
+    expect(screen.getByText('Reparatur läuft')).toBeTruthy();
+    await waitFor(() => {
+      const saved = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as {
+        inventory?: { resonanceCore?: number };
+        relay?: { status?: string; coreInstalled?: boolean };
+      };
+      expect(saved.inventory?.resonanceCore).toBe(0);
+      expect(saved.relay).toMatchObject({ status: 'repairing', coreInstalled: true });
     });
 
     view.unmount();

@@ -15,6 +15,12 @@ import {
   PATHFINDER_EXPANDED_MAX_CHARGES,
   SURVEY_TENT_STONE_COST,
   SURVEY_TENT_WOOD_COST,
+  WORKSHOP_BUILD_MS,
+  WORKSHOP_STONE_COST,
+  WORKSHOP_WOOD_COST,
+  RELAY_REPAIR_MS,
+  RELAY_REPAIR_STONE_COST,
+  RELAY_REPAIR_WOOD_COST,
   WORLD_PULSE_MS,
   advanceTime,
   buildRoad,
@@ -27,6 +33,8 @@ import {
   startLumberCamp,
   startQuarry,
   startSurveyTent,
+  startWorkshop,
+  startRelayRepair,
   surveyWithPathfinder,
   type BuildRoadRejection,
   type GameState,
@@ -35,6 +43,8 @@ import {
   type StartPathfinderTrainingRejection,
   type StartQuarryRejection,
   type StartSurveyTentRejection,
+  type StartWorkshopRejection,
+  type StartRelayRepairRejection,
   type SurveyWithPathfinderRejection,
   type WorldSnapshot,
 } from '@mergeforge/domain';
@@ -121,6 +131,22 @@ const surveyTentFailureCopy: Readonly<Record<StartSurveyTentRejection, string>> 
   'insufficient-resources': 'Für das Vermesserzelt fehlen Holz oder Stein.',
 };
 
+const workshopFailureCopy: Readonly<Record<StartWorkshopRejection, string>> = {
+  locked: 'Die Werkstatt wird erst nach dem gelösten Signalwerk freigeschaltet.',
+  'already-built': 'Die Werkstatt steht bereits im Dorf.',
+  'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Auftrag.',
+  'insufficient-resources': 'Für die Werkstatt fehlen Holz oder Stein.',
+};
+
+const relayRepairFailureCopy: Readonly<Record<StartRelayRepairRejection, string>> = {
+  locked: 'Das Relais ist noch nicht für die Reparatur freigeschaltet.',
+  'workshop-required': 'Für die Reparatur wird eine aktive Werkstatt benötigt.',
+  'already-started': 'Die Relaisreparatur wurde bereits begonnen.',
+  'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Auftrag.',
+  'core-required': 'Der Resonanzkern fehlt.',
+  'insufficient-resources': 'Für die Relaisreparatur fehlen Holz oder Stein.',
+};
+
 function bootstrapGame(nowMs: number): BootstrapResult {
   try {
     const world = generateWorld({ seed: WORLD_SEED, radius: WORLD_RADIUS });
@@ -187,7 +213,7 @@ function nextSettlementAt(state: GameState): number {
     : PATHFINDER_BASE_MAX_CHARGES;
   const buildingEvents = state.buildings.map((building) => {
     if (building.status === 'constructing') return building.completesAtMs;
-    return building.type === 'survey-tent'
+    return building.type === 'survey-tent' || building.type === 'workshop'
       ? Number.POSITIVE_INFINITY
       : building.lastProductionAtMs + WORLD_PULSE_MS;
   });
@@ -198,7 +224,10 @@ function nextSettlementAt(state: GameState): number {
         ? unit.lastChargeAtMs + WORLD_PULSE_MS
         : Number.POSITIVE_INFINITY,
   );
-  return Math.min(...buildingEvents, ...unitEvents, Number.POSITIVE_INFINITY);
+  const relayEvent = state.relay.status === 'repairing'
+    ? state.relay.completesAtMs
+    : Number.POSITIVE_INFINITY;
+  return Math.min(...buildingEvents, ...unitEvents, relayEvent, Number.POSITIVE_INFINITY);
 }
 
 export function App() {
@@ -233,15 +262,17 @@ export function App() {
   const selectedBuilding = useMemo(
     () => {
       const building = gameState?.buildings.find((entry) => entry.tileKey === selectedTile?.key);
-      return building?.type === 'survey-tent' ? undefined : building;
+      return building?.type === 'survey-tent' || building?.type === 'workshop' ? undefined : building;
     },
     [gameState?.buildings, selectedTile?.key],
   );
   const pathfinder = gameState?.units.find((unit) => unit.type === 'pathfinder');
   const surveyTent = gameState?.buildings.find((building) => building.type === 'survey-tent');
+  const workshop = gameState?.buildings.find((building) => building.type === 'workshop');
   const relayDiscovered = gameState === null ? false : hasPrologueEvent(gameState, 'relay_discovered');
   const signalwerkUnlocked = gameState === null ? false : hasCompletedChapter(gameState, 5);
   const signalwerkSolved = gameState?.signalwerk.solved ?? false;
+  const relayStatus = gameState?.relay.status ?? 'dormant';
   const isRelaySelected =
     selectedTile?.key === gameState?.world.relaySite.tileKey && signalwerkUnlocked;
   const signalwerkPuzzle = useMemo(
@@ -284,6 +315,14 @@ export function App() {
     ) return null;
     return startSurveyTent(gameState, commandNowMs);
   }, [commandNowMs, gameState, isVillageSelected, pathfinder?.status, surveyTent]);
+  const workshopPreview = useMemo(() => {
+    if (gameState === null || !isVillageSelected || !signalwerkSolved || workshop !== undefined) return null;
+    return startWorkshop(gameState, commandNowMs);
+  }, [commandNowMs, gameState, isVillageSelected, signalwerkSolved, workshop]);
+  const relayRepairPreview = useMemo(() => {
+    if (gameState === null || !isRelaySelected || !signalwerkSolved || relayStatus !== 'dormant') return null;
+    return startRelayRepair(gameState, commandNowMs);
+  }, [commandNowMs, gameState, isRelaySelected, relayStatus, signalwerkSolved]);
   const surveyPreview = useMemo(() => {
     if (
       gameState === null ||
@@ -304,13 +343,14 @@ export function App() {
       selectedBuilding !== undefined
       || trainingPreview !== null
       || surveyTentPreview !== null
+      || workshopPreview !== null
       || surveyPreview !== null
       || isRelaySelected
     ) {
       return null;
     }
     return buildRoad(gameState, selectedTile.coord);
-  }, [gameState, isLumberCampSite, isQuarrySite, isRelaySelected, isVillageSelected, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview]);
+  }, [gameState, isLumberCampSite, isQuarrySite, isRelaySelected, isVillageSelected, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview, workshopPreview]);
   const lumberCampPreview = useMemo(() => {
     if (gameState === null || selectedTile === null || !isLumberCampSite) return null;
     return startLumberCamp(gameState, selectedTile.coord, commandNowMs);
@@ -356,13 +396,15 @@ export function App() {
       surveyPreview !== null ||
       trainingPreview !== null ||
       surveyTentPreview !== null
+      || workshopPreview !== null
+      || (isVillageSelected && workshop !== undefined)
     ) return null;
     const canBeDestination = selectedTile.key === villageTileKey
       || gameState.roadTileKeys.includes(selectedTile.key);
     return canBeDestination
       ? movePathfinder(gameState, selectedTile.coord, commandNowMs)
       : null;
-  }, [buildingPlan, commandNowMs, gameState, pathfinder, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview, villageTileKey]);
+  }, [buildingPlan, commandNowMs, gameState, isVillageSelected, pathfinder, selectedBuilding, selectedTile, surveyPreview, surveyTentPreview, trainingPreview, villageTileKey, workshop, workshopPreview]);
 
   const newlyRevealedCount = useMemo(() => {
     if (gameState === null || roadPreview?.ok !== true) return 0;
@@ -382,7 +424,7 @@ export function App() {
         selectedTile !== null && roadPreview?.ok === true ? [selectedTile.key] : [],
       buildings:
         gameState?.buildings
-          .filter((building) => building.type !== 'survey-tent')
+          .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
           .map((building) => ({
             tileKey: building.tileKey,
             type: building.type,
@@ -473,7 +515,7 @@ export function App() {
       roadTileKeys: bootstrap.state.roadTileKeys,
       roadPreviewTileKeys: [],
       buildings: bootstrap.state.buildings
-        .filter((building) => building.type !== 'survey-tent')
+        .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
         .map((building) => ({
           tileKey: building.tileKey,
           type: building.type,
@@ -622,6 +664,20 @@ export function App() {
     if (result.ok) setEventMessage('Vermesserzelt beauftragt · Fertigstellung in 10:00');
   }, [commandNowMs, gameState]);
 
+  const confirmWorkshop = useCallback(() => {
+    if (gameState === null) return;
+    const result = startWorkshop(gameState, commandNowMs);
+    setGameState(result.state);
+    if (result.ok) setEventMessage('Werkstatt beauftragt · Fertigstellung in 20:00');
+  }, [commandNowMs, gameState]);
+
+  const confirmRelayRepair = useCallback(() => {
+    if (gameState === null) return;
+    const result = startRelayRepair(gameState, commandNowMs);
+    setGameState(result.state);
+    if (result.ok) setEventMessage('Resonanzkern installiert · Relais bereit in 30:00');
+  }, [commandNowMs, gameState]);
+
   const rotateRune = useCallback((index: number) => {
     if (gameState === null) return;
     const wasSolved = gameState.signalwerk.solved;
@@ -644,7 +700,9 @@ export function App() {
   const chapterThreeComplete = gameState === null ? false : hasCompletedChapter(gameState, 3);
   const chapterFourComplete = gameState === null ? false : hasCompletedChapter(gameState, 4);
   const chapterFiveComplete = gameState === null ? false : hasCompletedChapter(gameState, 5);
+  const chapterSixComplete = gameState === null ? false : hasCompletedChapter(gameState, 6);
   const surveyTentActive = surveyTent?.status === 'active';
+  const workshopActive = workshop?.status === 'active';
   const relayVisible = gameState?.visibleTileKeys.includes(gameState.world.relaySite.tileKey) ?? false;
   const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : !chapterFiveComplete ? 5 : 6;
   const chapterNumber = !chapterComplete ? 1 : !hasLumberCamp ? 2 : prologueChapter;
@@ -668,8 +726,10 @@ export function App() {
         : chapterNumber === 4
           ? 'Die Weggabel'
           : chapterFiveComplete
-            ? signalwerkSolved
-              ? 'Resonanzkern geborgen'
+            ? chapterSixComplete
+              ? 'Das Relais lebt'
+              : signalwerkSolved
+                ? 'Der Resonanzkern'
               : 'Das Signalwerk'
             : 'Das tote Signal';
   const missionDescription = chapterNumber === 1
@@ -681,8 +741,10 @@ export function App() {
         : chapterNumber === 4
           ? 'Baut das Straßennetz auf acht Felder aus und aktiviert das Vermesserzelt.'
           : chapterFiveComplete
-            ? signalwerkSolved
-              ? 'Der einzigartige Kern liegt sicher im Inventar und bleibt bis zu einem späteren Issue uninstalliert.'
+            ? chapterSixComplete
+              ? 'Der Resonanzkern arbeitet dauerhaft im reparierten Relais. Das erste Fernsignal folgt in Kapitel 7.'
+              : signalwerkSolved
+                ? 'Errichtet die Werkstatt, installiert den einzigartigen Kern und repariert anschließend das Relais.'
               : 'Wählt das entdeckte Relais und richtet im Signalwerk eine durchgehende Energieverbindung ein.'
             : 'Folgt Straße und Wegfinder tiefer in den Nebel, bis die verlassene Relaisstation sichtbar wird.';
   const missionObjective = chapterNumber === 1
@@ -698,10 +760,19 @@ export function App() {
             ? 'Acht Straßenfelder verbinden'
             : 'Vermesserzelt aktivieren'
           : chapterFiveComplete
-            ? signalwerkSolved
-              ? 'Uninstallierten Resonanzkern sichern'
-              : 'Signalwerk lösen'
+            ? !signalwerkSolved
+              ? 'Signalwerk lösen'
+              : workshop === undefined
+                ? 'Werkstatt errichten'
+                : workshop.status === 'constructing'
+                  ? 'Werkstatt fertigstellen'
+                  : relayStatus === 'dormant'
+                    ? 'Resonanzkern installieren und Relais reparieren'
+                    : relayStatus === 'repairing'
+                      ? 'Relaisreparatur abschließen'
+                      : 'Relais wiederhergestellt'
             : 'Verlassenes Relais aufdecken';
+  const chapterSixProgress = Number(signalwerkSolved) + Number(workshopActive) + Number(relayStatus === 'active');
   const missionProgress = chapterNumber === 1
     ? `${chapterProgress} / ${CHAPTER_ONE_ROAD_TARGET}`
     : chapterNumber === 2
@@ -713,9 +784,9 @@ export function App() {
             ? `${Math.min(roadsBuilt, 8)} / 8`
             : `${surveyTentActive ? 1 : 0} / 1`
           : chapterFiveComplete
-            ? `${signalwerkSolved ? 1 : 0} / 1`
+            ? `${chapterSixProgress} / 3`
             : `${relayDiscovered && relayVisible ? 1 : 0} / 1`;
-  const missionComplete = chapterNumber === 6 && signalwerkSolved;
+  const missionComplete = chapterNumber === 6 && chapterSixComplete;
   const missionNote = chapterNumber === 1
     ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
     : chapterNumber === 2
@@ -725,8 +796,10 @@ export function App() {
         : chapterNumber === 4
           ? `Straßen ${Math.min(roadsBuilt, 8)} / 8 · Vermesserzelt ${surveyTentActive ? '✓' : '◇'}`
           : chapterFiveComplete
-            ? signalwerkSolved
-              ? 'Kern 1 / 1 · nicht installiert · keine Relaisaktivierung in diesem Issue.'
+            ? chapterSixComplete
+              ? 'Kern installiert · Relais aktiv · Kapitel 7 wartet auf den Richtungsimpuls.'
+              : signalwerkSolved
+                ? 'Werkstatt: 6 Holz, 4 Stein, 20 Min. · Reparatur: 5 Holz, 6 Stein, 30 Min.'
               : 'Das 5×5-Raster bleibt beim Schließen und nach einem Reload unverändert erhalten.'
             : 'Das Relais wird erst sichtbar, wenn sein Hex durch Straße oder Vermessung aufgedeckt wurde.';
 
@@ -768,6 +841,18 @@ export function App() {
   const surveyTentProgress = surveyTent?.status === 'constructing'
     ? Math.min(1, Math.max(0, (commandNowMs - surveyTent.startedAtMs) / (surveyTent.completesAtMs - surveyTent.startedAtMs)))
     : 1;
+  const workshopRemainingMs = workshop?.status === 'constructing'
+    ? workshop.completesAtMs - commandNowMs
+    : 0;
+  const workshopProgress = workshop?.status === 'constructing'
+    ? Math.min(1, Math.max(0, (commandNowMs - workshop.startedAtMs) / WORKSHOP_BUILD_MS))
+    : 1;
+  const relayRemainingMs = gameState?.relay.status === 'repairing'
+    ? gameState.relay.completesAtMs - commandNowMs
+    : 0;
+  const relayRepairProgress = gameState?.relay.status === 'repairing'
+    ? Math.min(1, Math.max(0, (commandNowMs - gameState.relay.startedAtMs) / RELAY_REPAIR_MS))
+    : gameState?.relay.status === 'active' ? 1 : 0;
 
   return (
     <main className="game-shell" aria-label="MERGEFORGE Weltansicht">
@@ -801,10 +886,10 @@ export function App() {
               <strong>{pathfinder.charges}/{maxPathfinderCharges}</strong>
             </span>
           )}
-          {gameState?.inventory.resonanceCore === 1 && (
-            <span className="resource core" aria-label="Resonanzkern: 1, nicht installiert">
+          {(gameState?.inventory.resonanceCore === 1 || gameState?.relay.coreInstalled) && (
+            <span className="resource core" aria-label={`Resonanzkern: ${gameState?.relay.coreInstalled ? 'installiert' : 'im Inventar'}`}>
               <i className="resource-dot core" aria-hidden="true" /><span>Resonanzkern</span>
-              <strong>1</strong>
+              <strong>{gameState?.relay.coreInstalled ? 'aktiv' : '1'}</strong>
             </span>
           )}
           <span className={`chapter-status ${missionComplete ? 'complete' : ''}`}>
@@ -829,21 +914,37 @@ export function App() {
         <section className="build-card relay-card" aria-labelledby="relay-title">
           <div className="build-card-heading">
             <span className="road-symbol relay-symbol" aria-hidden="true">◉</span>
-            <span><small>Verlassenes Relais</small><h2 id="relay-title">{signalwerkSolved ? 'Signalwerk stabil' : 'Signalwerk zugänglich'}</h2></span>
+            <span><small>Signalrelais</small><h2 id="relay-title">{relayStatus === 'active' ? 'Relais wiederhergestellt' : relayStatus === 'repairing' ? 'Reparatur läuft' : signalwerkSolved ? 'Kern bereit' : 'Signalwerk zugänglich'}</h2></span>
           </div>
           <dl className="build-preview">
-            <div><dt>Raster</dt><dd>5 × 5</dd></div>
-            <div><dt>Status</dt><dd>{signalwerkSolved ? 'Gelöst' : 'Unterbrochen'}</dd></div>
-            <div><dt>Kern</dt><dd>{gameState?.inventory.resonanceCore ?? 0} / 1</dd></div>
+            <div><dt>Signalwerk</dt><dd>{signalwerkSolved ? 'Gelöst' : 'Unterbrochen'}</dd></div>
+            <div><dt>Werkstatt</dt><dd>{workshopActive ? 'Aktiv' : 'Benötigt'}</dd></div>
+            <div><dt>Kern</dt><dd>{gameState?.relay.coreInstalled ? 'Installiert' : `${gameState?.inventory.resonanceCore ?? 0} / 1`}</dd></div>
           </dl>
+          {relayStatus === 'repairing' && (
+            <>
+              <div className="construction-progress" role="progressbar" aria-label="Relaisreparatur" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(relayRepairProgress * 100)}>
+                <span style={{ width: `${relayRepairProgress * 100}%` }} />
+              </div>
+              <div className="building-timer"><span>Signal bereit in</span><strong aria-live="polite">{formatRemaining(relayRemainingMs)}</strong></div>
+            </>
+          )}
           <p className="build-explanation">
-            {signalwerkSolved
-              ? 'Der Resonanzkern ist geborgen, aber noch nicht im Relais installiert.'
-              : 'Dreht die Runenplatten, bis blaue Quelle und goldenes Ziel verbunden sind.'}
+            {relayStatus === 'active'
+              ? 'Der Resonanzkern bleibt sichtbar im Relais und versorgt den Mast dauerhaft.'
+              : relayStatus === 'repairing'
+                ? 'Der Kern ist eingesetzt. Die Werkstatt stellt die alten Signalpfade wieder her.'
+                : signalwerkSolved
+                  ? relayRepairPreview?.ok === false
+                    ? relayRepairFailureCopy[relayRepairPreview.reason]
+                    : 'Installiert den Kern und startet die einmalige Reparatur.'
+                  : 'Dreht die Runenplatten, bis blaue Quelle und goldenes Ziel verbunden sind.'}
           </p>
           <div className="build-actions">
             <button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button>
-            <button className="primary-action" type="button" onClick={() => setSignalwerkOpen(true)}>{signalwerkSolved ? 'Lösung ansehen' : 'Signalwerk öffnen'}</button>
+            {relayStatus === 'dormant' && (signalwerkSolved
+              ? <button className="primary-action" type="button" disabled={relayRepairPreview?.ok !== true} onClick={confirmRelayRepair}>Kern installieren · Reparatur starten</button>
+              : <button className="primary-action" type="button" onClick={() => setSignalwerkOpen(true)}>Signalwerk öffnen</button>)}
           </div>
         </section>
       )}
@@ -909,7 +1010,7 @@ export function App() {
         </section>
       )}
 
-      {isVillageSelected && surveyTent !== undefined && movementPreview === null && (
+      {isVillageSelected && surveyTent !== undefined && movementPreview === null && workshopPreview === null && workshop === undefined && (
         <section className="build-card building-status-card exploration-card" aria-labelledby="tent-status-title">
           <div className="build-card-heading">
             <span className="road-symbol tent-symbol" aria-hidden="true">△</span>
@@ -923,6 +1024,44 @@ export function App() {
             <strong aria-live="polite">{surveyTent.status === 'constructing' ? formatRemaining(surveyTentRemainingMs) : `${PATHFINDER_EXPANDED_MAX_CHARGES} max.`}</strong>
           </div>
           <p className="build-explanation">{surveyTent.status === 'constructing' ? 'Nach Abschluss steigt das Ladungsmaximum von 6 auf 12.' : 'Der Wegfinder kann bis zu 12 Vermessungsaktionen speichern.'}</p>
+          <div className="build-actions single"><button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button></div>
+        </section>
+      )}
+
+      {workshopPreview !== null && (
+        <section className="build-card exploration-card workshop-card" aria-labelledby="workshop-title">
+          <div className="build-card-heading">
+            <span className="road-symbol workshop-symbol" aria-hidden="true">⚒</span>
+            <span><small>Dorfausbau</small><h2 id="workshop-title">Relaiswerkstatt</h2></span>
+          </div>
+          {workshopPreview.ok ? (
+            <>
+              <dl className="build-preview">
+                <div><dt>Kosten</dt><dd>{WORKSHOP_WOOD_COST} Holz · {WORKSHOP_STONE_COST} Stein</dd></div>
+                <div><dt>Bauzeit</dt><dd>20:00</dd></div>
+                <div><dt>Funktion</dt><dd>Relais reparieren</dd></div>
+              </dl>
+              <p className="build-explanation">Die Werkstatt ist der einzige Ort, an dem der Resonanzkern sicher in das alte Relais eingesetzt werden kann.</p>
+            </>
+          ) : <p className="build-warning" role="status">{workshopFailureCopy[workshopPreview.reason]}</p>}
+          <div className="build-actions">
+            <button className="secondary-action" type="button" onClick={cancelSelection}>Abbrechen</button>
+            <button className="primary-action" type="button" disabled={!workshopPreview.ok} onClick={confirmWorkshop}>Werkstatt errichten</button>
+          </div>
+        </section>
+      )}
+
+      {isVillageSelected && workshop !== undefined && (
+        <section className="build-card building-status-card exploration-card workshop-card" aria-labelledby="workshop-status-title">
+          <div className="build-card-heading">
+            <span className="road-symbol workshop-symbol" aria-hidden="true">⚒</span>
+            <span><small>Relaiswerkstatt</small><h2 id="workshop-status-title">{workshop.status === 'constructing' ? 'Bau läuft' : 'Werkstatt aktiv'}</h2></span>
+          </div>
+          <div className="construction-progress" role="progressbar" aria-label="Werkstattfortschritt" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(workshopProgress * 100)}>
+            <span style={{ width: `${workshopProgress * 100}%` }} />
+          </div>
+          <div className="building-timer"><span>{workshop.status === 'constructing' ? 'Fertig in' : 'Status'}</span><strong aria-live="polite">{workshop.status === 'constructing' ? formatRemaining(workshopRemainingMs) : 'Bereit'}</strong></div>
+          <p className="build-explanation">{workshop.status === 'constructing' ? 'Nach Abschluss kann der Kern am entdeckten Relais installiert werden.' : 'Wählt das Relais, um den Resonanzkern zu installieren und die Reparatur zu starten.'}</p>
           <div className="build-actions single"><button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button></div>
         </section>
       )}
@@ -1124,7 +1263,7 @@ export function App() {
               {signalwerkSolved ? (
                 <div className="core-result" role="status">
                   <span className="core-glyph" aria-hidden="true">◈</span>
-                  <span><small>Inventar</small><strong>1 Resonanzkern · nicht installiert</strong></span>
+                  <span><small>{gameState.relay.coreInstalled ? 'Relais' : 'Inventar'}</small><strong>{gameState.relay.coreInstalled ? 'Resonanzkern · installiert' : '1 Resonanzkern · bereit'}</strong></span>
                 </div>
               ) : (
                 <p>Fortschritt wird nach jeder Drehung automatisch gespeichert. Schließen setzt das Raster nicht zurück.</p>

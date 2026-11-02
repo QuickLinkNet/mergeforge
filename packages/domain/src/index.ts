@@ -94,7 +94,16 @@ export interface SurveyTent {
   readonly completesAtMs: number;
 }
 
-export type Building = LumberCamp | Quarry | SurveyTent;
+export interface Workshop {
+  readonly id: string;
+  readonly type: "workshop";
+  readonly tileKey: string;
+  readonly status: BuildingStatus;
+  readonly startedAtMs: number;
+  readonly completesAtMs: number;
+}
+
+export type Building = LumberCamp | Quarry | SurveyTent | Workshop;
 
 export type PathfinderStatus = "training" | "active";
 
@@ -111,8 +120,11 @@ export interface Pathfinder {
 
 export type Unit = Pathfinder;
 
-export type PrologueChapterId = 3 | 4 | 5;
-export type PrologueEventId = "relay_discovered" | "signalwerk_solved";
+export type PrologueChapterId = 3 | 4 | 5 | 6;
+export type PrologueEventId =
+  | "relay_discovered"
+  | "signalwerk_solved"
+  | "relay_repaired";
 
 export interface PrologueProgress {
   readonly stoneProductionObserved: boolean;
@@ -131,6 +143,15 @@ export interface Inventory {
   readonly resonanceCore: 0 | 1;
 }
 
+export type RelayState =
+  | { readonly status: "dormant"; readonly coreInstalled: false }
+  | {
+      readonly status: "repairing" | "active";
+      readonly coreInstalled: true;
+      readonly startedAtMs: number;
+      readonly completesAtMs: number;
+    };
+
 /** Mutable game progress represented as an immutable, serializable value. */
 export interface GameState {
   readonly schemaVersion: typeof GAME_STATE_SCHEMA_VERSION;
@@ -144,6 +165,7 @@ export interface GameState {
   readonly prologue: PrologueProgress;
   readonly signalwerk: SignalwerkState;
   readonly inventory: Inventory;
+  readonly relay: RelayState;
   readonly lastAdvancedAtMs: number;
 }
 
@@ -267,7 +289,29 @@ export type RotateSignalwerkRuneResult =
       readonly state: GameState;
     };
 
-export const GAME_STATE_SCHEMA_VERSION = 4 as const;
+export type StartWorkshopRejection =
+  | "locked"
+  | "already-built"
+  | "build-slot-occupied"
+  | "insufficient-resources";
+
+export type StartWorkshopResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: StartWorkshopRejection; readonly state: GameState };
+
+export type StartRelayRepairRejection =
+  | "locked"
+  | "workshop-required"
+  | "already-started"
+  | "build-slot-occupied"
+  | "core-required"
+  | "insufficient-resources";
+
+export type StartRelayRepairResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: StartRelayRepairRejection; readonly state: GameState };
+
+export const GAME_STATE_SCHEMA_VERSION = 5 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -297,6 +341,12 @@ export const SURVEY_TENT_BUILD_MS = WORLD_PULSE_MS;
 export const SURVEY_TENT_WOOD_COST = 3;
 export const SURVEY_TENT_STONE_COST = 1;
 export const PATHFINDER_EXPANDED_MAX_CHARGES = 12;
+export const WORKSHOP_BUILD_MS = 2 * WORLD_PULSE_MS;
+export const WORKSHOP_WOOD_COST = 6;
+export const WORKSHOP_STONE_COST = 4;
+export const RELAY_REPAIR_MS = 3 * WORLD_PULSE_MS;
+export const RELAY_REPAIR_WOOD_COST = 5;
+export const RELAY_REPAIR_STONE_COST = 6;
 
 /** A stable, serialization-friendly key for an axial coordinate. */
 export function hexKey(coord: HexCoord): string {
@@ -345,6 +395,7 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
       solved: false,
     },
     inventory: { resonanceCore: 0 },
+    relay: { status: "dormant", coreInstalled: false },
     lastAdvancedAtMs: nowMs,
   };
 }
@@ -407,6 +458,100 @@ export function rotateSignalwerkRune(
         eventIds === state.prologue.eventIds
           ? state.prologue
           : { ...state.prologue, eventIds },
+    },
+  };
+}
+
+/** Starts the village workshop after the Signalwerk has yielded its core. */
+export function startWorkshop(
+  state: GameState,
+  nowMs: number,
+): StartWorkshopResult {
+  const settledState = advanceTime(state, nowMs);
+  if (!settledState.signalwerk.solved || !hasPrologueEvent(settledState, "signalwerk_solved")) {
+    return workshopRejected(settledState, "locked");
+  }
+  if (settledState.buildings.some((building) => building.type === "workshop")) {
+    return workshopRejected(settledState, "already-built");
+  }
+  if (hasOccupiedBuildSlot(settledState)) {
+    return workshopRejected(settledState, "build-slot-occupied");
+  }
+  if (
+    settledState.resources.wood < WORKSHOP_WOOD_COST ||
+    settledState.resources.stone < WORKSHOP_STONE_COST
+  ) {
+    return workshopRejected(settledState, "insufficient-resources");
+  }
+  const tileKey = hexKey(settledState.world.village.coord);
+  const completesAtMs = nowMs + WORKSHOP_BUILD_MS;
+  assertTime(completesAtMs);
+  const workshop: Workshop = {
+    id: `workshop:${tileKey}`,
+    type: "workshop",
+    tileKey,
+    status: "constructing",
+    startedAtMs: nowMs,
+    completesAtMs,
+  };
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      resources: {
+        wood: settledState.resources.wood - WORKSHOP_WOOD_COST,
+        stone: settledState.resources.stone - WORKSHOP_STONE_COST,
+      },
+      buildings: [...settledState.buildings, workshop],
+    },
+  };
+}
+
+/** Installs the unique core and starts the one-time relay repair. */
+export function startRelayRepair(
+  state: GameState,
+  nowMs: number,
+): StartRelayRepairResult {
+  const settledState = advanceTime(state, nowMs);
+  if (!settledState.signalwerk.solved || !hasCompletedChapter(settledState, 5)) {
+    return relayRepairRejected(settledState, "locked");
+  }
+  const workshop = settledState.buildings.find((building) => building.type === "workshop");
+  if (workshop?.status !== "active") {
+    return relayRepairRejected(settledState, "workshop-required");
+  }
+  if (settledState.relay.status !== "dormant") {
+    return relayRepairRejected(settledState, "already-started");
+  }
+  if (hasOccupiedBuildSlot(settledState)) {
+    return relayRepairRejected(settledState, "build-slot-occupied");
+  }
+  if (settledState.inventory.resonanceCore !== 1) {
+    return relayRepairRejected(settledState, "core-required");
+  }
+  if (
+    settledState.resources.wood < RELAY_REPAIR_WOOD_COST ||
+    settledState.resources.stone < RELAY_REPAIR_STONE_COST
+  ) {
+    return relayRepairRejected(settledState, "insufficient-resources");
+  }
+  const completesAtMs = nowMs + RELAY_REPAIR_MS;
+  assertTime(completesAtMs);
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      resources: {
+        wood: settledState.resources.wood - RELAY_REPAIR_WOOD_COST,
+        stone: settledState.resources.stone - RELAY_REPAIR_STONE_COST,
+      },
+      inventory: { resonanceCore: 0 },
+      relay: {
+        status: "repairing",
+        coreInstalled: true,
+        startedAtMs: nowMs,
+        completesAtMs,
+      },
     },
   };
 }
@@ -818,7 +963,7 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
   const buildings = state.buildings.map((building): Building => {
     if (nowMs < building.completesAtMs) return building;
 
-    if (building.type === "survey-tent") {
+    if (building.type === "survey-tent" || building.type === "workshop") {
       return building.status === "active"
         ? building
         : { ...building, status: "active" };
@@ -889,6 +1034,11 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
     };
   });
 
+  const relay: RelayState =
+    state.relay.status === "repairing" && nowMs >= state.relay.completesAtMs
+      ? { ...state.relay, status: "active" }
+      : state.relay;
+  const relayJustRepaired = state.relay.status === "repairing" && relay.status === "active";
   const nextState: GameState = {
     ...state,
     resources:
@@ -900,18 +1050,21 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
           },
     buildings,
     units,
+    relay,
     lastAdvancedAtMs: nowMs,
   };
 
   return reconcilePrologue(nextState, {
     stoneProductionObserved: producedStone > 0,
+    relayRepaired: relayJustRepaired,
   });
 }
 
 function hasOccupiedBuildSlot(state: GameState): boolean {
   return (
     state.buildings.some((building) => building.status === "constructing") ||
-    state.units.some((unit) => unit.status === "training")
+    state.units.some((unit) => unit.status === "training") ||
+    state.relay.status === "repairing"
   );
 }
 
@@ -939,6 +1092,7 @@ interface PrologueObservations {
   readonly stoneProductionObserved?: boolean;
   readonly pathfinderSurveyCompleted?: boolean;
   readonly relayDiscovered?: boolean;
+  readonly relayRepaired?: boolean;
 }
 
 function reconcilePrologue(
@@ -951,11 +1105,14 @@ function reconcilePrologue(
   const pathfinderSurveysCompleted =
     state.prologue.pathfinderSurveysCompleted +
     (observations.pathfinderSurveyCompleted === true ? 1 : 0);
-  const eventIds = state.prologue.eventIds.includes("relay_discovered")
+  let eventIds = state.prologue.eventIds.includes("relay_discovered")
     ? state.prologue.eventIds
     : observations.relayDiscovered === true
       ? [...state.prologue.eventIds, "relay_discovered" as const]
       : state.prologue.eventIds;
+  if (observations.relayRepaired === true && !eventIds.includes("relay_repaired")) {
+    eventIds = [...eventIds, "relay_repaired"];
+  }
 
   const completedChapterIds = new Set(state.prologue.completedChapterIds);
   if (stoneProductionObserved && pathfinderSurveysCompleted >= 1) {
@@ -979,8 +1136,15 @@ function reconcilePrologue(
   ) {
     completedChapterIds.add(5);
   }
+  if (
+    completedChapterIds.has(5) &&
+    state.relay.status === "active" &&
+    eventIds.includes("relay_repaired")
+  ) {
+    completedChapterIds.add(6);
+  }
 
-  const orderedChapterIds = ([3, 4, 5] as const).filter((chapterId) =>
+  const orderedChapterIds = ([3, 4, 5, 6] as const).filter((chapterId) =>
     completedChapterIds.has(chapterId),
   );
   const unchanged =
@@ -1081,6 +1245,20 @@ function rotateSignalwerkRuneRejected(
   state: GameState,
   reason: RotateSignalwerkRuneRejection,
 ): RotateSignalwerkRuneResult {
+  return { ok: false, reason, state };
+}
+
+function workshopRejected(
+  state: GameState,
+  reason: StartWorkshopRejection,
+): StartWorkshopResult {
+  return { ok: false, reason, state };
+}
+
+function relayRepairRejected(
+  state: GameState,
+  reason: StartRelayRepairRejection,
+): StartRelayRepairResult {
   return { ok: false, reason, state };
 }
 

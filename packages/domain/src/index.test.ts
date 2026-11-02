@@ -15,6 +15,8 @@ import {
   startPathfinderTraining,
   startQuarry,
   startSurveyTent,
+  startWorkshop,
+  startRelayRepair,
   surveyWithPathfinder,
   LUMBER_CAMP_BUILD_MS,
   MAX_STONE_STORAGE,
@@ -24,6 +26,12 @@ import {
   PATHFINDER_TRAINING_MS,
   QUARRY_BUILD_MS,
   SURVEY_TENT_BUILD_MS,
+  WORKSHOP_BUILD_MS,
+  WORKSHOP_STONE_COST,
+  WORKSHOP_WOOD_COST,
+  RELAY_REPAIR_MS,
+  RELAY_REPAIR_STONE_COST,
+  RELAY_REPAIR_WOOD_COST,
   WORLD_PULSE_MS,
   type GameState,
   type HexTile,
@@ -60,10 +68,11 @@ describe("road building", () => {
     expect(state.visibleTileKeys).toEqual(state.world.visibleTileKeys);
     expect(state.visibleTileKeys).not.toBe(state.world.visibleTileKeys);
     expect(state).toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       claimedSurfaceFindTileKeys: [],
       buildings: [],
       units: [],
+      relay: { status: "dormant", coreInstalled: false },
       prologue: {
         stoneProductionObserved: false,
         pathfinderSurveysCompleted: 0,
@@ -886,6 +895,74 @@ describe("Signalwerk domain integration", () => {
       ),
     ).toHaveLength(1);
     expect(repeated.state.inventory.resonanceCore).toBe(1);
+  });
+});
+
+describe("workshop and relay repair", () => {
+  it("locks the workshop until the Signalwerk is solved", () => {
+    const state = createUnlockedSignalwerkState();
+    expect(startWorkshop(state, 0)).toMatchObject({ ok: false, reason: "locked" });
+  });
+
+  it("builds the village workshop for the confirmed cost and duration", () => {
+    const solved = { ...solveSignalwerk(createUnlockedSignalwerkState()), resources: { wood: 30, stone: 30 } };
+    const started = startWorkshop(solved, 0);
+    if (!started.ok) throw new Error(`Unexpected workshop rejection: ${started.reason}`);
+
+    expect(started.state.resources).toEqual({
+      wood: 30 - WORKSHOP_WOOD_COST,
+      stone: 30 - WORKSHOP_STONE_COST,
+    });
+    expect(started.state.buildings.at(-1)).toMatchObject({
+      type: "workshop",
+      status: "constructing",
+      tileKey: "0,0",
+      completesAtMs: WORKSHOP_BUILD_MS,
+    });
+    expect(startWorkshop(started.state, 0)).toMatchObject({ ok: false, reason: "already-built" });
+
+    const active = advanceTime(started.state, WORKSHOP_BUILD_MS);
+    expect(active.buildings.at(-1)).toMatchObject({ type: "workshop", status: "active" });
+  });
+
+  it("installs the unique core and completes chapter 6 exactly once", () => {
+    const solved = { ...solveSignalwerk(createUnlockedSignalwerkState()), resources: { wood: 30, stone: 30 } };
+    const workshopOrder = startWorkshop(solved, 0);
+    if (!workshopOrder.ok) throw new Error("Expected workshop order.");
+    expect(startRelayRepair(workshopOrder.state, 0)).toMatchObject({
+      ok: false,
+      reason: "workshop-required",
+    });
+
+    const workshopActive = advanceTime(workshopOrder.state, WORKSHOP_BUILD_MS);
+    const repair = startRelayRepair(workshopActive, WORKSHOP_BUILD_MS);
+    if (!repair.ok) throw new Error(`Unexpected repair rejection: ${repair.reason}`);
+
+    expect(repair.state.resources).toEqual({
+      wood: 30 - WORKSHOP_WOOD_COST - RELAY_REPAIR_WOOD_COST,
+      stone: 30 - WORKSHOP_STONE_COST - RELAY_REPAIR_STONE_COST,
+    });
+    expect(repair.state.inventory.resonanceCore).toBe(0);
+    expect(repair.state.relay).toMatchObject({ status: "repairing", coreInstalled: true });
+    expect(startRelayRepair(repair.state, WORKSHOP_BUILD_MS)).toMatchObject({
+      ok: false,
+      reason: "already-started",
+    });
+
+    const completedAt = WORKSHOP_BUILD_MS + RELAY_REPAIR_MS;
+    const completed = advanceTime(repair.state, completedAt);
+    expect(completed.relay).toMatchObject({ status: "active", coreInstalled: true });
+    expect(completed.prologue.eventIds).toEqual([
+      "relay_discovered",
+      "signalwerk_solved",
+      "relay_repaired",
+    ]);
+    expect(completed.prologue.completedChapterIds).toEqual([3, 4, 5, 6]);
+
+    const reloaded = JSON.parse(JSON.stringify(completed)) as GameState;
+    const later = advanceTime(reloaded, completedAt + WORLD_PULSE_MS);
+    expect(later.prologue.eventIds.filter((event) => event === "relay_repaired")).toHaveLength(1);
+    expect(later.prologue.completedChapterIds.filter((chapter) => chapter === 6)).toHaveLength(1);
   });
 });
 
