@@ -37,10 +37,12 @@ import {
   startSurveyTent,
   startWorkshop,
   scanFarSignals,
+  startModuleBuilding,
   startRelayRepair,
   surveyWithPathfinder,
   type BuildRoadRejection,
   type GameState,
+  type ModuleManifest,
   type MovePathfinderRejection,
   type SignalBearing,
   type StartLumberCampRejection,
@@ -65,7 +67,8 @@ import {
   type SignalDirection,
 } from '@mergeforge/signalwerk';
 import { generateWorld } from '@mergeforge/worldgen';
-import { MODULE_REGISTRY } from './moduleRegistry';
+import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
+import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame } from './persistence';
 
 const WORLD_SEED = 'mergeforge-genesis-001';
@@ -167,7 +170,12 @@ function bootstrapGame(nowMs: number): BootstrapResult {
     const freshState = createInitialGameState(world, nowMs);
     let loaded: ReturnType<typeof loadGame>;
     try {
-      loaded = loadGame(window.localStorage, world, MODULE_REGISTRY);
+      loaded = loadGame(
+        window.localStorage,
+        world,
+        MODULE_REGISTRY,
+        LOADED_MODULES.map((entry) => entry.manifest),
+      );
     } catch {
       return {
         ok: true,
@@ -449,7 +457,7 @@ export function App() {
           .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
           .map((building) => ({
             tileKey: building.tileKey,
-            type: building.type,
+            type: building.type === 'module' ? ('lumber-camp' as const) : building.type,
             state: building.status === 'constructing' ? 'construction' : 'complete',
           })) ?? [],
       findEffects: highlightedFindEffects,
@@ -540,7 +548,7 @@ export function App() {
         .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
         .map((building) => ({
           tileKey: building.tileKey,
-          type: building.type,
+          type: building.type === 'module' ? ('lumber-camp' as const) : building.type,
           state: building.status === 'constructing' ? 'construction' : 'complete',
         })),
       findEffects: [],
@@ -646,6 +654,15 @@ export function App() {
     setGameState(result.state);
     if (result.ok) setEventMessage(`${buildingPlan.name} beauftragt · Fertigstellung in 10:00`);
   }, [buildingPlan, commandNowMs, gameState, selectedTile]);
+
+  const confirmModuleBuilding = useCallback((manifest: ModuleManifest) => {
+    if (gameState === null || selectedTile === null) return;
+    const result = startModuleBuilding(gameState, manifest, selectedTile.coord, commandNowMs);
+    setGameState(result.state);
+    if (result.ok) {
+      setEventMessage(`${manifest.name} beauftragt · Fertigstellung in ${formatRemaining(manifest.building.buildTimeMs)}`);
+    }
+  }, [commandNowMs, gameState, selectedTile]);
 
   const confirmTraining = useCallback(() => {
     if (gameState === null) return;
@@ -862,10 +879,20 @@ export function App() {
           ),
         )
       : 1;
-  const selectedBuildingName = selectedBuilding?.type === 'quarry' ? 'Steinbruch' : 'Holzfällerlager';
-  const selectedBuildingResource = selectedBuilding?.type === 'quarry' ? 'Stein' : 'Holz';
-  const selectedBuildingYield =
-    selectedBuilding?.type === 'quarry' ? QUARRY_STONE_PER_PULSE : LUMBER_CAMP_WOOD_PER_PULSE;
+  const selectedModuleBuilding = selectedBuilding?.type === 'module' ? selectedBuilding : undefined;
+  const selectedBuildingName = selectedModuleBuilding !== undefined
+    ? LOADED_MODULES.find((entry) => entry.manifest.id === selectedModuleBuilding.moduleId)?.manifest.name ??
+      selectedModuleBuilding.moduleId
+    : selectedBuilding?.type === 'quarry' ? 'Steinbruch' : 'Holzfällerlager';
+  const selectedBuildingArticle = selectedModuleBuilding !== undefined
+    ? ''
+    : selectedBuilding?.type === 'quarry' ? 'der ' : 'das ';
+  const selectedBuildingResource = selectedModuleBuilding !== undefined
+    ? selectedModuleBuilding.production.resource === 'stone' ? 'Stein' : 'Holz'
+    : selectedBuilding?.type === 'quarry' ? 'Stein' : 'Holz';
+  const selectedBuildingYield = selectedModuleBuilding !== undefined
+    ? selectedModuleBuilding.production.amountPerPulse
+    : selectedBuilding?.type === 'quarry' ? QUARRY_STONE_PER_PULSE : LUMBER_CAMP_WOOD_PER_PULSE;
   const maxPathfinderCharges = surveyTent?.status === 'active'
     ? PATHFINDER_EXPANDED_MAX_CHARGES
     : PATHFINDER_BASE_MAX_CHARGES;
@@ -1212,7 +1239,7 @@ export function App() {
         <section className="build-card building-status-card" aria-labelledby="building-title">
           <div className="build-card-heading">
             <span className={`road-symbol ${selectedBuilding.type === 'quarry' ? 'quarry-symbol' : 'camp-symbol'}`} aria-hidden="true">
-              {selectedBuilding.type === 'quarry' ? '◆' : '♜'}
+              {selectedBuilding.type === 'quarry' ? '◆' : selectedBuilding.type === 'module' ? '✦' : '♜'}
             </span>
             <span><small>{selectedBuildingName}</small><h2 id="building-title">{selectedBuilding.status === 'constructing' ? 'Bau läuft' : 'Produktion aktiv'}</h2></span>
           </div>
@@ -1230,13 +1257,14 @@ export function App() {
           </div>
           <p className="build-explanation">
             {selectedBuilding.status === 'constructing'
-              ? `Am Bauende wird ${selectedBuildingName === 'Steinbruch' ? 'der' : 'das'} ${selectedBuildingName} aktiv und liefert sofort ${selectedBuildingYield} ${selectedBuildingResource}.`
+              ? `Am Bauende wird ${selectedBuildingArticle}${selectedBuildingName} aktiv und liefert sofort ${selectedBuildingYield} ${selectedBuildingResource}.`
               : `${selectedBuildingName} produziert automatisch ${selectedBuildingYield} ${selectedBuildingResource} je 10-Minuten-Welttakt.`}
           </p>
           <div className="build-actions single"><button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button></div>
         </section>
       )}
 
+      <div className="build-stack">
       {selectedBuilding === undefined && buildingPlan !== null && (
         <section className="build-card" aria-labelledby="build-title">
           <div className="build-card-heading">
@@ -1265,6 +1293,18 @@ export function App() {
           </div>
         </section>
       )}
+
+      {selectedBuilding === undefined && gameState !== null && selectedTile !== null && (
+        <ModuleBuildPanel
+          state={gameState}
+          coord={selectedTile.coord}
+          nowMs={commandNowMs}
+          modules={LOADED_MODULES}
+          onBuild={confirmModuleBuilding}
+          onCancel={cancelSelection}
+        />
+      )}
+      </div>
 
       {selectedBuilding === undefined && buildingPlan === null && movementPreview === null && selectedTile !== null && roadPreview !== null && (
         <section className="build-card" aria-labelledby="build-title">

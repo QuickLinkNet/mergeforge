@@ -5,7 +5,7 @@ import {
   type SignalRotation,
 } from "@mergeforge/signalwerk";
 import { createFarSignals, type FarSignal } from "./signals";
-import type { ModuleRef } from "./modules";
+import type { ModuleManifest, ModuleRef } from "./modules";
 
 export * from "./signals";
 export * from "./modules";
@@ -108,7 +108,28 @@ export interface Workshop {
   readonly completesAtMs: number;
 }
 
-export type Building = LumberCamp | Quarry | SurveyTent | Workshop;
+/**
+ * A building defined by a module manifest. Cost and build time are settled at
+ * build start; the production rule is frozen into the building so settling
+ * time never needs the manifest, and persistence checks it against the module.
+ */
+export interface ModuleBuilding {
+  readonly id: string;
+  readonly type: "module";
+  readonly moduleId: string;
+  readonly moduleVersion: string;
+  readonly tileKey: string;
+  readonly status: BuildingStatus;
+  readonly startedAtMs: number;
+  readonly completesAtMs: number;
+  readonly lastProductionAtMs: number;
+  readonly production: {
+    readonly resource: "wood" | "stone";
+    readonly amountPerPulse: number;
+  };
+}
+
+export type Building = LumberCamp | Quarry | SurveyTent | Workshop | ModuleBuilding;
 
 export type PathfinderStatus = "training" | "active";
 
@@ -312,6 +333,20 @@ export type StartWorkshopRejection =
 export type StartWorkshopResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: StartWorkshopRejection; readonly state: GameState };
+
+export type StartModuleBuildingRejection =
+  | "tile-not-found"
+  | "terrain-not-allowed"
+  | "not-visible"
+  | "road-required"
+  | "already-built"
+  | "module-version-conflict"
+  | "build-slot-occupied"
+  | "insufficient-resources";
+
+export type StartModuleBuildingResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: StartModuleBuildingRejection; readonly state: GameState };
 
 export type StartRelayRepairRejection =
   | "locked"
@@ -765,6 +800,90 @@ export function startLumberCamp(
   };
 }
 
+/**
+ * Starts a building defined by a module manifest. The rules (terrain, road,
+ * cost, build time, production) come only from the manifest; the core knows
+ * nothing about individual modules.
+ */
+export function startModuleBuilding(
+  state: GameState,
+  manifest: ModuleManifest,
+  target: HexCoord,
+  nowMs: number,
+): StartModuleBuildingResult {
+  const settledState = advanceTime(state, nowMs);
+  const reject = (reason: StartModuleBuildingRejection): StartModuleBuildingResult => ({
+    ok: false,
+    reason,
+    state: settledState,
+  });
+  const targetKey = hexKey(target);
+  const targetTile = settledState.world.tiles.find(
+    (tile) => hexKey(tile.coord) === targetKey,
+  );
+  const { building } = manifest;
+
+  if (targetTile === undefined) return reject("tile-not-found");
+  if (!building.placement.terrain.includes(targetTile.terrain)) {
+    return reject("terrain-not-allowed");
+  }
+  if (!settledState.visibleTileKeys.includes(targetKey)) return reject("not-visible");
+  if (building.placement.requiresRoadConnection && !settledState.roadTileKeys.includes(targetKey)) {
+    return reject("road-required");
+  }
+  if (settledState.buildings.some((entry) => entry.tileKey === targetKey)) {
+    return reject("already-built");
+  }
+  if (
+    settledState.modules.some(
+      (ref) => ref.id === manifest.id && ref.version !== manifest.version,
+    )
+  ) {
+    return reject("module-version-conflict");
+  }
+  if (hasOccupiedBuildSlot(settledState)) return reject("build-slot-occupied");
+  if (
+    settledState.resources.wood < building.cost.wood ||
+    settledState.resources.stone < building.cost.stone
+  ) {
+    return reject("insufficient-resources");
+  }
+
+  const completesAtMs = nowMs + building.buildTimeMs;
+  assertTime(completesAtMs);
+  const moduleBuilding: ModuleBuilding = {
+    id: `module:${manifest.id}:${targetKey}`,
+    type: "module",
+    moduleId: manifest.id,
+    moduleVersion: manifest.version,
+    tileKey: targetKey,
+    status: "constructing",
+    startedAtMs: nowMs,
+    completesAtMs,
+    lastProductionAtMs: nowMs,
+    production: {
+      resource: building.production.resource,
+      amountPerPulse: building.production.amountPerPulse,
+    },
+  };
+  const alreadyReferenced = settledState.modules.some((ref) => ref.id === manifest.id);
+
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      resources: {
+        wood: settledState.resources.wood - building.cost.wood,
+        stone: settledState.resources.stone - building.cost.stone,
+      },
+      buildings: [...settledState.buildings, moduleBuilding],
+      modules: alreadyReferenced
+        ? settledState.modules
+        : [...settledState.modules, { id: manifest.id, version: manifest.version }],
+    },
+  };
+}
+
 /** Starts a quarry on a connected, data-driven stone resource site. */
 export function startQuarry(
   state: GameState,
@@ -1043,6 +1162,10 @@ export function advanceTime(state: GameState, nowMs: number): GameState {
       producedWood += completedPulses * LUMBER_CAMP_WOOD_PER_PULSE;
     } else if (building.type === "quarry") {
       producedStone += completedPulses * QUARRY_STONE_PER_PULSE;
+    } else if (building.type === "module") {
+      const produced = completedPulses * building.production.amountPerPulse;
+      if (building.production.resource === "wood") producedWood += produced;
+      else producedStone += produced;
     }
 
     return {
