@@ -4,6 +4,9 @@ import {
   rotateSignalwerkTile,
   type SignalRotation,
 } from "@mergeforge/signalwerk";
+import { createFarSignals, type FarSignal } from "./signals";
+
+export * from "./signals";
 
 export type Terrain = "meadow" | "forest" | "hills" | "water";
 
@@ -120,11 +123,15 @@ export interface Pathfinder {
 
 export type Unit = Pathfinder;
 
-export type PrologueChapterId = 3 | 4 | 5 | 6;
+export type PrologueChapterId = 3 | 4 | 5 | 6 | 7;
 export type PrologueEventId =
   | "relay_discovered"
   | "signalwerk_solved"
-  | "relay_repaired";
+  | "relay_repaired"
+  | "first_signals_received";
+
+/** Internal capabilities a module can later require; never a currency. */
+export type RelayCapability = "signal_network_active";
 
 export interface PrologueProgress {
   readonly stoneProductionObserved: boolean;
@@ -150,6 +157,7 @@ export type RelayState =
       readonly coreInstalled: true;
       readonly startedAtMs: number;
       readonly completesAtMs: number;
+      readonly capabilities: readonly RelayCapability[];
     };
 
 /** Mutable game progress represented as an immutable, serializable value. */
@@ -166,6 +174,8 @@ export interface GameState {
   readonly signalwerk: SignalwerkState;
   readonly inventory: Inventory;
   readonly relay: RelayState;
+  /** Coarse far signals; empty until chapter 7 has been completed. */
+  readonly signals: readonly FarSignal[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -311,7 +321,13 @@ export type StartRelayRepairResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: StartRelayRepairRejection; readonly state: GameState };
 
-export const GAME_STATE_SCHEMA_VERSION = 5 as const;
+export type ScanFarSignalsRejection = "locked" | "already-scanned";
+
+export type ScanFarSignalsResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: ScanFarSignalsRejection; readonly state: GameState };
+
+export const GAME_STATE_SCHEMA_VERSION = 6 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -396,6 +412,7 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
     },
     inventory: { resonanceCore: 0 },
     relay: { status: "dormant", coreInstalled: false },
+    signals: [],
     lastAdvancedAtMs: nowMs,
   };
 }
@@ -405,6 +422,13 @@ export function hasCompletedChapter(
   chapterId: PrologueChapterId,
 ): boolean {
   return state.prologue.completedChapterIds.includes(chapterId);
+}
+
+export function hasRelayCapability(
+  state: GameState,
+  capability: RelayCapability,
+): boolean {
+  return state.relay.status !== "dormant" && state.relay.capabilities.includes(capability);
 }
 
 export function hasPrologueEvent(
@@ -551,6 +575,44 @@ export function startRelayRepair(
         coreInstalled: true,
         startedAtMs: nowMs,
         completesAtMs,
+        capabilities: [],
+      },
+    },
+  };
+}
+
+/**
+ * Chapter 7: the player scans for far signals once the relay is active. Costs
+ * nothing; the active relay gains the capability and the two deterministic,
+ * coarse signals are revealed, all in one atomic step.
+ */
+export function scanFarSignals(state: GameState, nowMs: number): ScanFarSignalsResult {
+  const settledState = advanceTime(state, nowMs);
+  if (settledState.prologue.completedChapterIds.includes(7)) {
+    return { ok: false, reason: "already-scanned", state: settledState };
+  }
+  if (
+    !hasCompletedChapter(settledState, 6) ||
+    settledState.relay.status !== "active"
+  ) {
+    return { ok: false, reason: "locked", state: settledState };
+  }
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      relay: {
+        ...settledState.relay,
+        capabilities: [...settledState.relay.capabilities, "signal_network_active"],
+      },
+      signals: createFarSignals(
+        settledState.world.seed,
+        settledState.world.generatorVersion,
+      ),
+      prologue: {
+        ...settledState.prologue,
+        completedChapterIds: [...settledState.prologue.completedChapterIds, 7],
+        eventIds: [...settledState.prologue.eventIds, "first_signals_received"],
       },
     },
   };
@@ -1143,8 +1205,10 @@ function reconcilePrologue(
   ) {
     completedChapterIds.add(6);
   }
+  // Chapter 7 is never derived here: it needs the explicit player action
+  // scanFarSignals, so an already completed chapter 7 is only carried over.
 
-  const orderedChapterIds = ([3, 4, 5, 6] as const).filter((chapterId) =>
+  const orderedChapterIds = ([3, 4, 5, 6, 7] as const).filter((chapterId) =>
     completedChapterIds.has(chapterId),
   );
   const unchanged =

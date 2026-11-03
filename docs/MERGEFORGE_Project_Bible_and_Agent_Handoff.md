@@ -1,7 +1,7 @@
 # MERGEFORGE — Projektbibel und Agenten-Übergabe
 
 **Dokumenttyp:** Source of Truth für spätere Contributors und spezialisierte Agenten  
-**Stand:** M1 und M2.1–M2.3 umgesetzt; Issue #12 Relais-Prolog auf `feature/m2-4-relay-prologue` in Abnahme (1. November 2026)
+**Stand:** M1, M2 und M3.1–M3.2 umgesetzt; M3.3 Kapitel 7 (erstes Signal) auf `feature/m3-3-signal-impulse` in Abnahme (2. November 2026)
 
 ## Vision
 
@@ -97,11 +97,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M2.3 / Issue #11:** Wegfinder-Ausbildung, Straßenbewegung, Expeditionsladungen, Einzelhex-Vermessung und Vermesserzelt umgesetzt
 - **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt und in `dev` integriert
 - **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt und in `dev` integriert
-- **M3.2 / Issue #19:** Relaiswerkstatt, Kerninstallation, 30-minütige Relaisreparatur und einmaliger Abschluss von Kapitel 6 in Umsetzung
+- **M3.2 / Issue #19:** Relaiswerkstatt, Kerninstallation, 30-minütige Relaisreparatur und einmaliger Abschluss von Kapitel 6 umgesetzt und in `dev` integriert
+- **M3.3 / Kapitel 7:** zwei deterministische Fernsignale (grobe Richtung und Entfernung), Relaisfähigkeit `signal_network_active` und Kapitel 7 durch die Aktion „Fernsignal scannen“ auf `feature/m3-3-signal-impulse` in Abnahme (Spielstand-Schema 6, Schema 5 wird migriert)
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m3-2-relay-repair`
-- **Aktuelles Issue:** #19 — Werkstatt, Resonanzkern und Relaisreparatur
+- **Aktueller Arbeitsbranch:** `feature/m3-3-signal-impulse`
+- **Aktuelle Aufgabe:** M3.3 — Kapitel 7, das erste Signal
 
 ## Verbindliche M2-Issue-Reihenfolge
 
@@ -228,6 +229,19 @@ Issue #17 eröffnet Kapitel 6 als ersten isolierten Minispiel-Slot:
 - Werkstatt, Kerninstallation, Reparaturstatus und Kapitelereignis sind Teil des validierten Spielstands.
 
 **Nicht-Ziele von Issue #19:** kein Richtungsimpuls, keine fremden Sektoren, kein datengetriebenes Modul und keine Online-Persistenz.
+
+### M3.3 — Kapitel 7: Abnahmegrenze
+
+- Kapitel 6 endet mit der abgeschlossenen Relaisreparatur. Kapitel 7 schließt **nicht** automatisch ab, sondern erst durch die explizite Spieleraktion „Fernsignal scannen“ (`scanFarSignals`, kostenlos und sofort). Sie ist nur bei aktivem Relais nach Kapitel 6 möglich und wirkt genau einmal; ein zweiter Scan wird mit `already-scanned` abgelehnt (Owner-/Codex-Entscheidung 7 B).
+- Der Scan ist ein atomarer Schritt: Das Relais erhält intern die Fähigkeit `signal_network_active` (`relay.capabilities`), das Ereignis `first_signals_received` wird gespeichert und zwei Fernsignale entstehen.
+- Die Signale folgen aus Welt-Seed und Generatorversion (eigener Seed-Bereich `signals`, Modul `packages/domain/src/signals.ts`). Die zwei simulierten Nachbarn liegen 18–24 Straßenfelder entfernt, in verschiedenen Himmelsrichtungen (6 Hexrichtungen, mindestens 2 Sektoren Abstand).
+- Gespeichert und angezeigt werden ausschließlich Richtung (`bearing`) und Distanzband (`near` 18–20, `middle` 21–22, `far` 23–24). Exakte Distanz, Koordinaten, Gelände oder Karten fremder Sektoren existieren weder im Spielstand noch in der UI.
+- Das Fernsignal-Panel erscheint im bestehenden Stil A und ist touch-tauglich (Zeilen ≥ 56 px). Vor dem Scan zeigt die Oberfläche nur die Aktion „Fernsignal scannen“; die Signalliste erscheint erst nach Kapitel 7.
+- **Schema 6:** `GameState` erhält `signals` und `relay.capabilities`; Kapitel-ID `7` und Ereignis `first_signals_received` kommen hinzu. Spielstände mit Schema 5 werden beim Laden migriert (kein Reset): Die Migration erteilt Kapitel 7 nie selbst: Ein Stand mit abgeschlossenem Kapitel 6 steht danach bereit zum Scan. Ältere Schemata bleiben `incompatible`.
+- Die Persistenz validiert Signale streng gegen die neu erzeugten Werte; manipulierte, ergänzte (z. B. Koordinaten), fehlende oder ohne Kapitel 7 vorhandene Signale, fehlende/doppelte Fähigkeiten und inkonsistente Kapitel-/Ereignisfolgen führen kontrolliert zu einem neuen Start.
+- Kosten, Timer und bestehende Mechaniken bleiben unverändert.
+
+**Nicht-Ziele von M3.3:** keine echten Spieler, kein Login, kein Backend, keine Sicht auf fremde Dörfer oder Karten, kein Straßenbau zwischen Sektoren, kein PvP/Handel/Weltprojekt, kein Contributor-Modulmanifest.
 
 ## Noch offene Produktentscheidungen
 

@@ -25,8 +25,10 @@ import {
   advanceTime,
   buildRoad,
   createInitialGameState,
+  describeDistanceBand,
   hasCompletedChapter,
   hasPrologueEvent,
+  hasRelayCapability,
   movePathfinder,
   rotateSignalwerkRune,
   startPathfinderTraining,
@@ -34,11 +36,13 @@ import {
   startQuarry,
   startSurveyTent,
   startWorkshop,
+  scanFarSignals,
   startRelayRepair,
   surveyWithPathfinder,
   type BuildRoadRejection,
   type GameState,
   type MovePathfinderRejection,
+  type SignalBearing,
   type StartLumberCampRejection,
   type StartPathfinderTrainingRejection,
   type StartQuarryRejection,
@@ -136,6 +140,15 @@ const workshopFailureCopy: Readonly<Record<StartWorkshopRejection, string>> = {
   'already-built': 'Die Werkstatt steht bereits im Dorf.',
   'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Auftrag.',
   'insufficient-resources': 'Für die Werkstatt fehlen Holz oder Stein.',
+};
+
+const signalBearingCopy: Readonly<Record<SignalBearing, { readonly label: string; readonly angle: number }>> = {
+  east: { label: 'Osten', angle: 90 },
+  'north-east': { label: 'Nordosten', angle: 30 },
+  'north-west': { label: 'Nordwesten', angle: -30 },
+  west: { label: 'Westen', angle: -90 },
+  'south-west': { label: 'Südwesten', angle: -150 },
+  'south-east': { label: 'Südosten', angle: 150 },
 };
 
 const relayRepairFailureCopy: Readonly<Record<StartRelayRepairRejection, string>> = {
@@ -678,6 +691,13 @@ export function App() {
     if (result.ok) setEventMessage('Resonanzkern installiert · Relais bereit in 30:00');
   }, [commandNowMs, gameState]);
 
+  const confirmSignalScan = useCallback(() => {
+    if (gameState === null) return;
+    const result = scanFarSignals(gameState, commandNowMs);
+    setGameState(result.state);
+    if (result.ok) setEventMessage('Signalnetz aktiv · Zwei Fernsignale empfangen');
+  }, [commandNowMs, gameState]);
+
   const rotateRune = useCallback((index: number) => {
     if (gameState === null) return;
     const wasSolved = gameState.signalwerk.solved;
@@ -701,10 +721,13 @@ export function App() {
   const chapterFourComplete = gameState === null ? false : hasCompletedChapter(gameState, 4);
   const chapterFiveComplete = gameState === null ? false : hasCompletedChapter(gameState, 5);
   const chapterSixComplete = gameState === null ? false : hasCompletedChapter(gameState, 6);
+  const chapterSevenComplete = gameState === null ? false : hasCompletedChapter(gameState, 7);
+  const signalNetworkActive = gameState !== null && hasRelayCapability(gameState, 'signal_network_active');
+  const farSignals = gameState?.signals ?? [];
   const surveyTentActive = surveyTent?.status === 'active';
   const workshopActive = workshop?.status === 'active';
   const relayVisible = gameState?.visibleTileKeys.includes(gameState.world.relaySite.tileKey) ?? false;
-  const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : !chapterFiveComplete ? 5 : 6;
+  const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : !chapterFiveComplete ? 5 : !chapterSixComplete ? 6 : 7;
   const chapterNumber = !chapterComplete ? 1 : !hasLumberCamp ? 2 : prologueChapter;
   const chapterName = chapterNumber === 1
     ? 'Gründungsring'
@@ -716,7 +739,9 @@ export function App() {
           ? 'Weggabel'
           : chapterNumber === 5
             ? 'Totes Signal'
-            : 'Resonanzkern';
+            : chapterNumber === 6
+              ? 'Resonanzkern'
+              : 'Erstes Signal';
   const missionTitle = chapterNumber === 1
     ? 'Ein Weg ins Unbekannte'
     : chapterNumber === 2
@@ -727,7 +752,7 @@ export function App() {
           ? 'Die Weggabel'
           : chapterFiveComplete
             ? chapterSixComplete
-              ? 'Das Relais lebt'
+              ? 'Das erste Signal'
               : signalwerkSolved
                 ? 'Der Resonanzkern'
               : 'Das Signalwerk'
@@ -742,7 +767,9 @@ export function App() {
           ? 'Baut das Straßennetz auf acht Felder aus und aktiviert das Vermesserzelt.'
           : chapterFiveComplete
             ? chapterSixComplete
-              ? 'Der Resonanzkern arbeitet dauerhaft im reparierten Relais. Das erste Fernsignal folgt in Kapitel 7.'
+              ? chapterSevenComplete
+                ? 'Das Relais empfängt zwei ferne Siedlungen. Ihre Karten bleiben im Nebel; bekannt sind nur Richtung und grobe Entfernung.'
+                : 'Das Relais ist wieder aktiv. Lauscht in die Ferne: Ein Scan zeigt, in welcher Richtung zwei andere Siedlungen liegen.'
               : signalwerkSolved
                 ? 'Errichtet die Werkstatt, installiert den einzigartigen Kern und repariert anschließend das Relais.'
               : 'Wählt das entdeckte Relais und richtet im Signalwerk eine durchgehende Energieverbindung ein.'
@@ -770,7 +797,9 @@ export function App() {
                     ? 'Resonanzkern installieren und Relais reparieren'
                     : relayStatus === 'repairing'
                       ? 'Relaisreparatur abschließen'
-                      : 'Relais wiederhergestellt'
+                      : chapterSevenComplete
+                        ? 'Zwei Fernsignale empfangen'
+                        : 'Fernsignal scannen'
             : 'Verlassenes Relais aufdecken';
   const chapterSixProgress = Number(signalwerkSolved) + Number(workshopActive) + Number(relayStatus === 'active');
   const missionProgress = chapterNumber === 1
@@ -784,9 +813,11 @@ export function App() {
             ? `${Math.min(roadsBuilt, 8)} / 8`
             : `${surveyTentActive ? 1 : 0} / 1`
           : chapterFiveComplete
-            ? `${chapterSixProgress} / 3`
+            ? chapterSixComplete
+              ? `${farSignals.length} / 2`
+              : `${chapterSixProgress} / 3`
             : `${relayDiscovered && relayVisible ? 1 : 0} / 1`;
-  const missionComplete = chapterNumber === 6 && chapterSixComplete;
+  const missionComplete = chapterNumber === 7 && chapterSevenComplete;
   const missionNote = chapterNumber === 1
     ? 'Straßen kosten 1 Holz und decken angrenzende Felder auf.'
     : chapterNumber === 2
@@ -797,7 +828,9 @@ export function App() {
           ? `Straßen ${Math.min(roadsBuilt, 8)} / 8 · Vermesserzelt ${surveyTentActive ? '✓' : '◇'}`
           : chapterFiveComplete
             ? chapterSixComplete
-              ? 'Kern installiert · Relais aktiv · Kapitel 7 wartet auf den Richtungsimpuls.'
+              ? chapterSevenComplete
+                ? 'Signalnetz aktiv · Fremde Karten und Koordinaten bleiben verborgen.'
+                : 'Der Scan kostet nichts und läuft sofort · Es werden nur Richtung und grobe Entfernung gezeigt.'
               : signalwerkSolved
                 ? 'Werkstatt: 6 Holz, 4 Stein, 20 Min. · Reparatur: 5 Holz, 6 Stein, 30 Min.'
               : 'Das 5×5-Raster bleibt beim Schließen und nach einem Reload unverändert erhalten.'
@@ -909,6 +942,44 @@ export function App() {
         </div>
         <p className="mission-note">{missionNote}</p>
       </section>
+
+      {chapterSixComplete && !chapterSevenComplete && (
+        <section className="build-card signal-card" aria-labelledby="signal-scan-title">
+          <div className="build-card-heading">
+            <span className="road-symbol relay-symbol" aria-hidden="true">≋</span>
+            <span><small>Relais aktiv</small><h2 id="signal-scan-title">Fernsignal scannen</h2></span>
+          </div>
+          <p className="build-explanation">Das Relais lauscht nach anderen Siedlungen. Der Scan kostet nichts; gezeigt werden nur grobe Richtung und Entfernung.</p>
+          <div className="build-actions">
+            <button className="primary-action" type="button" onClick={confirmSignalScan}>Fernsignal scannen</button>
+          </div>
+        </section>
+      )}
+
+      {signalNetworkActive && farSignals.length > 0 && (
+        <section className="build-card signal-card" aria-labelledby="signals-title">
+          <div className="build-card-heading">
+            <span className="road-symbol relay-symbol" aria-hidden="true">≋</span>
+            <span><small>Signalnetz aktiv</small><h2 id="signals-title">Fernsignale</h2></span>
+          </div>
+          <ul className="signal-list">
+            {farSignals.map((signal, index) => {
+              const bearing = signalBearingCopy[signal.bearing];
+              return (
+                <li className="signal-item" key={signal.id}>
+                  <span className="signal-arrow" aria-hidden="true" style={{ transform: `rotate(${bearing.angle}deg)` }}>↑</span>
+                  <span>
+                    <small>Signal {index + 1}</small>
+                    <strong>{bearing.label}</strong>
+                    <em>ca. {describeDistanceBand(signal.distanceBand)}</em>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="build-explanation">Nur grobe Richtung und Entfernung. Gelände, Karten und Orte dieser Siedlungen bleiben im Nebel.</p>
+        </section>
+      )}
 
       {isRelaySelected && (
         <section className="build-card relay-card" aria-labelledby="relay-title">

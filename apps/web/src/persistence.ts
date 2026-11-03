@@ -4,7 +4,9 @@ import {
   MAX_WOOD_STORAGE,
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
+  createFarSignals,
   type Building,
+  type FarSignal,
   type GameState,
   type ResourceStock,
   type Unit,
@@ -18,6 +20,8 @@ import {
 
 export const GAME_SAVE_KEY = 'mergeforge.game.v1';
 const SAVE_FORMAT_VERSION = 1;
+/** Schema 5 (before chapter 7) is migrated on load instead of being discarded. */
+const MIGRATABLE_SCHEMA_VERSION = 5;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -48,6 +52,7 @@ interface PersistedStateV1 {
   readonly signalwerk: GameState['signalwerk'];
   readonly inventory: GameState['inventory'];
   readonly relay: GameState['relay'];
+  readonly signals: readonly FarSignal[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -70,6 +75,7 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     signalwerk: state.signalwerk,
     inventory: state.inventory,
     relay: state.relay,
+    signals: state.signals,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -99,7 +105,11 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   }
 
   if (!isRecord(value)) return reset(storage, 'corrupt');
-  if (value.formatVersion !== SAVE_FORMAT_VERSION || value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION) {
+  const migratingLegacy = value.gameSchemaVersion === MIGRATABLE_SCHEMA_VERSION;
+  if (
+    value.formatVersion !== SAVE_FORMAT_VERSION ||
+    (value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION && !migratingLegacy)
+  ) {
     return reset(storage, 'incompatible');
   }
   if (!isRecord(value.world)) return reset(storage, 'corrupt');
@@ -132,7 +142,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const prologue = parsePrologue(value.prologue);
   const signalwerk = parseSignalwerk(value.signalwerk, world);
   const inventory = parseInventory(value.inventory);
-  const relay = parseRelay(value.relay);
+  const relay = parseRelay(value.relay, migratingLegacy);
+  const signals = migratingLegacy && value.signals === undefined ? [] : parseSignals(value.signals, world);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -146,6 +157,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     signalwerk === null ||
     inventory === null ||
     relay === null ||
+    signals === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -195,24 +207,35 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     (relay.status === 'active') !== prologue.completedChapterIds.includes(6)
   ) return reset(storage, 'corrupt');
 
-  return {
-    kind: 'loaded',
-    state: {
-      schemaVersion: GAME_STATE_SCHEMA_VERSION,
-      world,
-      resources,
-      roadTileKeys,
-      visibleTileKeys,
-      claimedSurfaceFindTileKeys,
-      buildings,
-      units,
-      prologue,
-      signalwerk,
-      inventory,
-      relay,
-      lastAdvancedAtMs,
-    },
+  const state: GameState = {
+    schemaVersion: GAME_STATE_SCHEMA_VERSION,
+    world,
+    resources,
+    roadTileKeys,
+    visibleTileKeys,
+    claimedSurfaceFindTileKeys,
+    buildings,
+    units,
+    prologue,
+    signalwerk,
+    inventory,
+    relay,
+    signals,
+    lastAdvancedAtMs,
   };
+  // A schema-5 game is migrated without side effects: chapter 7 is never
+  // granted on load, the player still has to scan for the far signals.
+  const chapterSeven = state.prologue.completedChapterIds.includes(7);
+  const signalEvent = state.prologue.eventIds.includes('first_signals_received');
+  const capability = state.relay.status !== 'dormant' && state.relay.capabilities.includes('signal_network_active');
+  if (
+    chapterSeven !== signalEvent ||
+    chapterSeven !== capability ||
+    chapterSeven !== (state.signals.length > 0) ||
+    (chapterSeven && (state.relay.status !== 'active' || !state.prologue.completedChapterIds.includes(6)))
+  ) return reset(storage, 'corrupt');
+
+  return { kind: 'loaded', state };
 }
 
 function parseResources(value: unknown): ResourceStock | null {
@@ -355,24 +378,28 @@ function parsePrologue(value: unknown): GameState['prologue'] | null {
   const completedChapterIds = value.completedChapterIds;
   const eventIds = value.eventIds;
   if (
-    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5 && chapter !== 6) ||
-    eventIds.some((eventId) => eventId !== 'relay_discovered' && eventId !== 'signalwerk_solved' && eventId !== 'relay_repaired') ||
+    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5 && chapter !== 6 && chapter !== 7) ||
+    eventIds.some((eventId) =>
+      eventId !== 'relay_discovered' &&
+      eventId !== 'signalwerk_solved' &&
+      eventId !== 'relay_repaired' &&
+      eventId !== 'first_signals_received') ||
     new Set(completedChapterIds).size !== completedChapterIds.length ||
     new Set(eventIds).size !== eventIds.length
   ) return null;
 
   const completedSequence = completedChapterIds.join(',');
-  if (!['', '3', '3,4', '3,4,5', '3,4,5,6'].includes(completedSequence)) return null;
+  if (!['', '3', '3,4', '3,4,5', '3,4,5,6', '3,4,5,6,7'].includes(completedSequence)) return null;
   const eventSequence = eventIds.join(',');
-  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved', 'relay_discovered,signalwerk_solved,relay_repaired'].includes(eventSequence)) {
+  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved', 'relay_discovered,signalwerk_solved,relay_repaired', 'relay_discovered,signalwerk_solved,relay_repaired,first_signals_received'].includes(eventSequence)) {
     return null;
   }
 
   return {
     stoneProductionObserved: value.stoneProductionObserved,
     pathfinderSurveysCompleted: value.pathfinderSurveysCompleted,
-    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5 | 6)[],
-    eventIds: [...eventIds] as ('relay_discovered' | 'signalwerk_solved' | 'relay_repaired')[],
+    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5 | 6 | 7)[],
+    eventIds: [...eventIds] as GameState['prologue']['eventIds'][number][],
   };
 }
 
@@ -402,7 +429,28 @@ function parseInventory(value: unknown): GameState['inventory'] | null {
   return { resonanceCore: value.resonanceCore };
 }
 
-function parseRelay(value: unknown): GameState['relay'] | null {
+function parseSignals(value: unknown, world: WorldSnapshot): readonly FarSignal[] | null {
+  if (!Array.isArray(value)) return null;
+  if (value.length === 0) return [];
+  // Signals are fully derived data: anything other than the exact regenerated
+  // pair (including extra fields such as coordinates) is a manipulated save.
+  const expected = createFarSignals(world.seed, world.generatorVersion);
+  if (value.length !== expected.length) return null;
+  for (const [index, entry] of value.entries()) {
+    const reference = expected[index];
+    if (
+      reference === undefined ||
+      !isRecord(entry) ||
+      Object.keys(entry).sort().join(',') !== 'bearing,distanceBand,id' ||
+      entry.id !== reference.id ||
+      entry.bearing !== reference.bearing ||
+      entry.distanceBand !== reference.distanceBand
+    ) return null;
+  }
+  return expected;
+}
+
+function parseRelay(value: unknown, migratingLegacy: boolean): GameState['relay'] | null {
   if (!isRecord(value) || typeof value.coreInstalled !== 'boolean') return null;
   if (value.status === 'dormant' && value.coreInstalled === false) {
     return { status: 'dormant', coreInstalled: false };
@@ -411,7 +459,23 @@ function parseRelay(value: unknown): GameState['relay'] | null {
     const startedAtMs = parseTimestamp(value.startedAtMs);
     const completesAtMs = parseTimestamp(value.completesAtMs);
     if (startedAtMs === null || completesAtMs === null || completesAtMs < startedAtMs) return null;
-    return { status: value.status, coreInstalled: true, startedAtMs, completesAtMs };
+    if (migratingLegacy && value.capabilities === undefined) {
+      return { status: value.status, coreInstalled: true, startedAtMs, completesAtMs, capabilities: [] };
+    }
+    const capabilities = value.capabilities;
+    if (
+      !Array.isArray(capabilities) ||
+      capabilities.some((capability) => capability !== 'signal_network_active') ||
+      new Set(capabilities).size !== capabilities.length ||
+      (capabilities.length > 0 && value.status !== 'active')
+    ) return null;
+    return {
+      status: value.status,
+      coreInstalled: true,
+      startedAtMs,
+      completesAtMs,
+      capabilities: [...capabilities] as 'signal_network_active'[],
+    };
   }
   return null;
 }
