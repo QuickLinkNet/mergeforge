@@ -1,6 +1,6 @@
 # Entwurf: erstes datengetriebenes Beispielmodul „Harzsammler“
 
-Stand: 2026-11-03 · Status: **nur Entwurf, kein Code, kein Branch.** Start erst nach dem Merge von PR 21 nach `dev` (Codex-Entscheidung 2 B).
+Stand: 2026-11-03 · Status: **nur Entwurf, kein Code, kein Branch; Codex-Antworten eingearbeitet.** Start erst nach dem Merge von PR 21 nach `dev` (Codex-Entscheidung 2 B).
 
 Vorgabe von Codex: „Harzsammler“ ist ein manifestdefiniertes Waldgebäude mit Kosten, Bauzeit, Icon und +1 Holz je Welttakt, **ohne Kerncodeänderung für das Beispiel**.
 
@@ -62,7 +62,7 @@ Wichtig für die Sicherheit: Ein Manifest ist **reine Daten, kein Code**. Kein S
 
 - Gebäude eines Moduls speichern `type: "module:harzsammler"` plus die Modul-Version. Die Kerntypen bleiben unverändert.
 - Spielstand-Schema steigt auf 7 (bewusst, mit Migrationstest wie bei D-011).
-- Beim Laden wird jedes Modulgebäude gegen das *aktuelle* Manifest geprüft. Fehlt das Modul oder ist die Version inkompatibel, wird kontrolliert ein neuer Start gemacht und nicht still ein Gebäude verworfen. (Offene Frage 2 unten.)
+- Beim Laden wird jedes Modulgebäude gegen das *aktuelle* Manifest geprüft. Fehlt das Modul oder ist die Version inkompatibel, wird der Spielstand **unverändert gesperrt** (weder Neustart noch stilles Entfernen von Gebäuden). Die Oberfläche meldet klar, welches Modul in welcher Version fehlt, und ermöglicht die Wiederherstellung, etwa durch Hinzufügen des Moduls. Der gespeicherte Stand wird dabei nicht überschrieben. (Codex-Entscheidung 2.)
 
 ## 5. Tests, die der Entwurf vorsieht
 
@@ -77,10 +77,15 @@ Wichtig für die Sicherheit: Ein Manifest ist **reine Daten, kein Code**. Kein S
 - Kein Modul darf Kernregeln ändern, nur bestehende Bausteine (Gebäude, Kosten, Ertrag) kombinieren.
 - Keine Contributor-Belohnungen, keine Anbindung an GitHub (kommt mit M4).
 
-## 7. Offene Fragen für Codex und den Owner
+## 7. Entscheidungen (Codex, 2026-11-03)
 
-1. Soll das Manifest JSON sein, oder lieber TypeScript mit Typen? (Empfehlung: JSON, weil Daten und ohne Code ausführbar.)
-2. Was passiert mit einem Spielstand, dessen Modul später entfernt oder inkompatibel geändert wird? (Empfehlung: kontrollierter Neustart wie bei Schema-Fehlern, dokumentiert.)
-3. Wo liegen Module? (Vorschlag: `modules/<id>/` im Repo, geladen zur Build-Zeit, nicht zur Laufzeit aus dem Netz.)
-4. Sind die Platzhalter-Werte (3 Holz, 1 Stein, 1 Takt, +1 Holz) recht? Der Harzsammler (+1 je Takt) liegt unter dem Holzfällerlager (+2 je Takt).
-5. Soll PR A und PR B getrennt bleiben? (Empfehlung: ja, damit PR B den Beweis „ohne Kerncodeänderung“ liefert.)
+1. **Manifest-Format:** JSON (nur Daten, kein ausführbarer Code).
+2. **Fehlendes oder inkompatibles Modul:** Spielstand unverändert sperren, fehlendes Modul klar melden, Wiederherstellung ermöglichen. Kein Neustart, kein stilles Entfernen.
+3. **Ablageort:** `modules/<id>/` im Repo, zur Build-Zeit geladen, nicht zur Laufzeit aus dem Netz.
+4. **Platzhalter-Werte:** 3 Holz, 1 Stein, 1 Takt Bauzeit, +1 Holz je Takt sind in Ordnung. Die endgültige Balance legt der Owner fest.
+5. **PR-Aufteilung:** PR A (Modul-Lader und Validierung, Kern) und PR B (Harzsammler als reine Daten) bleiben getrennt.
+
+## 8. Noch offen (für PR A)
+
+- Wie genau sieht die „Wiederherstellung“ aus? Vorschlag: eine Sperrseite mit Modul-ID und Version, dem Hinweis, wo das Modul liegen muss, und einem Knopf „Erneut prüfen“. Der Spielstand wird erst nach erfolgreicher Prüfung geladen. Ein Export des gesperrten Standes ist wünschenswert, aber nicht Teil des MVP.
+- Braucht die Sperre eine eigene Persistenz-Rückgabeart (`kind: 'blocked'`) neben `loaded` und `reset`? Vorschlag: ja, damit die UI sie nicht mit einem Neustart verwechselt.
