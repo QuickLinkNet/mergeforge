@@ -1077,3 +1077,11 @@ a {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* A blocked or failed start shows only the message, not the empty default HUD behind it. */
+.game-shell.is-halted .top-bar,
+.game-shell.is-halted .world-badge,
+.game-shell.is-halted .camera-hints,
+.game-shell.is-halted .account-badge {
+  display: none;
+}

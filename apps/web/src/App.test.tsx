@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSignalwerkPuzzle } from '@mergeforge/signalwerk';
 import { App } from './App';
-import { GAME_SAVE_KEY } from './persistence';
+import { createInitialGameState } from '@mergeforge/domain';
+import { generateWorld } from '@mergeforge/worldgen';
+import { GAME_SAVE_KEY, saveGame } from './persistence';
 
 interface HexSelection {
   readonly key: string;
@@ -127,6 +129,24 @@ function seedRelayRepairReadySave() {
   });
   window.localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(saved));
 }
+
+describe('blocked start', () => {
+  it('shows only the blocked message and leaves the save untouched when a module is missing', async () => {
+    const world = generateWorld({ seed: 'mergeforge-genesis-001', radius: 12 });
+    const state = { ...createInitialGameState(world, 0), modules: [{ id: 'ghost', version: '1.0.0' }] };
+    saveGame(window.localStorage, state);
+    const stored = window.localStorage.getItem(GAME_SAVE_KEY);
+
+    const view = render(<App />);
+
+    expect(await screen.findByText('Spielstand gesperrt')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Erneut prüfen' })).toBeTruthy();
+    expect(await screen.findByText(/ghost \(1\.0\.0\)/)).toBeTruthy();
+    expect(document.querySelector('.game-shell.is-halted')).not.toBeNull();
+    expect(window.localStorage.getItem(GAME_SAVE_KEY)).toBe(stored);
+    view.unmount();
+  });
+});
 
 describe('MERGEFORGE web shell', () => {
   it('shows the world, current resources, mission, and generator identity', async () => {

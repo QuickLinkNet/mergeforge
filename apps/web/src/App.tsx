@@ -475,7 +475,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
           .map((building) => ({
             tileKey: building.tileKey,
-            type: building.type === 'module' ? ('lumber-camp' as const) : building.type,
+            type: building.type,
             state: building.status === 'constructing' ? 'construction' : 'complete',
           })) ?? [],
       findEffects: highlightedFindEffects,
@@ -584,7 +584,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
         .map((building) => ({
           tileKey: building.tileKey,
-          type: building.type === 'module' ? ('lumber-camp' as const) : building.type,
+          type: building.type,
           state: building.status === 'constructing' ? 'construction' : 'complete',
         })),
       findEffects: [],
@@ -960,7 +960,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     : gameState?.relay.status === 'active' ? 1 : 0;
 
   return (
-    <main className="game-shell" aria-label="MERGEFORGE Weltansicht">
+    <main className={bootstrap.ok ? 'game-shell' : 'game-shell is-halted'} aria-label="MERGEFORGE Weltansicht">
       <div
         ref={mapHostRef}
         className="map-host"
