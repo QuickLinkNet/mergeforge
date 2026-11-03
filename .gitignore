@@ -17,6 +17,11 @@ concept-art/phase-2/06-first-seven-days.png
 .env
 .env.*
 !.env.example
+!.env.deploy.example
+
+# API runtime data and server-side config
+api/config.local.php
+api/data/
 
 # Future application output
 node_modules/

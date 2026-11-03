@@ -84,3 +84,9 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted on 2026-11-03
 - **Decision:** Players are keyed by the numeric GitHub user ID and receive an immutable internal ID `mf_` + 32 hex characters, assigned once by the server. The GitHub login is refreshed on every login but never identifies. Each new player takes the next sector on a hex spiral (`sectorForIndex`); the world seed is derived per sector (`sectorSeed`), so no two players share a world.
 - **Scope:** Pure domain logic only. Real GitHub login, API and storage wait for the owner-provided domain, GitHub App and FTP target (D-004, D-010).
+
+## D-015 — Hosting, deploy and live API
+
+- **Status:** Accepted on 2026-11-03
+- **Decision:** The game is served at `https://mergeforge.red-it.org`; on the server it lives in `/html/apps/mergeforge` (frontend) with the PHP API in `/html/apps/mergeforge/api`. `npm run deploy` builds and uploads both over FTPS with curl (no extra dependency); `npm run live:check` smoke-tests the live frontend and `GET /api/health`. Integration tests run against the live API, no local server needed (D-010).
+- **Security:** FTP login and target live only in the git-ignored `.env.deploy` (template: `.env.deploy.example`). The script refuses any target not ending in `/mergeforge`, never uploads `api/config.local.php` or `api/data/`, and deletes only stale hashed bundles in `assets/`.

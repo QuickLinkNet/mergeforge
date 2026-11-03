@@ -1,0 +1,8 @@
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
+
+# Local configuration and runtime data must never be served.
+<FilesMatch "^(config\.local\.php|config\.example\.php)$">
+  Require all denied
+</FilesMatch>

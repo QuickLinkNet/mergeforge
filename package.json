@@ -14,6 +14,8 @@
     "build": "node scripts/workspace-runner.mjs build",
     "typecheck": "node scripts/workspace-runner.mjs typecheck",
     "test": "node scripts/workspace-runner.mjs test",
+    "deploy": "node scripts/workspace-runner.mjs build && node scripts/deploy.mjs",
+    "live:check": "node scripts/live-check.mjs",
     "validate:modules": "node scripts/validate-modules.mjs",
     "check": "node scripts/workspace-runner.mjs check"
   },
