@@ -9,6 +9,7 @@ import type { ModuleManifest, ModuleRef } from "./modules";
 
 export * from "./signals";
 export * from "./modules";
+export * from "./players";
 
 export type Terrain = "meadow" | "forest" | "hills" | "water";
 
