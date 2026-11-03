@@ -2,7 +2,7 @@
 
 **A persistent collaborative browser hexworld expanded through reviewed pull requests.**
 
-> Project status: design and playable-MVP specification. Application development has not started yet.
+> Project status: the complete seven-chapter local prologue is playable; the data-module and online MVP layers are in progress.
 
 MERGEFORGE begins as a deliberately small but complete strategy game: found a village, uncover a procedural hex world through roads, secure wood and stone, send out a Pathfinder, restore an ancient relay and receive the first signals from distant settlements.
 
@@ -36,6 +36,7 @@ Open `http://127.0.0.1:5173`. Run the complete local verification with `npm run 
 
 ## Source of truth
 
+- [`docs/HANDOFF_Codex_Offene_Punkte.md`](docs/HANDOFF_Codex_Offene_Punkte.md) — current operational AI handoff and next work
 - [`docs/MERGEFORGE_Project_Bible_and_Agent_Handoff.md`](docs/MERGEFORGE_Project_Bible_and_Agent_Handoff.md)
 - [`docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md`](docs/MERGEFORGE_Economy_Exploration_and_Time_Model.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)

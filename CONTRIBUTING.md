@@ -1,6 +1,6 @@
 # Contributing to MERGEFORGE
 
-MERGEFORGE grows through reviewed, backwards-compatible pull requests. The project is still in its design and playable-blueprint phase; implementation tasks will be opened after the MVP boundary is approved.
+MERGEFORGE grows through reviewed, backwards-compatible pull requests. The MVP boundary and technical foundation are approved; implementation proceeds through focused issues and pull requests into `dev`.
 
 ## Branch flow
 
@@ -29,7 +29,6 @@ Each gameplay module must declare:
 
 The project bible in `docs/MERGEFORGE_Project_Bible_and_Agent_Handoff.md` is the current source of truth.
 
-## Before implementation begins
+## Before opening an implementation PR
 
-Design contributions are welcome, but no application framework or competing architecture should be introduced before the playable blueprint and technical foundation have been approved.
-
+Read the current handoff, decision log and project bible. Do not introduce a competing framework, silently change locked gameplay values or invalidate existing saves. Run `npm run check` and `git diff --check` before requesting review.
