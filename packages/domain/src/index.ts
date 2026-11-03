@@ -5,8 +5,10 @@ import {
   type SignalRotation,
 } from "@mergeforge/signalwerk";
 import { createFarSignals, type FarSignal } from "./signals";
+import type { ModuleRef } from "./modules";
 
 export * from "./signals";
+export * from "./modules";
 
 export type Terrain = "meadow" | "forest" | "hills" | "water";
 
@@ -176,6 +178,8 @@ export interface GameState {
   readonly relay: RelayState;
   /** Coarse far signals; empty until chapter 7 has been completed. */
   readonly signals: readonly FarSignal[];
+  /** Modules this save depends on; empty until a module building is built. */
+  readonly modules: readonly ModuleRef[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -327,7 +331,7 @@ export type ScanFarSignalsResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: ScanFarSignalsRejection; readonly state: GameState };
 
-export const GAME_STATE_SCHEMA_VERSION = 6 as const;
+export const GAME_STATE_SCHEMA_VERSION = 7 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
   wood: 12,
@@ -413,6 +417,7 @@ export function createInitialGameState(world: WorldSnapshot, nowMs = 0): GameSta
     inventory: { resonanceCore: 0 },
     relay: { status: "dormant", coreInstalled: false },
     signals: [],
+    modules: [],
     lastAdvancedAtMs: nowMs,
   };
 }

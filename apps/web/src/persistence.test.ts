@@ -356,6 +356,52 @@ describe('chapter 7 persistence', () => {
     expect(loaded.state.prologue.completedChapterIds).toEqual([]);
   });
 
+  it('migrates a schema-6 save to schema 7 with no modules', () => {
+    const state = scannedState();
+    const { storage, payload } = savedPayload(state);
+    payload.gameSchemaVersion = 6;
+    delete payload.modules;
+    storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
+    expect(loadGame(storage, lineWorld)).toEqual({ kind: 'loaded', state });
+  });
+
+  it('blocks a save that needs a missing module and leaves it untouched', () => {
+    const { storage, payload } = savedPayload(scannedState());
+    payload.modules = [{ id: 'harzsammler', version: '1.0.0' }];
+    const raw = JSON.stringify(payload);
+    storage.setItem(GAME_SAVE_KEY, raw);
+
+    expect(loadGame(storage, lineWorld)).toEqual({
+      kind: 'blocked',
+      missing: [{ id: 'harzsammler', version: '1.0.0' }],
+    });
+    expect(storage.getItem(GAME_SAVE_KEY)).toBe(raw);
+
+    // A different version of the same module is still missing.
+    expect(loadGame(storage, lineWorld, [{ id: 'harzsammler', version: '2.0.0' }]).kind).toBe('blocked');
+    expect(storage.getItem(GAME_SAVE_KEY)).toBe(raw);
+  });
+
+  it('recovers once the module is provided at the saved version', () => {
+    const { storage, payload } = savedPayload(scannedState());
+    payload.modules = [{ id: 'harzsammler', version: '1.0.0' }];
+    storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
+    const loaded = loadGame(storage, lineWorld, [{ id: 'harzsammler', version: '1.0.0' }]);
+    expect(loaded.kind).toBe('loaded');
+    if (loaded.kind === 'loaded') {
+      expect(loaded.state.modules).toEqual([{ id: 'harzsammler', version: '1.0.0' }]);
+    }
+  });
+
+  it('rejects malformed module references as corrupt', () => {
+    expectCorrupt((payload) => { payload.modules = 'x'; });
+    expectCorrupt((payload) => { payload.modules = [{ id: 'Bad Id', version: '1.0.0' }]; });
+    expectCorrupt((payload) => { payload.modules = [{ id: 'a', version: 'v1' }]; });
+    expectCorrupt((payload) => { payload.modules = [{ id: 'a', version: '1.0.0', path: '/x' }]; });
+    expectCorrupt((payload) => { payload.modules = [{ id: 'a', version: '1.0.0' }, { id: 'a', version: '1.1.0' }]; });
+    expectCorrupt((payload) => { delete payload.modules; });
+  });
+
   it('still rejects unknown schema generations as incompatible', () => {
     const { storage, payload } = savedPayload(scannedState());
     payload.gameSchemaVersion = 4;
