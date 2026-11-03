@@ -68,6 +68,7 @@ import {
 } from '@mergeforge/signalwerk';
 import { generateWorld } from '@mergeforge/worldgen';
 import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
+import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame } from './persistence';
 
@@ -934,8 +935,10 @@ export function App() {
       />
       <div className="map-atmosphere" aria-hidden="true" />
 
+      <AccountBadge />
+
       <header className="top-bar">
-        <a className="wordmark" href="/" aria-label="MERGEFORGE Startseite">
+        <a className="wordmark" href="./" aria-label="MERGEFORGE Startseite">
           <span className="wordmark-mark" aria-hidden="true"><span /><span /><span /></span>
           <span>MERGEFORGE</span>
         </a>

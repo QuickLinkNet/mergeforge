@@ -15,6 +15,8 @@
     "typecheck": "node scripts/workspace-runner.mjs typecheck",
     "test": "node scripts/workspace-runner.mjs test",
     "deploy": "node scripts/workspace-runner.mjs build && node scripts/deploy.mjs",
+    "setup:config": "node scripts/setup-config.mjs",
+    "test:api": "php api/tests/run.php",
     "live:check": "node scripts/live-check.mjs",
     "validate:modules": "node scripts/validate-modules.mjs",
     "check": "node scripts/workspace-runner.mjs check"

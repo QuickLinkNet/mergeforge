@@ -90,3 +90,10 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted on 2026-11-03
 - **Decision:** The game is served at `https://mergeforge.red-it.org`; on the server it lives in `/html/apps/mergeforge` (frontend) with the PHP API in `/html/apps/mergeforge/api`. `npm run deploy` builds and uploads both over FTPS with curl (no extra dependency); `npm run live:check` smoke-tests the live frontend and `GET /api/health`. Integration tests run against the live API, no local server needed (D-010).
 - **Security:** FTP login and target live only in the git-ignored `.env.deploy` (template: `.env.deploy.example`). The script refuses any target not ending in `/mergeforge`, never uploads `api/config.local.php` or `api/data/`, and deletes only stale hashed bundles in `assets/`.
+
+## D-016 — GitHub login in the PHP API
+
+- **Status:** Accepted on 2026-11-03
+- **Decision:** The API (`api/`) signs players in with a GitHub App user login (web flow): `GET /api/auth/login` -> GitHub -> `GET /api/auth/callback`. Only the numeric GitHub user ID and login name are used; the access token is discarded immediately. The ID maps to an immutable `mf_` player ID and the next start sector in SQLite (`api/data`, never served or uploaded). The session is an HMAC-signed, HttpOnly, Secure, SameSite=Lax cookie (30 days); logout is a same-origin POST.
+- **Secrets:** `api/config.local.php` (git-ignored; `npm run setup:config` creates it with a random session secret, the GitHub client secret is pasted in by the owner) is uploaded by `npm run deploy` and never served. The PHP sector spiral is pinned to the TypeScript one by `api/tests/run.php` (also run in CI).
+- **Hosts:** Only `mergeforge.red-it.org` and `www.red-it.org` (plus localhost for tests) are accepted; the callback URL is derived from the request and must be registered in the GitHub App.

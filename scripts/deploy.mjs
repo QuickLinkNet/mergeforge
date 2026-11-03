@@ -17,8 +17,9 @@ loadEnvFile('.env.deploy');
 const remoteBase = (process.env.REMOTE_BASE_DIR || '/html/apps/mergeforge').replace(/\/+$/, '');
 const distDir = path.join('apps', 'web', 'dist');
 const apiDir = 'api';
-// Never uploaded: local configuration and runtime data of the API.
-const apiSkip = new Set(['config.local.php', 'data']);
+// Never uploaded: runtime data and PHP tests. config.local.php (git-ignored, from
+// `npm run setup:config`) is uploaded if present; the API denies serving it.
+const apiSkip = new Set(['data', 'tests']);
 
 function fail(message) {
   console.error(`Deploy abgebrochen: ${message}`);

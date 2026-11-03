@@ -31,6 +31,19 @@ await check('api health', `${publicUrl}/api/health`, (response, text) => {
     return 'not JSON';
   }
 });
+await check('api login (signed out)', `${publicUrl}/api/me`, (response) =>
+  response.status === 401 ? '' : 'expected 401 without a session',
+);
+const health = await fetch(`${publicUrl}/api/health`).then((r) => r.json()).catch(() => ({}));
+if (health.loginConfigured === true) {
+  const redirect = await fetch(`${publicUrl}/api/auth/login`, { redirect: 'manual' });
+  const target = redirect.headers.get('location') ?? '';
+  const ok = redirect.status === 302 && target.startsWith('https://github.com/login/oauth/authorize?');
+  console.log(`${ok ? 'ok  ' : 'FAIL'} api login redirect (${redirect.status})`);
+  if (!ok) failed = true;
+} else {
+  console.log('skip api login redirect (login not configured on the server yet)');
+}
 await check('api unknown route', `${publicUrl}/api/does-not-exist`, (response) =>
   response.status === 404 ? '' : 'expected 404',
 );
