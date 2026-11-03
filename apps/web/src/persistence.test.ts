@@ -8,6 +8,7 @@ import {
   advanceTime,
   buildRoad,
   createInitialGameState,
+  scanFarSignals,
   startPathfinderTraining,
   startLumberCamp,
   startQuarry,
@@ -284,6 +285,12 @@ describe('chapter 7 persistence', () => {
     return advanceTime(repair.state, WORKSHOP_BUILD_MS + RELAY_REPAIR_MS);
   }
 
+  function scannedState(): GameState {
+    const scan = scanFarSignals(relayActiveState(), WORKSHOP_BUILD_MS + RELAY_REPAIR_MS);
+    if (!scan.ok) throw new Error(scan.reason);
+    return scan.state;
+  }
+
   function savedPayload(state: GameState): { storage: MemoryStorage; payload: Payload } {
     const storage = new MemoryStorage();
     saveGame(storage, state);
@@ -293,15 +300,16 @@ describe('chapter 7 persistence', () => {
   }
 
   function expectCorrupt(mutate: (payload: Payload) => void) {
-    const { storage, payload } = savedPayload(relayActiveState());
+    const { storage, payload } = savedPayload(scannedState());
     mutate(payload);
     storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
     expect(loadGame(storage, lineWorld)).toEqual({ kind: 'reset', reason: 'corrupt' });
     expect(storage.getItem(GAME_SAVE_KEY)).toBeNull();
   }
 
-  it('reaches chapter 7 through the domain and round-trips signals, capability and event', () => {
-    const state = relayActiveState();
+  it('reaches chapter 7 only through the scan and round-trips signals, capability and event', () => {
+    expect(relayActiveState().prologue.completedChapterIds).toEqual([3, 4, 5, 6]);
+    const state = scannedState();
     expect(state.prologue.completedChapterIds).toEqual([3, 4, 5, 6, 7]);
 
     const { storage } = savedPayload(state);
@@ -313,7 +321,7 @@ describe('chapter 7 persistence', () => {
     expect(loadGame(storage, lineWorld)).toEqual({ kind: 'loaded', state });
   });
 
-  it('migrates a schema-5 save with finished chapter 6 to chapter 7 exactly once', () => {
+  it('migrates a schema-5 save with finished chapter 6 without granting chapter 7', () => {
     const state = relayActiveState();
     const { storage, payload } = savedPayload(state);
     payload.gameSchemaVersion = 5;
@@ -329,6 +337,10 @@ describe('chapter 7 persistence', () => {
     if (loaded.kind !== 'loaded') return;
     saveGame(storage, loaded.state);
     expect(loadGame(storage, lineWorld)).toEqual({ kind: 'loaded', state });
+
+    const scan = scanFarSignals(loaded.state, WORKSHOP_BUILD_MS + RELAY_REPAIR_MS);
+    expect(scan.ok).toBe(true);
+    expect(scanFarSignals(scan.state, WORKSHOP_BUILD_MS + RELAY_REPAIR_MS)).toMatchObject({ ok: false, reason: 'already-scanned' });
   });
 
   it('keeps an unfinished schema-5 save at its chapter without signals', () => {
@@ -345,7 +357,7 @@ describe('chapter 7 persistence', () => {
   });
 
   it('still rejects unknown schema generations as incompatible', () => {
-    const { storage, payload } = savedPayload(relayActiveState());
+    const { storage, payload } = savedPayload(scannedState());
     payload.gameSchemaVersion = 4;
     storage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
     expect(loadGame(storage, lineWorld)).toEqual({ kind: 'reset', reason: 'incompatible' });

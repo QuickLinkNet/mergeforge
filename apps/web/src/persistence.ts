@@ -5,7 +5,6 @@ import {
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
   createFarSignals,
-  settlePrologue,
   type Building,
   type FarSignal,
   type GameState,
@@ -208,7 +207,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     (relay.status === 'active') !== prologue.completedChapterIds.includes(6)
   ) return reset(storage, 'corrupt');
 
-  const parsedState: GameState = {
+  const state: GameState = {
     schemaVersion: GAME_STATE_SCHEMA_VERSION,
     world,
     resources,
@@ -224,10 +223,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     signals,
     lastAdvancedAtMs,
   };
-  // A schema-5 game that already finished chapter 6 receives chapter 7 here,
-  // through the same domain rule as a live game, exactly once.
-  const state = migratingLegacy ? settlePrologue(parsedState) : parsedState;
-
+  // A schema-5 game is migrated without side effects: chapter 7 is never
+  // granted on load, the player still has to scan for the far signals.
   const chapterSeven = state.prologue.completedChapterIds.includes(7);
   const signalEvent = state.prologue.eventIds.includes('first_signals_received');
   const capability = state.relay.status !== 'dormant' && state.relay.capabilities.includes('signal_network_active');

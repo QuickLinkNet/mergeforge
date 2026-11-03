@@ -335,7 +335,7 @@ describe('MERGEFORGE web shell', () => {
     view.unmount();
   });
 
-  it('shows two coarse far signals after chapter 6 and nothing before', async () => {
+  it('shows two coarse far signals only after the player scans for them', async () => {
     seedRelayRepairReadySave();
     const beforeView = await renderReadyApp();
     expect(screen.queryByRole('heading', { name: 'Fernsignale' })).toBeNull();
@@ -353,8 +353,18 @@ describe('MERGEFORGE web shell', () => {
 
     const view = await renderReadyApp();
 
+    // Chapter 6 is done, but chapter 7 waits for the explicit scan action.
     expect(screen.getByText('Kapitel 7 · Erstes Signal')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('0 / 2');
+    expect(screen.queryByRole('heading', { name: 'Fernsignale' })).toBeNull();
+    const savedBeforeScan = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as Record<string, any>;
+    expect(savedBeforeScan.signals).toEqual([]);
+    expect(savedBeforeScan.prologue.completedChapterIds).toEqual([3, 4, 5, 6]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fernsignal scannen' }));
+
     expect(screen.getByLabelText('Kapitelziel').textContent).toContain('2 / 2');
+    expect(screen.queryByRole('button', { name: 'Fernsignal scannen' })).toBeNull();
     const panel = screen.getByRole('heading', { name: 'Fernsignale' }).closest('section');
     expect(panel).not.toBeNull();
     const items = panel?.querySelectorAll('.signal-item') ?? [];

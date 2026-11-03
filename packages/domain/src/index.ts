@@ -321,6 +321,12 @@ export type StartRelayRepairResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: StartRelayRepairRejection; readonly state: GameState };
 
+export type ScanFarSignalsRejection = "locked" | "already-scanned";
+
+export type ScanFarSignalsResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: ScanFarSignalsRejection; readonly state: GameState };
+
 export const GAME_STATE_SCHEMA_VERSION = 6 as const;
 
 export const STARTING_RESOURCES: ResourceStock = {
@@ -423,14 +429,6 @@ export function hasRelayCapability(
   capability: RelayCapability,
 ): boolean {
   return state.relay.status !== "dormant" && state.relay.capabilities.includes(capability);
-}
-
-/**
- * Re-evaluates prologue milestones without advancing time. Used when a saved
- * game from an older schema is migrated.
- */
-export function settlePrologue(state: GameState): GameState {
-  return reconcilePrologue(state);
 }
 
 export function hasPrologueEvent(
@@ -578,6 +576,43 @@ export function startRelayRepair(
         startedAtMs: nowMs,
         completesAtMs,
         capabilities: [],
+      },
+    },
+  };
+}
+
+/**
+ * Chapter 7: the player scans for far signals once the relay is active. Costs
+ * nothing; the active relay gains the capability and the two deterministic,
+ * coarse signals are revealed, all in one atomic step.
+ */
+export function scanFarSignals(state: GameState, nowMs: number): ScanFarSignalsResult {
+  const settledState = advanceTime(state, nowMs);
+  if (settledState.prologue.completedChapterIds.includes(7)) {
+    return { ok: false, reason: "already-scanned", state: settledState };
+  }
+  if (
+    !hasCompletedChapter(settledState, 6) ||
+    settledState.relay.status !== "active"
+  ) {
+    return { ok: false, reason: "locked", state: settledState };
+  }
+  return {
+    ok: true,
+    state: {
+      ...settledState,
+      relay: {
+        ...settledState.relay,
+        capabilities: [...settledState.relay.capabilities, "signal_network_active"],
+      },
+      signals: createFarSignals(
+        settledState.world.seed,
+        settledState.world.generatorVersion,
+      ),
+      prologue: {
+        ...settledState.prologue,
+        completedChapterIds: [...settledState.prologue.completedChapterIds, 7],
+        eventIds: [...settledState.prologue.eventIds, "first_signals_received"],
       },
     },
   };
@@ -1170,27 +1205,8 @@ function reconcilePrologue(
   ) {
     completedChapterIds.add(6);
   }
-  // Chapter 7 follows chapter 6 exactly once: the active relay receives the
-  // capability and the two deterministic far signals in one atomic step.
-  let relay = state.relay;
-  let signals = state.signals;
-  if (
-    completedChapterIds.has(6) &&
-    !completedChapterIds.has(7) &&
-    relay.status === "active"
-  ) {
-    completedChapterIds.add(7);
-    if (!relay.capabilities.includes("signal_network_active")) {
-      relay = {
-        ...relay,
-        capabilities: [...relay.capabilities, "signal_network_active"],
-      };
-    }
-    signals = createFarSignals(state.world.seed, state.world.generatorVersion);
-    if (!eventIds.includes("first_signals_received")) {
-      eventIds = [...eventIds, "first_signals_received"];
-    }
-  }
+  // Chapter 7 is never derived here: it needs the explicit player action
+  // scanFarSignals, so an already completed chapter 7 is only carried over.
 
   const orderedChapterIds = ([3, 4, 5, 6, 7] as const).filter((chapterId) =>
     completedChapterIds.has(chapterId),
@@ -1199,8 +1215,6 @@ function reconcilePrologue(
     stoneProductionObserved === state.prologue.stoneProductionObserved &&
     pathfinderSurveysCompleted === state.prologue.pathfinderSurveysCompleted &&
     eventIds === state.prologue.eventIds &&
-    relay === state.relay &&
-    signals === state.signals &&
     orderedChapterIds.length === state.prologue.completedChapterIds.length &&
     orderedChapterIds.every(
       (chapterId, index) => state.prologue.completedChapterIds[index] === chapterId,
@@ -1209,8 +1223,6 @@ function reconcilePrologue(
 
   return {
     ...state,
-    relay,
-    signals,
     prologue: {
       stoneProductionObserved,
       pathfinderSurveysCompleted,

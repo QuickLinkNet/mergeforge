@@ -98,7 +98,7 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt und in `dev` integriert
 - **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt und in `dev` integriert
 - **M3.2 / Issue #19:** Relaiswerkstatt, Kerninstallation, 30-minütige Relaisreparatur und einmaliger Abschluss von Kapitel 6 umgesetzt und in `dev` integriert
-- **M3.3 / Kapitel 7:** zwei deterministische Fernsignale (grobe Richtung und Entfernung), Relaisfähigkeit `signal_network_active` und einmaliger Abschluss von Kapitel 7 auf `feature/m3-3-signal-impulse` in Abnahme (Spielstand-Schema 6, Schema 5 wird migriert)
+- **M3.3 / Kapitel 7:** zwei deterministische Fernsignale (grobe Richtung und Entfernung), Relaisfähigkeit `signal_network_active` und Kapitel 7 durch die Aktion „Fernsignal scannen“ auf `feature/m3-3-signal-impulse` in Abnahme (Spielstand-Schema 6, Schema 5 wird migriert)
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
 - **Aktueller Arbeitsbranch:** `feature/m3-3-signal-impulse`
@@ -232,12 +232,12 @@ Issue #17 eröffnet Kapitel 6 als ersten isolierten Minispiel-Slot:
 
 ### M3.3 — Kapitel 7: Abnahmegrenze
 
-- Sobald Kapitel 6 abgeschlossen und das Relais aktiv ist, schließt die Domain Kapitel 7 automatisch und genau einmal ab (im selben Schritt wie Kapitel 6, auch bei Offline-Nachholung).
-- Dabei erhält das Relais intern die Fähigkeit `signal_network_active` (`relay.capabilities`), das Ereignis `first_signals_received` wird gespeichert und zwei Fernsignale entstehen.
+- Kapitel 6 endet mit der abgeschlossenen Relaisreparatur. Kapitel 7 schließt **nicht** automatisch ab, sondern erst durch die explizite Spieleraktion „Fernsignal scannen“ (`scanFarSignals`, kostenlos und sofort). Sie ist nur bei aktivem Relais nach Kapitel 6 möglich und wirkt genau einmal; ein zweiter Scan wird mit `already-scanned` abgelehnt (Owner-/Codex-Entscheidung 7 B).
+- Der Scan ist ein atomarer Schritt: Das Relais erhält intern die Fähigkeit `signal_network_active` (`relay.capabilities`), das Ereignis `first_signals_received` wird gespeichert und zwei Fernsignale entstehen.
 - Die Signale folgen aus Welt-Seed und Generatorversion (eigener Seed-Bereich `signals`, Modul `packages/domain/src/signals.ts`). Die zwei simulierten Nachbarn liegen 18–24 Straßenfelder entfernt, in verschiedenen Himmelsrichtungen (6 Hexrichtungen, mindestens 2 Sektoren Abstand).
 - Gespeichert und angezeigt werden ausschließlich Richtung (`bearing`) und Distanzband (`near` 18–20, `middle` 21–22, `far` 23–24). Exakte Distanz, Koordinaten, Gelände oder Karten fremder Sektoren existieren weder im Spielstand noch in der UI.
-- Das Fernsignal-Panel erscheint im bestehenden Stil A und ist touch-tauglich (Zeilen ≥ 56 px). Es erscheint erst nach Kapitel 7.
-- **Schema 6:** `GameState` erhält `signals` und `relay.capabilities`; Kapitel-ID `7` und Ereignis `first_signals_received` kommen hinzu. Spielstände mit Schema 5 werden beim Laden migriert (kein Reset): Ein Stand mit abgeschlossenem Kapitel 6 erhält Kapitel 7 über dieselbe Domainregel genau einmal. Ältere Schemata bleiben `incompatible`.
+- Das Fernsignal-Panel erscheint im bestehenden Stil A und ist touch-tauglich (Zeilen ≥ 56 px). Vor dem Scan zeigt die Oberfläche nur die Aktion „Fernsignal scannen“; die Signalliste erscheint erst nach Kapitel 7.
+- **Schema 6:** `GameState` erhält `signals` und `relay.capabilities`; Kapitel-ID `7` und Ereignis `first_signals_received` kommen hinzu. Spielstände mit Schema 5 werden beim Laden migriert (kein Reset): Die Migration erteilt Kapitel 7 nie selbst: Ein Stand mit abgeschlossenem Kapitel 6 steht danach bereit zum Scan. Ältere Schemata bleiben `incompatible`.
 - Die Persistenz validiert Signale streng gegen die neu erzeugten Werte; manipulierte, ergänzte (z. B. Koordinaten), fehlende oder ohne Kapitel 7 vorhandene Signale, fehlende/doppelte Fähigkeiten und inkonsistente Kapitel-/Ereignisfolgen führen kontrolliert zu einem neuen Start.
 - Kosten, Timer und bestehende Mechaniken bleiben unverändert.
 

@@ -14,7 +14,7 @@ import {
   hasPrologueEvent,
   hasRelayCapability,
   hexKey,
-  settlePrologue,
+  scanFarSignals,
   NEIGHBOR_MAX_DISTANCE,
   NEIGHBOR_MIN_DISTANCE,
   SIGNAL_BEARINGS,
@@ -967,9 +967,8 @@ describe("workshop and relay repair", () => {
       "relay_discovered",
       "signalwerk_solved",
       "relay_repaired",
-      "first_signals_received",
     ]);
-    expect(completed.prologue.completedChapterIds).toEqual([3, 4, 5, 6, 7]);
+    expect(completed.prologue.completedChapterIds).toEqual([3, 4, 5, 6]);
 
     const reloaded = JSON.parse(JSON.stringify(completed)) as GameState;
     const later = advanceTime(reloaded, completedAt + WORLD_PULSE_MS);
@@ -1052,34 +1051,55 @@ describe("chapter 7 — the first signal", () => {
     expect(hasCompletedChapter(midway, 7)).toBe(false);
     expect(midway.signals).toEqual([]);
     expect(hasRelayCapability(midway, "signal_network_active")).toBe(false);
+    expect(scanFarSignals(midway, completedAt - 1)).toMatchObject({ ok: false, reason: "locked" });
   });
 
-  it("completes chapter 7 automatically and exactly once with capability and event", () => {
+  it("does not complete chapter 7 by itself, however much time passes", () => {
     const { state, completedAt } = activeRelayState();
-    const completed = advanceTime(state, completedAt);
+    const later = advanceTime(state, completedAt + 50 * WORLD_PULSE_MS);
+    expect(hasCompletedChapter(later, 6)).toBe(true);
+    expect(hasCompletedChapter(later, 7)).toBe(false);
+    expect(later.signals).toEqual([]);
+    expect(hasRelayCapability(later, "signal_network_active")).toBe(false);
+    expect(hasPrologueEvent(later, "first_signals_received")).toBe(false);
+  });
 
-    expect(hasCompletedChapter(completed, 6)).toBe(true);
+  it("completes chapter 7 through the scan action exactly once with capability and event", () => {
+    const { state, completedAt } = activeRelayState();
+    const ready = advanceTime(state, completedAt);
+    const scan = scanFarSignals(ready, completedAt);
+    if (!scan.ok) throw new Error(`Unexpected scan rejection: ${scan.reason}`);
+    const completed = scan.state;
+
     expect(hasCompletedChapter(completed, 7)).toBe(true);
+    expect(completed.prologue.completedChapterIds).toEqual([3, 4, 5, 6, 7]);
     expect(hasPrologueEvent(completed, "first_signals_received")).toBe(true);
     expect(hasRelayCapability(completed, "signal_network_active")).toBe(true);
     expect(completed.signals).toEqual(
       createFarSignals(completed.world.seed, completed.world.generatorVersion),
     );
 
+    expect(scanFarSignals(completed, completedAt)).toMatchObject({ ok: false, reason: "already-scanned" });
     const reloaded = JSON.parse(JSON.stringify(completed)) as GameState;
     const later = advanceTime(reloaded, completedAt + 5 * WORLD_PULSE_MS);
     expect(later.prologue.completedChapterIds.filter((chapter) => chapter === 7)).toHaveLength(1);
     expect(later.prologue.eventIds.filter((event) => event === "first_signals_received")).toHaveLength(1);
     expect(later.relay).toMatchObject({ capabilities: ["signal_network_active"] });
     expect(later.signals).toEqual(completed.signals);
-    expect(settlePrologue(later)).toBe(later);
+    expect(scanFarSignals(later, completedAt + 5 * WORLD_PULSE_MS)).toMatchObject({
+      ok: false,
+      reason: "already-scanned",
+    });
   });
 
-  it("does not change costs, timers or resources when chapter 7 is reached", () => {
+  it("does not change costs, timers or resources when scanning", () => {
     const { state, completedAt } = activeRelayState();
-    const completed = advanceTime(state, completedAt);
-    expect(completed.resources).toEqual(state.resources);
-    expect(completed.buildings.map((building) => building.status)).toEqual(["active"]);
+    const ready = advanceTime(state, completedAt);
+    const scan = scanFarSignals(ready, completedAt);
+    if (!scan.ok) throw new Error("Expected scan.");
+    expect(scan.state.resources).toEqual(ready.resources);
+    expect(scan.state.buildings).toEqual(ready.buildings);
+    expect(scan.state.lastAdvancedAtMs).toBe(ready.lastAdvancedAtMs);
   });
 });
 
