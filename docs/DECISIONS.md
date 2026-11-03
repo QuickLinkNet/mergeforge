@@ -61,6 +61,6 @@ Short records of confirmed project-level decisions. Newer approved records super
 
 ## D-011 — Save schema 6 migrates schema 5
 
-- **Status:** Proposed with M3.3 (review requested)
+- **Status:** Accepted on 2026-11-03
 - **Decision:** Chapter 7 raises the game-state schema to 6. Schema-5 local saves are migrated on load instead of being reset; a schema-5 save with finished chapter 6 receives chapter 7 through the normal domain rule. Older schemas remain incompatible.
 - **Consequence:** Existing worlds stay playable ("a PR must not silently invalidate existing world states"). Far signals are derived data and are validated against regeneration; only a compass sector and a coarse distance band are stored.
