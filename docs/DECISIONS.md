@@ -78,3 +78,9 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Decision:** The core knows one generic building type `module`. Placement (terrain, road), cost, build time and production come only from the module manifest via `startModuleBuilding`; the production rule is frozen into the building at build start, so settling time never needs a manifest. No module-specific code exists in the core or UI.
 - **Persistence:** Every module building must be covered by a module reference of the same version; where the manifest is available, the frozen production and the placement must still match it, otherwise the save is rejected as corrupt. Missing modules still block the save unchanged (D-012).
 - **Consequence:** A module PR (for example the Harzsammler) only adds `modules/<id>/module.json` and an icon. The single global build slot and the one-building-per-tile rule apply to module buildings.
+
+## D-014 — Player registry and start sectors
+
+- **Status:** Accepted on 2026-11-03
+- **Decision:** Players are keyed by the numeric GitHub user ID and receive an immutable internal ID `mf_` + 32 hex characters, assigned once by the server. The GitHub login is refreshed on every login but never identifies. Each new player takes the next sector on a hex spiral (`sectorForIndex`); the world seed is derived per sector (`sectorSeed`), so no two players share a world.
+- **Scope:** Pure domain logic only. Real GitHub login, API and storage wait for the owner-provided domain, GitHub App and FTP target (D-004, D-010).
