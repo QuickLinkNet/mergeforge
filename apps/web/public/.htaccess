@@ -1,0 +1,6 @@
+# SPA fallback for the built frontend. /api/ has its own .htaccess.
+RewriteEngine On
+RewriteRule ^api/ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [QSA,L]

@@ -7,6 +7,8 @@ function workspaceSource(relativePath: string): string {
 }
 
 export default defineConfig({
+  // Relative asset URLs: served from the subdomain root and from /apps/mergeforge alike.
+  base: "./",
   plugins: [react()],
   resolve: {
     alias: {
