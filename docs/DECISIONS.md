@@ -64,3 +64,10 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted on 2026-11-03
 - **Decision:** Chapter 7 raises the game-state schema to 6. Schema-5 local saves are migrated on load instead of being reset; a schema-5 save with finished chapter 6 stays at chapter 6 and can scan for the far signals (chapter 7 is never granted by migration). Older schemas remain incompatible.
 - **Consequence:** Existing worlds stay playable ("a PR must not silently invalidate existing world states"). Far signals are derived data and are validated against regeneration; only a compass sector and a coarse distance band are stored.
+
+## D-012 — Data modules and missing-module saves
+
+- **Status:** Accepted on 2026-11-03
+- **Decision:** Contributor modules use pure JSON manifests under `modules/<id>/` and are loaded at build time. Generic core support and the Harzsammler example remain separate pull requests.
+- **Persistence:** If a required module is missing or version-incompatible, loading returns `blocked`, identifies the missing ID/version and preserves the stored save unchanged. It must never silently remove module buildings or reset that world.
+- **Initial limits:** Costs are 0–50 per existing resource, production is 1–5 units per world pulse, construction is 1–24 whole pulses, and icons are safe local SVG basenames; the loader additionally enforces existence and a maximum size of 8 KB.

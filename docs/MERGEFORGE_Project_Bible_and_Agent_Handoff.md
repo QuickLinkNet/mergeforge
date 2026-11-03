@@ -98,11 +98,12 @@ Kein Agent soll die Kernregeln nebenbei neu erfinden. Änderungen an bestätigte
 - **M2.4 / Issue #12:** Kapitel 3–5, persistente Prolog-Meilensteine und einmalige Relaisentdeckung umgesetzt und in `dev` integriert
 - **M3.1 / Issue #17:** deterministisches Signalwerk, isoliertes 5×5-Minispiel, einmalige Lösung und einzigartiger uninstallierter Resonanzkern umgesetzt und in `dev` integriert
 - **M3.2 / Issue #19:** Relaiswerkstatt, Kerninstallation, 30-minütige Relaisreparatur und einmaliger Abschluss von Kapitel 6 umgesetzt und in `dev` integriert
-- **M3.3 / Kapitel 7:** zwei deterministische Fernsignale (grobe Richtung und Entfernung), Relaisfähigkeit `signal_network_active` und Kapitel 7 durch die Aktion „Fernsignal scannen“ auf `feature/m3-3-signal-impulse` in Abnahme (Spielstand-Schema 6, Schema 5 wird migriert)
+- **M3.3 / Kapitel 7:** zwei deterministische Fernsignale (grobe Richtung und Entfernung), Relaisfähigkeit `signal_network_active` und Kapitel 7 durch die Aktion „Fernsignal scannen“ umgesetzt und in `dev` integriert (Spielstand-Schema 6, Schema 5 wird migriert)
+- **Modulgrundlage:** JSON-Manifestvertrag und Harzsammler-Entwurf dokumentiert; der reine Manifest-Validator ist in `dev`. PR 24 ergänzt Schema 7 und die unveränderte Sperre für fehlende Module und befindet sich in Abnahme.
 - Der Spielzustand ist über `GameState` versioniert. Die Welt wird aus Seed, Generatorversion und Radius reproduzierbar regeneriert; gespeichert werden nur Spielzustand und Fortschritt.
 - Beschädigte oder inkompatible lokale Spielstände führen kontrolliert zu einem neuen Start statt zu einem Absturz.
-- **Aktueller Arbeitsbranch:** `feature/m3-3-signal-impulse`
-- **Aktuelle Aufgabe:** M3.3 — Kapitel 7, das erste Signal
+- **Aktueller Integrationsstand:** `dev` bei `48b08b9`; PR 21–23 sind gemerged.
+- **Aktuelle Aufgabe:** Datengetriebene Modulgrundlage abschließen; zuerst PR 24 prüfen, danach Lader/Kernmechanismus und Harzsammler-Daten als getrennte PRs.
 
 ## Verbindliche M2-Issue-Reihenfolge
 
