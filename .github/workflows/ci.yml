@@ -10,6 +10,20 @@ permissions:
   contents: read
 
 jobs:
+  release-route:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require dev as the source of a main release PR
+        if: github.base_ref == 'main'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_REF" != "dev" ]; then
+            echo "Release pull requests to main must originate from dev (received: $HEAD_REF)."
+            exit 1
+          fi
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +43,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate contributed modules
+        run: pnpm validate:modules
 
       - name: Verify workspace
         run: pnpm check
