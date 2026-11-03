@@ -1,0 +1,65 @@
+<?php
+
+declare(strict_types=1);
+
+// Run: php api/tests/run.php   (pure PHP, no framework; not uploaded by the deploy)
+// Keeps the PHP sector spiral identical to packages/domain/src/players.ts.
+
+require __DIR__ . '/../lib/util.php';
+require __DIR__ . '/../lib/players.php';
+
+$failures = 0;
+function check(bool $condition, string $label): void
+{
+    global $failures;
+    echo ($condition ? 'ok   ' : 'FAIL ') . $label . PHP_EOL;
+    if (!$condition) {
+        $failures++;
+    }
+}
+
+// Reference values computed from sectorForIndex in the TypeScript domain.
+$expected = [[0,0],[-1,1],[0,1],[1,0],[1,-1],[0,-1],[-1,0],[-2,2],[-1,2],[0,2],[1,1],[2,0],[2,-1],[2,-2],[1,-2],[0,-2],[-1,-1],[-2,0],[-2,1],[-3,3]];
+foreach ($expected as $index => [$q, $r]) {
+    $sector = sector_for_index($index);
+    check($sector['q'] === $q && $sector['r'] === $r, "sector $index = ($q,$r)");
+}
+
+$unique = [];
+for ($index = 0; $index < 37; $index++) {
+    $sector = sector_for_index($index);
+    $unique[$sector['q'] . ',' . $sector['r']] = true;
+}
+check(count($unique) === 37, '37 sectors are all distinct');
+check(preg_match('/^mf_[0-9a-f]{32}$/', new_player_id()) === 1, 'player id format');
+
+// Signed tokens: round trip, tampering, expiry.
+$dataDir = sys_get_temp_dir() . '/mf-test-' . bin2hex(random_bytes(4));
+$GLOBALS['mf_config_override'] = ['session_secret' => str_repeat('s', 40), 'data_dir' => $dataDir];
+check(b64url_decode(b64url_encode('hello world')) === 'hello world', 'base64url round trip');
+$token = sign_token(['pid' => 'x'], 60);
+check((verify_token($token)['pid'] ?? null) === 'x', 'token verifies');
+check(verify_token($token . 'a') === null, 'tampered signature rejected');
+check(verify_token('abc') === null && verify_token(null) === null, 'malformed token rejected');
+check(verify_token(sign_token(['pid' => 'x'], -5)) === null, 'expired token rejected');
+$GLOBALS['mf_config_override']['session_secret'] = str_repeat('t', 40);
+check(verify_token($token) === null, 'token from another secret rejected');
+$GLOBALS['mf_config_override']['session_secret'] = str_repeat('s', 40);
+
+// Registry on a throwaway SQLite database.
+if (storage_available()) {
+    $a = register_player(101, 'alice');
+    $b = register_player(202, 'bob');
+    check($a['sector'] !== $b['sector'] && $a['sectorIndex'] === 0 && $b['sectorIndex'] === 1, 'two players get separate sectors');
+    $again = register_player(101, 'alice');
+    check($again['playerId'] === $a['playerId'] && $again['sectorIndex'] === 0, 'same GitHub user keeps ID and sector');
+    $renamed = register_player(101, 'alice-new');
+    check($renamed['playerId'] === $a['playerId'] && $renamed['githubLogin'] === 'alice-new', 'login rename keeps ID');
+    check(find_player($b['playerId'])['githubLogin'] === 'bob', 'find_player');
+    check(find_player('mf_' . str_repeat('0', 32)) === null, 'unknown player is null');
+} else {
+    echo "skip registry tests (pdo_sqlite missing)\n";
+}
+
+echo $failures === 0 ? "All passed\n" : "$failures failed\n";
+exit($failures === 0 ? 0 : 1);

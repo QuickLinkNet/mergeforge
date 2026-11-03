@@ -1051,3 +1051,29 @@ a {
     bottom: 72px;
   }
 }
+
+.account-badge {
+  position: absolute;
+  z-index: 4;
+  top: 76px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border: 1px solid rgb(230 220 175 / 18%);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgb(18 36 31 / 92%), rgb(8 23 20 / 84%));
+  color: inherit;
+  font-size: 0.8rem;
+}
+
+.account-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e6dca3;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

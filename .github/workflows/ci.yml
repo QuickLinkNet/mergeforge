@@ -47,5 +47,8 @@ jobs:
       - name: Validate contributed modules
         run: pnpm validate:modules
 
+      - name: Test PHP API
+        run: php api/tests/run.php
+
       - name: Verify workspace
         run: pnpm check
