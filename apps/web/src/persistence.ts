@@ -7,9 +7,11 @@ import {
   createFarSignals,
   findMissingModules,
   isValidModuleRef,
+  MODULE_MAX_PRODUCTION_PER_PULSE,
   type Building,
   type FarSignal,
   type GameState,
+  type ModuleManifest,
   type ModuleRef,
   type ResourceStock,
   type Unit,
@@ -100,6 +102,7 @@ export function loadGame(
   storage: StorageLike,
   world: WorldSnapshot,
   moduleRegistry: readonly ModuleRef[] = [],
+  moduleManifests: readonly ModuleManifest[] = [],
 ): LoadGameResult {
   let raw: string | null;
   try {
@@ -254,9 +257,34 @@ export function loadGame(
     (chapterSeven && (state.relay.status !== 'active' || !state.prologue.completedChapterIds.includes(6)))
   ) return reset(storage, 'corrupt');
 
+  // Every module building must be covered by a module reference of the same version.
+  const moduleBuildings = state.buildings.filter((building) => building.type === 'module');
+  if (
+    moduleBuildings.some(
+      (building) =>
+        !state.modules.some((ref) => ref.id === building.moduleId && ref.version === building.moduleVersion),
+    )
+  ) return reset(storage, 'corrupt');
+
   // A valid save that needs modules this build lacks is blocked, never reset or rewritten.
   const missing = findMissingModules(state.modules, moduleRegistry);
   if (missing.length > 0) return { kind: 'blocked', missing };
+
+  // Where the manifest is known, the frozen rule and the placement must still match it.
+  for (const building of moduleBuildings) {
+    const manifest = moduleManifests.find(
+      (entry) => entry.id === building.moduleId && entry.version === building.moduleVersion,
+    );
+    if (manifest === undefined) continue;
+    const tile = tileByKey.get(building.tileKey);
+    if (
+      tile === undefined ||
+      !manifest.building.placement.terrain.includes(tile.terrain) ||
+      (manifest.building.placement.requiresRoadConnection && !state.roadTileKeys.includes(building.tileKey)) ||
+      building.production.resource !== manifest.building.production.resource ||
+      building.production.amountPerPulse !== manifest.building.production.amountPerPulse
+    ) return reset(storage, 'corrupt');
+  }
 
   return { kind: 'loaded', state };
 }
@@ -296,7 +324,7 @@ function parseBuildings(
     const completesAtMs = parseTimestamp(candidate.completesAtMs);
     if (
       typeof candidate.id !== 'string' ||
-      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent' && candidate.type !== 'workshop') ||
+      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent' && candidate.type !== 'workshop' && candidate.type !== 'module') ||
       typeof candidate.tileKey !== 'string' ||
       (candidate.status !== 'constructing' && candidate.status !== 'active') ||
       startedAtMs === null ||
@@ -320,6 +348,12 @@ function parseBuildings(
 
     ids.add(candidate.id);
     if (!isVillageBuilding) tileKeys.add(candidate.tileKey);
+    if (candidate.type === 'module') {
+      const moduleBuilding = parseModuleBuilding(candidate, startedAtMs, completesAtMs);
+      if (moduleBuilding === null) return null;
+      buildings.push(moduleBuilding);
+      continue;
+    }
     if (candidate.type === 'survey-tent' || candidate.type === 'workshop') {
       buildings.push({
         id: candidate.id,
@@ -450,6 +484,59 @@ function parseSignalwerk(
 function parseInventory(value: unknown): GameState['inventory'] | null {
   if (!isRecord(value) || (value.resonanceCore !== 0 && value.resonanceCore !== 1)) return null;
   return { resonanceCore: value.resonanceCore };
+}
+
+const MODULE_BUILDING_KEYS = [
+  'completesAtMs',
+  'id',
+  'lastProductionAtMs',
+  'moduleId',
+  'moduleVersion',
+  'production',
+  'startedAtMs',
+  'status',
+  'tileKey',
+  'type',
+].join(',');
+
+function parseModuleBuilding(
+  candidate: Record<string, unknown>,
+  startedAtMs: number | null,
+  completesAtMs: number | null,
+): Building | null {
+  const lastProductionAtMs = parseTimestamp(candidate.lastProductionAtMs);
+  const { moduleId, moduleVersion, production } = candidate;
+  if (
+    startedAtMs === null ||
+    completesAtMs === null ||
+    lastProductionAtMs === null ||
+    Object.keys(candidate).sort().join(',') !== MODULE_BUILDING_KEYS ||
+    typeof moduleId !== 'string' ||
+    typeof moduleVersion !== 'string' ||
+    !isValidModuleRef({ id: moduleId, version: moduleVersion }) ||
+    typeof candidate.tileKey !== 'string' ||
+    candidate.id !== `module:${moduleId}:${candidate.tileKey}` ||
+    (candidate.status !== 'constructing' && candidate.status !== 'active') ||
+    !isRecord(production) ||
+    Object.keys(production).sort().join(',') !== 'amountPerPulse,resource' ||
+    (production.resource !== 'wood' && production.resource !== 'stone') ||
+    typeof production.amountPerPulse !== 'number' ||
+    !Number.isInteger(production.amountPerPulse) ||
+    production.amountPerPulse < 1 ||
+    production.amountPerPulse > MODULE_MAX_PRODUCTION_PER_PULSE
+  ) return null;
+  return {
+    id: candidate.id as string,
+    type: 'module',
+    moduleId,
+    moduleVersion,
+    tileKey: candidate.tileKey,
+    status: candidate.status,
+    startedAtMs,
+    completesAtMs,
+    lastProductionAtMs,
+    production: { resource: production.resource, amountPerPulse: production.amountPerPulse },
+  };
 }
 
 function parseModules(value: unknown): readonly ModuleRef[] | null {

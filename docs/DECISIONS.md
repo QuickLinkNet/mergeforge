@@ -71,3 +71,10 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Decision:** Contributor modules use pure JSON manifests under `modules/<id>/` and are loaded at build time. Generic core support and the Harzsammler example remain separate pull requests.
 - **Persistence:** If a required module is missing or version-incompatible, loading returns `blocked`, identifies the missing ID/version and preserves the stored save unchanged. It must never silently remove module buildings or reset that world.
 - **Initial limits:** Costs are 0–50 per existing resource, production is 1–5 units per world pulse, construction is 1–24 whole pulses, and icons are safe local SVG basenames; the loader additionally enforces existence and a maximum size of 8 KB.
+
+## D-013 — Module buildings are generic core, content stays data
+
+- **Status:** Accepted on 2026-11-03
+- **Decision:** The core knows one generic building type `module`. Placement (terrain, road), cost, build time and production come only from the module manifest via `startModuleBuilding`; the production rule is frozen into the building at build start, so settling time never needs a manifest. No module-specific code exists in the core or UI.
+- **Persistence:** Every module building must be covered by a module reference of the same version; where the manifest is available, the frozen production and the placement must still match it, otherwise the save is rejected as corrupt. Missing modules still block the save unchanged (D-012).
+- **Consequence:** A module PR (for example the Harzsammler) only adds `modules/<id>/module.json` and an icon. The single global build slot and the one-building-per-tile rule apply to module buildings.

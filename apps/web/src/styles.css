@@ -1010,3 +1010,44 @@ a {
   font-size: 12px;
   font-style: normal;
 }
+
+.module-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px;
+}
+
+.build-stack {
+  position: absolute;
+  z-index: 4;
+  top: 94px;
+  right: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(342px, calc(100vw - 44px));
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.build-stack:empty {
+  display: none;
+}
+
+.build-stack .build-card {
+  position: static;
+  width: auto;
+  pointer-events: auto;
+}
+
+@media (max-width: 850px) {
+  .build-stack {
+    top: auto;
+    right: 14px;
+    bottom: 72px;
+  }
+}
