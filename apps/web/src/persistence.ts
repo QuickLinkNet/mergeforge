@@ -5,9 +5,12 @@ import {
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
   createFarSignals,
+  findMissingModules,
+  isValidModuleRef,
   type Building,
   type FarSignal,
   type GameState,
+  type ModuleRef,
   type ResourceStock,
   type Unit,
   type WorldSnapshot,
@@ -22,6 +25,8 @@ export const GAME_SAVE_KEY = 'mergeforge.game.v1';
 const SAVE_FORMAT_VERSION = 1;
 /** Schema 5 (before chapter 7) is migrated on load instead of being discarded. */
 const MIGRATABLE_SCHEMA_VERSION = 5;
+/** Schema 6 (before module references) is migrated by defaulting to no modules. */
+const PRE_MODULE_SCHEMA_VERSION = 6;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -32,7 +37,9 @@ export interface StorageLike {
 export type LoadGameResult =
   | { readonly kind: 'empty' }
   | { readonly kind: 'loaded'; readonly state: GameState }
-  | { readonly kind: 'reset'; readonly reason: 'corrupt' | 'incompatible' };
+  | { readonly kind: 'reset'; readonly reason: 'corrupt' | 'incompatible' }
+  /** The save is valid but needs modules this build does not provide; it is left untouched. */
+  | { readonly kind: 'blocked'; readonly missing: readonly ModuleRef[] };
 
 interface PersistedStateV1 {
   readonly formatVersion: 1;
@@ -53,6 +60,7 @@ interface PersistedStateV1 {
   readonly inventory: GameState['inventory'];
   readonly relay: GameState['relay'];
   readonly signals: readonly FarSignal[];
+  readonly modules: readonly ModuleRef[];
   readonly lastAdvancedAtMs: number;
 }
 
@@ -76,6 +84,7 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
     inventory: state.inventory,
     relay: state.relay,
     signals: state.signals,
+    modules: state.modules,
     lastAdvancedAtMs: state.lastAdvancedAtMs,
   };
 
@@ -87,7 +96,11 @@ export function saveGame(storage: StorageLike, state: GameState): boolean {
   }
 }
 
-export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameResult {
+export function loadGame(
+  storage: StorageLike,
+  world: WorldSnapshot,
+  moduleRegistry: readonly ModuleRef[] = [],
+): LoadGameResult {
   let raw: string | null;
   try {
     raw = storage.getItem(GAME_SAVE_KEY);
@@ -108,7 +121,9 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const migratingLegacy = value.gameSchemaVersion === MIGRATABLE_SCHEMA_VERSION;
   if (
     value.formatVersion !== SAVE_FORMAT_VERSION ||
-    (value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION && !migratingLegacy)
+    (value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION &&
+      value.gameSchemaVersion !== PRE_MODULE_SCHEMA_VERSION &&
+      !migratingLegacy)
   ) {
     return reset(storage, 'incompatible');
   }
@@ -144,6 +159,8 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
   const inventory = parseInventory(value.inventory);
   const relay = parseRelay(value.relay, migratingLegacy);
   const signals = migratingLegacy && value.signals === undefined ? [] : parseSignals(value.signals, world);
+  const preModuleSchema = migratingLegacy || value.gameSchemaVersion === PRE_MODULE_SCHEMA_VERSION;
+  const modules = preModuleSchema && value.modules === undefined ? [] : parseModules(value.modules);
   const lastAdvancedAtMs = parseTimestamp(value.lastAdvancedAtMs);
 
   if (
@@ -158,6 +175,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     inventory === null ||
     relay === null ||
     signals === null ||
+    modules === null ||
     lastAdvancedAtMs === null
   ) {
     return reset(storage, 'corrupt');
@@ -221,6 +239,7 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     inventory,
     relay,
     signals,
+    modules,
     lastAdvancedAtMs,
   };
   // A schema-5 game is migrated without side effects: chapter 7 is never
@@ -234,6 +253,10 @@ export function loadGame(storage: StorageLike, world: WorldSnapshot): LoadGameRe
     chapterSeven !== (state.signals.length > 0) ||
     (chapterSeven && (state.relay.status !== 'active' || !state.prologue.completedChapterIds.includes(6)))
   ) return reset(storage, 'corrupt');
+
+  // A valid save that needs modules this build lacks is blocked, never reset or rewritten.
+  const missing = findMissingModules(state.modules, moduleRegistry);
+  if (missing.length > 0) return { kind: 'blocked', missing };
 
   return { kind: 'loaded', state };
 }
@@ -427,6 +450,13 @@ function parseSignalwerk(
 function parseInventory(value: unknown): GameState['inventory'] | null {
   if (!isRecord(value) || (value.resonanceCore !== 0 && value.resonanceCore !== 1)) return null;
   return { resonanceCore: value.resonanceCore };
+}
+
+function parseModules(value: unknown): readonly ModuleRef[] | null {
+  if (!Array.isArray(value)) return null;
+  if (!value.every(isValidModuleRef)) return null;
+  if (new Set(value.map((ref) => ref.id)).size !== value.length) return null;
+  return value.map((ref) => ({ id: ref.id, version: ref.version }));
 }
 
 function parseSignals(value: unknown, world: WorldSnapshot): readonly FarSignal[] | null {

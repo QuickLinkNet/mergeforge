@@ -65,6 +65,7 @@ import {
   type SignalDirection,
 } from '@mergeforge/signalwerk';
 import { generateWorld } from '@mergeforge/worldgen';
+import { MODULE_REGISTRY } from './moduleRegistry';
 import { loadGame, saveGame } from './persistence';
 
 const WORLD_SEED = 'mergeforge-genesis-001';
@@ -75,7 +76,7 @@ type ViewState = 'loading' | 'ready' | 'error';
 
 type BootstrapResult =
   | { readonly ok: true; readonly state: GameState; readonly notice: string | null }
-  | { readonly ok: false; readonly error: string };
+  | { readonly ok: false; readonly error: string; readonly blocked?: true };
 
 const roadFailureCopy: Readonly<Record<BuildRoadRejection, string>> = {
   'tile-not-found': 'Dieses Feld gehört nicht zur bekannten Welt.',
@@ -166,7 +167,7 @@ function bootstrapGame(nowMs: number): BootstrapResult {
     const freshState = createInitialGameState(world, nowMs);
     let loaded: ReturnType<typeof loadGame>;
     try {
-      loaded = loadGame(window.localStorage, world);
+      loaded = loadGame(window.localStorage, world, MODULE_REGISTRY);
     } catch {
       return {
         ok: true,
@@ -180,6 +181,14 @@ function bootstrapGame(nowMs: number): BootstrapResult {
         ok: true,
         state: advanceTime(loaded.state, Math.max(nowMs, loaded.state.lastAdvancedAtMs)),
         notice: null,
+      };
+    }
+    if (loaded.kind === 'blocked') {
+      const names = loaded.missing.map((ref) => `${ref.id} (${ref.version})`).join(', ');
+      return {
+        ok: false,
+        blocked: true,
+        error: `Dieser Spielstand braucht ein fehlendes Modul: ${names}. Der Spielstand bleibt unverändert gespeichert. Stellt das Modul wieder her und prüft erneut.`,
       };
     }
     if (loaded.kind === 'reset') {
@@ -1360,7 +1369,7 @@ export function App() {
           {viewState === 'loading' ? (
             <><span className="loading-rune" aria-hidden="true" /><strong>Genesis wird kartiert</strong><span>Hex für Hex entsteht eure Welt …</span></>
           ) : (
-            <><strong>Die Welt bleibt im Nebel</strong><span>{errorMessage}</span><button type="button" onClick={() => window.location.reload()}>Ansicht neu laden</button></>
+            <><strong>{bootstrap.ok ? 'Die Welt bleibt im Nebel' : bootstrap.blocked === true ? 'Spielstand gesperrt' : 'Die Welt bleibt im Nebel'}</strong><span>{errorMessage}</span><button type="button" onClick={() => window.location.reload()}>{bootstrap.ok ? 'Ansicht neu laden' : bootstrap.blocked === true ? 'Erneut prüfen' : 'Ansicht neu laden'}</button></>
           )}
         </section>
       )}

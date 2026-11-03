@@ -166,3 +166,33 @@ function rejectUnknownKeys(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+/** A save's reference to a module it depends on. */
+export interface ModuleRef {
+  readonly id: string;
+  readonly version: string;
+}
+
+const REF_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const REF_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+
+export function isValidModuleRef(value: unknown): value is ModuleRef {
+  return (
+    isRecord(value) &&
+    Object.keys(value).sort().join(",") === "id,version" &&
+    typeof value.id === "string" &&
+    REF_ID_PATTERN.test(value.id) &&
+    typeof value.version === "string" &&
+    REF_VERSION_PATTERN.test(value.version)
+  );
+}
+
+/** Returns the referenced modules the registry does not provide at that exact version. */
+export function findMissingModules(
+  referenced: readonly ModuleRef[],
+  registry: readonly ModuleRef[],
+): readonly ModuleRef[] {
+  return referenced.filter(
+    (ref) => !registry.some((entry) => entry.id === ref.id && entry.version === ref.version),
+  );
+}

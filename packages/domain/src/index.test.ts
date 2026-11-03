@@ -78,11 +78,12 @@ describe("road building", () => {
     expect(state.visibleTileKeys).toEqual(state.world.visibleTileKeys);
     expect(state.visibleTileKeys).not.toBe(state.world.visibleTileKeys);
     expect(state).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       claimedSurfaceFindTileKeys: [],
       buildings: [],
       units: [],
       signals: [],
+      modules: [],
       relay: { status: "dormant", coreInstalled: false },
       prologue: {
         stoneProductionObserved: false,

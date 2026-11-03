@@ -377,7 +377,7 @@ describe('MERGEFORGE web shell', () => {
 
     await waitFor(() => {
       const persisted = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as Record<string, any>;
-      expect(persisted.gameSchemaVersion).toBe(6);
+      expect(persisted.gameSchemaVersion).toBe(7);
       expect(persisted.signals).toHaveLength(2);
       expect(persisted.relay.capabilities).toEqual(['signal_network_active']);
       expect(persisted.prologue.completedChapterIds).toEqual([3, 4, 5, 6, 7]);
