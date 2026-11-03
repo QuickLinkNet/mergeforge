@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "id": "harzsammler",
+  "version": "1.0.0",
+  "name": "Harzsammler",
+  "building": {
+    "placement": { "terrain": ["forest"], "requiresRoadConnection": true },
+    "cost": { "wood": 3, "stone": 1 },
+    "buildTimeMs": 600000,
+    "icon": "icon.svg",
+    "production": { "resource": "wood", "amountPerPulse": 1 }
+  }
+}
