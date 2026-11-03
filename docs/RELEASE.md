@@ -27,3 +27,7 @@ Repository branch protection remains the owner-controlled GitHub setting: `main`
 ## Deployment boundary
 
 This repository intentionally contains no deployment target or credentials. No workflow reads deployment secrets and no CI job deploys. Until the owner provides the FTP/API target and configures secrets outside Git, a release ends at the verified `main` merge. A future deployment workflow must fail before connecting or uploading when any required configuration is missing; it must never guess a target or fall back to an implicit destination.
+
+## Branch protection (enforced by GitHub rulesets)
+
+`main` and `dev` reject deletion, force pushes and direct pushes. Merging needs a pull request, the green `verify` and `release-route` checks, resolved conversations and a code-owner approval. Only the repository admin may bypass the approval, and only through a pull request. Release pull requests (`dev` -> `main`) are squash-merged to keep `main` linear.
