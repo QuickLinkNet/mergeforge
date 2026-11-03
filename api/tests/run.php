@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../lib/util.php';
 require __DIR__ . '/../lib/players.php';
+require __DIR__ . '/../lib/saves.php';
 
 $failures = 0;
 function check(bool $condition, string $label): void
@@ -57,6 +58,25 @@ if (storage_available()) {
     check($renamed['playerId'] === $a['playerId'] && $renamed['githubLogin'] === 'alice-new', 'login rename keeps ID');
     check(find_player($b['playerId'])['githubLogin'] === 'bob', 'find_player');
     check(find_player('mf_' . str_repeat('0', 32)) === null, 'unknown player is null');
+
+    // Saves: optimistic revisions.
+    $good = json_encode(['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's'], 'empty' => new stdClass()]);
+    check(save_payload_error(json_decode($good, true)) === null, 'plausible save accepted');
+    check(save_payload_error([1, 2]) !== null && save_payload_error('x') !== null, 'non-object save rejected');
+    check(save_payload_error(['formatVersion' => 2, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's']]) !== null, 'wrong format rejected');
+    check(save_payload_error(['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => '']]) !== null, 'empty world seed rejected');
+    check(load_save($a['playerId'], true) === null, 'no save yet');
+    $first = store_save($a['playerId'], 0, $good);
+    check($first['ok'] === true && $first['revision'] === 1, 'first save is revision 1');
+    $second = store_save($a['playerId'], 1, $good);
+    check($second['ok'] === true && $second['revision'] === 2, 'second save is revision 2');
+    $stale = store_save($a['playerId'], 1, $good);
+    check($stale['ok'] === false && $stale['revision'] === 2, 'stale base revision conflicts');
+    check(store_save($a['playerId'], 0, $good)['ok'] === false, 'revision 0 conflicts once a save exists');
+    $loaded = load_save($a['playerId'], true);
+    check($loaded['payload'] === $good && $loaded['revision'] === 2, 'payload is stored byte for byte');
+    check(!isset(load_save($a['playerId'], false)['payload']), 'meta load omits the payload');
+    check(load_save($b['playerId'], true) === null, 'saves are per player');
 } else {
     echo "skip registry tests (pdo_sqlite missing)\n";
 }

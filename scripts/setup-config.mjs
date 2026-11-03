@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = path.join(root, 'api', 'config.local.php');
-const clientId = process.argv[2] || 'Iv23liRrMx9ulyqq9J90';
+const clientId = process.argv[2] || 'Iv23liRrMx9uIyqq9J90';
 
 if (existsSync(target)) {
   console.error('api/config.local.php existiert bereits - nichts wurde geändert.');

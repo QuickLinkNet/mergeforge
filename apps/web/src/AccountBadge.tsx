@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { API_BASE } from './online';
 
 export interface AccountPlayer {
   readonly playerId: string;
@@ -11,9 +12,6 @@ type AccountState =
   | { readonly kind: 'offline' }
   | { readonly kind: 'signed-out' }
   | { readonly kind: 'signed-in'; readonly player: AccountPlayer };
-
-/** The API sits next to the page (relative URL), on the subdomain and under /apps/mergeforge alike. */
-export const API_BASE = './api';
 
 function isPlayer(value: unknown): value is AccountPlayer {
   if (typeof value !== 'object' || value === null) return false;
