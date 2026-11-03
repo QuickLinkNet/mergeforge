@@ -70,9 +70,10 @@ import { generateWorld } from '@mergeforge/worldgen';
 import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
 import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
-import { loadGame, saveGame } from './persistence';
+import { loadGame, saveGame, type StorageLike } from './persistence';
+import { UNIVERSE_SEED, type OnlineSession, type SyncStatus } from './online';
 
-const WORLD_SEED = 'mergeforge-genesis-001';
+const WORLD_SEED = UNIVERSE_SEED;
 const WORLD_RADIUS = 12;
 const CHAPTER_ONE_ROAD_TARGET = 2;
 
@@ -165,14 +166,24 @@ const relayRepairFailureCopy: Readonly<Record<StartRelayRepairRejection, string>
   'insufficient-resources': 'Für die Relaisreparatur fehlen Holz oder Stein.',
 };
 
-function bootstrapGame(nowMs: number): BootstrapResult {
+function syncLabel(status: SyncStatus | null): string {
+  switch (status) {
+    case 'saving': return 'Speichert online …';
+    case 'synced': return 'Online gespeichert';
+    case 'offline': return 'Offline · lokal gespeichert';
+    case 'conflict': return 'Online-Speicher pausiert';
+    default: return 'Automatisch gespeichert';
+  }
+}
+
+function bootstrapGame(nowMs: number, worldSeed: string, storage: StorageLike): BootstrapResult {
   try {
-    const world = generateWorld({ seed: WORLD_SEED, radius: WORLD_RADIUS });
+    const world = generateWorld({ seed: worldSeed, radius: WORLD_RADIUS });
     const freshState = createInitialGameState(world, nowMs);
     let loaded: ReturnType<typeof loadGame>;
     try {
       loaded = loadGame(
-        window.localStorage,
+        storage,
         world,
         MODULE_REGISTRY,
         LOADED_MODULES.map((entry) => entry.manifest),
@@ -261,7 +272,9 @@ function nextSettlementAt(state: GameState): number {
   return Math.min(...buildingEvents, ...unitEvents, relayEvent, Number.POSITIVE_INFINITY);
 }
 
-export function App() {
+export function App({ online }: { readonly online?: OnlineSession | undefined } = {}) {
+  const worldSeed = online?.worldSeed ?? WORLD_SEED;
+  const gameStorage = online?.storage;
   const mapHostRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MountedHexWorld | undefined>(undefined);
   const latestRenderRef = useRef<{
@@ -269,7 +282,11 @@ export function App() {
     view: HexWorldViewState;
   } | undefined>(undefined);
   const bootstrapNowRef = useRef(Date.now());
-  const bootstrap = useMemo(() => bootstrapGame(bootstrapNowRef.current), []);
+  const bootstrap = useMemo(
+    () => bootstrapGame(bootstrapNowRef.current, worldSeed, gameStorage ?? window.localStorage),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the session is fixed for the lifetime of the page
+    [],
+  );
 
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -485,12 +502,30 @@ export function App() {
     if (gameState === null) return;
     let saved = false;
     try {
-      saved = saveGame(window.localStorage, gameState);
+      saved = saveGame(gameStorage ?? window.localStorage, gameState);
     } catch {
       saved = false;
     }
     if (!saved) setSystemNotice('Der lokale Spielstand konnte nicht gespeichert werden.');
-  }, [gameState]);
+    else online?.sync.noteChange();
+  }, [gameState, gameStorage, online]);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(online?.sync.getStatus() ?? null);
+  useEffect(() => {
+    if (online === undefined) return undefined;
+    setSyncStatus(online.sync.getStatus());
+    return online.sync.subscribe(setSyncStatus);
+  }, [online]);
+  useEffect(() => {
+    if (online?.notice) setSystemNotice(online.notice);
+  }, [online]);
+  const loadNewerOnlineSave = useCallback(() => {
+    if (online === undefined) return;
+    void online.sync.adoptServer().then((adopted) => {
+      if (adopted) window.location.reload();
+      else setSystemNotice('Der Online-Spielstand konnte gerade nicht geladen werden. Bitte später erneut versuchen.');
+    });
+  }, [online]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -943,7 +978,7 @@ export function App() {
           <span>MERGEFORGE</span>
         </a>
         <div className="status-cluster" aria-label="Aktueller Dorfstatus">
-          <span className="preview-label">Automatisch gespeichert</span>
+          <span className="preview-label">{syncLabel(syncStatus)}</span>
           <span className="resource" aria-label={`Holz: ${gameState?.resources.wood ?? 0}`}>
             <i className="resource-dot wood" aria-hidden="true" /><span>Holz</span>
             <strong>{gameState?.resources.wood ?? 0}</strong>
@@ -1332,6 +1367,12 @@ export function App() {
         </section>
       )}
 
+      {syncStatus === 'conflict' && (
+        <section className="system-notice" role="alert">
+          <span>Dein Online-Spielstand wurde in einem anderen Browser weitergespielt. Dieser Browser speichert nicht mehr, bis du den neueren Stand lädst.</span>
+          <button type="button" onClick={loadNewerOnlineSave}>Neueren Stand laden</button>
+        </section>
+      )}
       {systemNotice !== null && (
         <section className="system-notice" role="status">
           <span>{systemNotice}</span>
@@ -1399,7 +1440,7 @@ export function App() {
 
       <aside className="world-badge" aria-label="Weltdaten">
         <span className="signal-dot" aria-hidden="true" />
-        <span><small>Genesis-Sektor</small>{WORLD_SEED}</span>
+        <span><small>{online === undefined ? 'Genesis-Sektor' : `Sektor ${online.player.sector.q}|${online.player.sector.r}`}</small>{worldSeed}</span>
         <span className="version">Gen {generatorVersion}</span>
       </aside>
       <aside className="camera-hints" aria-label="Kartensteuerung">

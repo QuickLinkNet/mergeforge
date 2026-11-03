@@ -6,18 +6,19 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.2.0';
+const API_VERSION = '0.3.0';
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';
 require __DIR__ . '/lib/github.php';
+require __DIR__ . '/lib/saves.php';
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin !== '' && preg_match('#^https://(mergeforge|www)\.red-it\.org$|^http://(localhost|127\.0\.0\.1):\d+$#', $origin) === 1) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Headers: Content-Type');
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
     header('Vary: Origin');
 }
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -80,16 +81,52 @@ if ($path === '/auth/callback' && $method === 'GET') {
     redirect($back . '?login=ok');
 }
 
-if ($path === '/me' && $method === 'GET') {
-    if (!login_configured()) {
-        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
-    }
-    $session = verify_token($_COOKIE['mf_session'] ?? null);
+/** The signed-in player of this request, or a 401 response. */
+function require_player(): array
+{
+    $session = login_configured() ? verify_token($_COOKIE['mf_session'] ?? null) : null;
     $player = is_string($session['pid'] ?? null) ? find_player($session['pid']) : null;
     if ($player === null) {
         respond(401, ['ok' => false, 'error' => 'not-signed-in']);
     }
-    respond(200, ['ok' => true, 'player' => $player]);
+    return $player;
+}
+
+if ($path === '/me' && $method === 'GET') {
+    respond(200, ['ok' => true, 'player' => require_player()]);
+}
+
+if ($path === '/save' && $method === 'GET') {
+    $player = require_player();
+    $save = load_save($player['playerId'], ($_GET['meta'] ?? '') !== '1');
+    if ($save === null) {
+        respond(404, ['ok' => false, 'error' => 'no-save']);
+    }
+    respond(200, ['ok' => true, 'save' => $save]);
+}
+
+if ($path === '/save' && $method === 'PUT') {
+    require_same_origin();
+    $player = require_player();
+    $raw = (string) file_get_contents('php://input', false, null, 0, SAVE_MAX_BYTES + 4096);
+    if (strlen($raw) > SAVE_MAX_BYTES + 2048) {
+        respond(413, ['ok' => false, 'error' => 'save-too-large']);
+    }
+    $request = json_decode($raw, true);
+    $base = is_array($request) ? ($request['baseRevision'] ?? null) : null;
+    $payloadJson = is_array($request) ? ($request['payload'] ?? null) : null;
+    if (!is_int($base) || $base < 0 || !is_string($payloadJson) || strlen($payloadJson) > SAVE_MAX_BYTES) {
+        respond(400, ['ok' => false, 'error' => 'invalid-request']);
+    }
+    $error = save_payload_error(json_decode($payloadJson, true));
+    if ($error !== null) {
+        respond(400, ['ok' => false, 'error' => $error]);
+    }
+    $result = store_save($player['playerId'], $base, $payloadJson);
+    if ($result['ok'] === false) {
+        respond(409, ['ok' => false, 'error' => 'conflict', 'revision' => $result['revision']]);
+    }
+    respond(200, ['ok' => true, 'revision' => $result['revision'], 'updatedAt' => $result['updatedAt']]);
 }
 
 if ($path === '/auth/logout' && $method === 'POST') {

@@ -1055,8 +1055,8 @@ a {
 .account-badge {
   position: absolute;
   z-index: 4;
-  top: 76px;
-  right: 22px;
+  bottom: 76px;
+  left: 22px;
   display: flex;
   align-items: center;
   gap: 12px;

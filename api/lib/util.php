@@ -33,7 +33,7 @@ function login_configured(): bool
         && strlen(config_string('session_secret')) >= 32;
 }
 
-function respond(int $status, array $body): never
+function respond(int $status, array $body): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
@@ -42,7 +42,7 @@ function respond(int $status, array $body): never
     exit;
 }
 
-function redirect(string $location): never
+function redirect(string $location): void
 {
     http_response_code(302);
     header('Location: ' . $location);
