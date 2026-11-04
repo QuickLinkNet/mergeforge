@@ -244,7 +244,7 @@ if ($path === '/save' && $method === 'PUT') {
     if (!is_int($base) || $base < 0 || !is_string($payloadJson) || strlen($payloadJson) > SAVE_MAX_BYTES) {
         respond(400, ['ok' => false, 'error' => 'invalid-request']);
     }
-    $error = save_payload_error(json_decode($payloadJson, true));
+    $error = save_payload_error(json_decode($payloadJson, true), world_seed_for_sector($player['sector']));
     if ($error !== null) {
         respond(400, ['ok' => false, 'error' => $error]);
     }

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 // One save per player with an optimistic revision counter (D-017).
-// The server stores the client's save as opaque JSON: it checks shape and size,
-// not game rules. Server-side rule validation is a later, separate step.
+// The server stores the client's save as opaque JSON: it checks shape, size and that
+// the save belongs to the player's own sector world, not the game rules itself.
 
 const SAVE_MAX_BYTES = 1048576;
 
@@ -38,8 +38,25 @@ function load_save(string $playerId, bool $withPayload): ?array
     return $save;
 }
 
-/** Plausibility check of an uploaded save; returns an error code or null. */
-function save_payload_error(mixed $payload): ?string
+/** Seed of the world in a player's sector: PHP twin of worldSeedForSector in apps/web/src/online.ts. */
+function world_seed_for_sector(array $sector): string
+{
+    return $sector['q'] === 0 && $sector['r'] === 0
+        ? UNIVERSE_SEED
+        : UNIVERSE_SEED . '|sector|' . $sector['q'] . ',' . $sector['r'];
+}
+
+/** True for a JSON list (or empty array), false for an object or scalar. */
+function is_json_list(mixed $value): bool
+{
+    return is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1));
+}
+
+/**
+ * Plausibility check of an uploaded save; returns an error code or null.
+ * With $expectedSeed the save must belong to exactly that world (a player's own sector).
+ */
+function save_payload_error(mixed $payload, ?string $expectedSeed = null): ?string
 {
     if (!is_array($payload) || ($payload !== [] && array_keys($payload) === range(0, count($payload) - 1))) {
         return 'invalid-save';
@@ -49,6 +66,23 @@ function save_payload_error(mixed $payload): ?string
     }
     $world = $payload['world'] ?? null;
     if (!is_array($world) || !is_string($world['seed'] ?? null) || $world['seed'] === '' || strlen($world['seed']) > 200) {
+        return 'invalid-save';
+    }
+    if ($expectedSeed !== null && $world['seed'] !== $expectedSeed) {
+        return 'wrong-world';
+    }
+    if ($payload['gameSchemaVersion'] < 1 || $payload['gameSchemaVersion'] > 1000) {
+        return 'invalid-save';
+    }
+    foreach (['roadTileKeys', 'visibleTileKeys', 'buildings', 'units'] as $listKey) {
+        if (array_key_exists($listKey, $payload) && !is_json_list($payload[$listKey])) {
+            return 'invalid-save';
+        }
+    }
+    if (array_key_exists('resources', $payload) && (!is_array($payload['resources']) || is_json_list($payload['resources']) && $payload['resources'] !== [])) {
+        return 'invalid-save';
+    }
+    if (array_key_exists('lastAdvancedAtMs', $payload) && !(is_int($payload['lastAdvancedAtMs']) || is_float($payload['lastAdvancedAtMs']))) {
         return 'invalid-save';
     }
     return null;
