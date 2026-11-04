@@ -30,4 +30,8 @@ This repository intentionally contains no deployment target or credentials. No w
 
 ## Branch protection (enforced by GitHub rulesets)
 
-`main` and `dev` reject deletion, force pushes and direct pushes. Merging needs a pull request, the green `verify` and `release-route` checks, resolved conversations and a code-owner approval. Only the repository admin may bypass the approval, and only through a pull request. Release pull requests (`dev` -> `main`) are squash-merged to keep `main` linear.
+`main` and `dev` reject deletion, force pushes and direct pushes. Merging needs a pull request, the green `verify` and `release-route` checks, resolved conversations. **MVP mode (current, D-018):** no approving review is required, so the maintainer can merge quickly; **strict mode (before public launch):** additionally 1 approval and code-owner review. Only the repository admin may bypass rules, and only through a pull request. Release pull requests (`dev` -> `main`) are squash-merged to keep `main` linear.
+
+## Release PR conflicts
+
+Because releases are squash-merged, `main` and `dev` can show conflicts after the first release. Then the release PR may come from a `release/*` branch: create it from `origin/main`, merge `origin/dev` with `-X theirs`, check that `git diff origin/dev HEAD` is empty, and open the PR into `main`. The `release-route` check accepts `dev` and `release/*` as sources.

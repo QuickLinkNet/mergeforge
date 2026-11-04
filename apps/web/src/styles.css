@@ -1085,3 +1085,117 @@ a {
 .game-shell.is-halted .account-badge {
   display: none;
 }
+
+/* Playing is for contributors only: visitors see this page instead of the game (D-018). */
+.access-gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 30%, #17332b, #08140f 70%);
+  color: #e9e4c9;
+}
+
+.access-card {
+  display: grid;
+  gap: 16px;
+  max-width: 460px;
+  padding: 28px 32px;
+  border: 1px solid rgb(230 220 175 / 22%);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgb(18 36 31 / 94%), rgb(8 23 20 / 90%));
+  line-height: 1.5;
+}
+
+.access-card h1 {
+  margin: 0;
+  letter-spacing: 0.18em;
+}
+
+.access-card p {
+  margin: 0;
+}
+
+.access-notice {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgb(160 60 40 / 30%);
+}
+
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.access-actions a,
+.access-actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e6dca3;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.access-actions .access-primary {
+  padding: 9px 16px;
+  border-radius: 9px;
+  background: #e6dca3;
+  color: #10201b;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.access-card.admin-card {
+  width: min(560px, 100%);
+  max-width: none;
+}
+
+.access-card h2 {
+  margin: 8px 0 0;
+  font-size: 1rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-empty {
+  opacity: 0.7;
+}
+
+.admin-invite {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-invite input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid rgb(230 220 175 / 30%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 25%);
+  color: inherit;
+  font: inherit;
+}

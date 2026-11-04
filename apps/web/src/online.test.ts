@@ -36,13 +36,19 @@ function json(status: number, body: unknown): Response {
 }
 
 /** A tiny in-memory server for /me and /save. */
-function fakeServer(options: { player?: typeof PLAYER | null; save?: { revision: number; payload: string } | null }) {
+function fakeServer(options: {
+  player?: typeof PLAYER | null;
+  save?: { revision: number; payload: string } | null;
+  stranger?: boolean;
+}) {
   const state = { save: options.save ?? null, puts: [] as { baseRevision: number; payload: string }[] };
   const fetcher = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
     if (url.endsWith('/me')) {
-      return options.player === null ? json(401, { ok: false }) : json(200, { ok: true, player: options.player ?? PLAYER });
+      if (options.player === null) return json(401, { ok: false });
+      if (options.stranger === true) return json(200, { ok: true, account: { githubLogin: 'eve', contributor: false } });
+      return json(200, { ok: true, account: { githubLogin: 'alice', contributor: true }, player: options.player ?? PLAYER });
     }
     if (url.includes('/save') && method === 'GET') {
       if (state.save === null) return json(404, { ok: false, error: 'no-save' });
@@ -126,43 +132,50 @@ describe('reconcile', () => {
 });
 
 describe('prepareOnline', () => {
-  it('stays anonymous when nobody is signed in or the API is unreachable', async () => {
-    expect(await prepareOnline(fakeServer({ player: null }).fetcher, new MemoryStorage())).toBeNull();
+  async function online(fetcher: typeof fetch, base: MemoryStorage) {
+    const result = await prepareOnline(fetcher, base);
+    if (result.kind !== 'online') throw new Error(`expected online, got ${result.kind}`);
+    return result.session;
+  }
+
+  it('keeps strangers out: signed out, not a contributor, or API unreachable', async () => {
+    expect(await prepareOnline(fakeServer({ player: null }).fetcher, new MemoryStorage())).toEqual({ kind: 'signed-out' });
+    expect(await prepareOnline(fakeServer({ stranger: true }).fetcher, new MemoryStorage())).toEqual({ kind: 'not-contributor', login: 'eve', access: 'none' });
     const failing = vi.fn(async () => {
       throw new Error('offline');
     }) as unknown as typeof fetch;
-    expect(await prepareOnline(failing, new MemoryStorage())).toBeNull();
+    expect(await prepareOnline(failing, new MemoryStorage())).toEqual({ kind: 'unreachable' });
   });
 
   it('copies the server save into the player cache', async () => {
     const server = fakeServer({ save: { revision: 5, payload: save(UNIVERSE_SEED, 7) } });
     const base = new MemoryStorage();
-    const session = await prepareOnline(server.fetcher, base);
-    expect(session?.worldSeed).toBe(UNIVERSE_SEED);
-    expect(session?.storage.getItem(GAME_SAVE_KEY)).toBe(save(UNIVERSE_SEED, 7));
+    const session = await online(server.fetcher, base);
+    expect(session.worldSeed).toBe(UNIVERSE_SEED);
+    expect(session.storage.getItem(GAME_SAVE_KEY)).toBe(save(UNIVERSE_SEED, 7));
     expect(base.getItem(GAME_SAVE_KEY)).toBeNull();
-    session?.sync.stop();
+    session.sync.stop();
   });
 
   it('moves the anonymous browser save into the account and uploads it', async () => {
     const server = fakeServer({ save: null });
     const base = new MemoryStorage();
     base.setItem(GAME_SAVE_KEY, save(UNIVERSE_SEED, 42));
-    const session = await prepareOnline(server.fetcher, base);
-    expect(session?.notice).toContain('übernommen');
+    const session = await online(server.fetcher, base);
+    expect(session.notice).toContain('übernommen');
     await vi.advanceTimersByTimeAsync(3_100);
     expect(server.state.puts).toHaveLength(1);
     expect(server.state.puts[0]?.baseRevision).toBe(0);
     expect(server.state.save?.payload).toBe(save(UNIVERSE_SEED, 42));
     expect(base.getItem(GAME_SAVE_KEY)).toBe(save(UNIVERSE_SEED, 42));
-    session?.sync.stop();
+    session.sync.stop();
   });
 
   it('gives a second player a different sector world', async () => {
     const second = { ...PLAYER, playerId: `mf_${'b'.repeat(32)}`, sectorIndex: 1, sector: { q: -1, r: 1 } };
-    const session = await prepareOnline(fakeServer({ player: second, save: null }).fetcher, new MemoryStorage());
-    expect(session?.worldSeed).not.toBe(UNIVERSE_SEED);
-    session?.sync.stop();
+    const session = await online(fakeServer({ player: second, save: null }).fetcher, new MemoryStorage());
+    expect(session.worldSeed).not.toBe(UNIVERSE_SEED);
+    session.sync.stop();
   });
 });
 

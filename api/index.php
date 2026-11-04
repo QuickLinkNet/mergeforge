@@ -6,12 +6,13 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.3.0';
+const API_VERSION = '0.5.0';
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';
 require __DIR__ . '/lib/github.php';
 require __DIR__ . '/lib/saves.php';
+require __DIR__ . '/lib/access.php';
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin !== '' && preg_match('#^https://(mergeforge|www)\.red-it\.org$|^http://(localhost|127\.0\.0\.1):\d+$#', $origin) === 1) {
@@ -72,28 +73,153 @@ if ($path === '/auth/callback' && $method === 'GET') {
     if ($identity === null) {
         redirect($back . '?login=error');
     }
+    $thirtyDays = 60 * 60 * 24 * 30;
     try {
+        // Playing is for contributors (D-018): the owner, allowed testers, known players
+        // and everyone with a merged pull request. Anyone else is signed in but not let in.
+        $existing = find_player_by_github_id($identity['id']);
+        $status = access_status($identity['id']);
+        $check = may_play($identity['id'], $existing !== null, false, $status)
+            ? true
+            : ($status === 'denied' ? false : github_is_contributor($identity['token'], $identity['login']));
+        if (!may_play($identity['id'], $existing !== null, $check, $status)) {
+            if ($check === null) {
+                redirect($back . '?login=check-failed');
+            }
+            set_cookie_value('mf_session', sign_token(['gid' => $identity['id'], 'login' => $identity['login']], $thirtyDays), $thirtyDays);
+            redirect($back . '?login=not-contributor');
+        }
         $player = register_player($identity['id'], $identity['login']);
     } catch (Throwable $error) {
         redirect($back . '?login=error');
     }
-    set_cookie_value('mf_session', sign_token(['pid' => $player['playerId']], 60 * 60 * 24 * 30), 60 * 60 * 24 * 30);
+    set_cookie_value('mf_session', sign_token(['gid' => $identity['id'], 'login' => $identity['login'], 'pid' => $player['playerId']], $thirtyDays), $thirtyDays);
     redirect($back . '?login=ok');
 }
 
-/** The signed-in player of this request, or a 401 response. */
-function require_player(): array
+/** The verified session of this request (signed in, contributor or not), or null. */
+function current_session(): ?array
 {
     $session = login_configured() ? verify_token($_COOKIE['mf_session'] ?? null) : null;
-    $player = is_string($session['pid'] ?? null) ? find_player($session['pid']) : null;
-    if ($player === null) {
+    if ($session === null || (!is_string($session['pid'] ?? null) && !is_int($session['gid'] ?? null))) {
+        return null;
+    }
+    return $session;
+}
+
+/** The signed-in contributor of this request, or a 401 (not signed in) / 403 (not a contributor) response. */
+function require_player(): array
+{
+    $session = current_session();
+    if ($session === null) {
         respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
+    $player = session_player($session);
+    if ($player === null) {
+        respond(403, ['ok' => false, 'error' => 'not-a-contributor']);
+    }
+    return $player;
+}
+
+/**
+ * The player behind a session, re-checked on every request so that an approval takes
+ * effect at once and a revocation too. Approved people are registered on first use.
+ */
+function session_player(array $session): ?array
+{
+    $gid = $session['gid'] ?? null;
+    if (!is_int($gid)) {
+        return null;
+    }
+    $status = access_status($gid);
+    $player = is_string($session['pid'] ?? null) ? find_player($session['pid']) : find_player_by_github_id($gid);
+    if (!may_play($gid, $player !== null, false, $status)) {
+        return null;
+    }
+    if ($player === null) {
+        $login = is_string($session['login'] ?? null) ? $session['login'] : '';
+        $player = register_player($gid, $login);
+        $thirtyDays = 60 * 60 * 24 * 30;
+        set_cookie_value('mf_session', sign_token(['gid' => $gid, 'login' => $login, 'pid' => $player['playerId']], $thirtyDays), $thirtyDays);
     }
     return $player;
 }
 
 if ($path === '/me' && $method === 'GET') {
-    respond(200, ['ok' => true, 'player' => require_player()]);
+    $session = current_session();
+    if ($session === null) {
+        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
+    $player = session_player($session);
+    $login = $player !== null ? $player['githubLogin'] : (is_string($session['login'] ?? null) ? $session['login'] : '');
+    $account = ['githubLogin' => $login, 'contributor' => $player !== null];
+    if ($player === null && is_int($session['gid'] ?? null)) {
+        $account['access'] = access_status($session['gid']) ?? 'none';
+    }
+    if (is_owner_session($session)) {
+        $account['owner'] = true;
+    }
+    $body = ['ok' => true, 'account' => $account];
+    if ($player !== null) {
+        $body['player'] = $player;
+    }
+    respond(200, $body);
+}
+
+if ($path === '/access/request' && $method === 'POST') {
+    require_same_origin();
+    $session = current_session();
+    if ($session === null || !is_int($session['gid'] ?? null)) {
+        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
+    $status = request_access($session['gid'], is_string($session['login'] ?? null) ? $session['login'] : '');
+    if ($status === null) {
+        respond(503, ['ok' => false, 'error' => 'queue-full']);
+    }
+    respond(200, ['ok' => true, 'access' => $status]);
+}
+
+/** Admin endpoints: only the owner's session. */
+function require_owner(): void
+{
+    $session = current_session();
+    if ($session === null) {
+        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
+    if (!is_owner_session($session)) {
+        respond(403, ['ok' => false, 'error' => 'not-the-owner']);
+    }
+}
+
+if ($path === '/admin/overview' && $method === 'GET') {
+    require_owner();
+    respond(200, ['ok' => true, 'access' => list_access(), 'players' => list_players(), 'allowlist' => allowed_github_user_ids()]);
+}
+
+if ($path === '/admin/decide' && $method === 'POST') {
+    require_same_origin();
+    require_owner();
+    $request = json_decode((string) file_get_contents('php://input', false, null, 0, 4096), true);
+    $id = is_array($request) ? ($request['githubUserId'] ?? null) : null;
+    $login = is_array($request) ? ($request['githubLogin'] ?? null) : null;
+    $decision = is_array($request) ? ($request['decision'] ?? null) : null;
+    if (is_string($login) && $id === null && $decision === 'approved') {
+        // Invitation by name: look the account up on GitHub.
+        $user = github_user_by_login(trim($login));
+        if ($user === null) {
+            respond(404, ['ok' => false, 'error' => 'github-user-not-found']);
+        }
+        $id = $user['id'];
+        $login = $user['login'];
+    }
+    if (!is_int($id) || $id < 1 || !is_string($login) || $login === '' || !in_array($decision, ['approved', 'denied', 'pending'], true)) {
+        respond(400, ['ok' => false, 'error' => 'invalid-request']);
+    }
+    if ($id === OWNER_GITHUB_USER_ID) {
+        respond(400, ['ok' => false, 'error' => 'owner-is-always-allowed']);
+    }
+    decide_access($id, $login, $decision);
+    respond(200, ['ok' => true, 'githubUserId' => $id, 'githubLogin' => $login, 'status' => $decision]);
 }
 
 if ($path === '/save' && $method === 'GET') {

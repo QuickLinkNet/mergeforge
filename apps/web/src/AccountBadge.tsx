@@ -11,7 +11,7 @@ type AccountState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'offline' }
   | { readonly kind: 'signed-out' }
-  | { readonly kind: 'signed-in'; readonly player: AccountPlayer };
+  | { readonly kind: 'signed-in'; readonly player: AccountPlayer; readonly owner: boolean };
 
 function isPlayer(value: unknown): value is AccountPlayer {
   if (typeof value !== 'object' || value === null) return false;
@@ -33,8 +33,9 @@ export function AccountBadge({ fetcher = fetch }: { readonly fetcher?: typeof fe
           return;
         }
         const body: unknown = await response.json();
-        const player = typeof body === 'object' && body !== null ? (body as { player?: unknown }).player : undefined;
-        setAccount(response.ok && isPlayer(player) ? { kind: 'signed-in', player } : { kind: 'offline' });
+        const parsed = typeof body === 'object' && body !== null ? (body as { player?: unknown; account?: { owner?: unknown } }) : {};
+        const owner = parsed.account?.owner === true;
+        setAccount(response.ok && isPlayer(parsed.player) ? { kind: 'signed-in', player: parsed.player, owner } : { kind: 'offline' });
       })
       .catch(() => {
         if (!cancelled) setAccount({ kind: 'offline' });
@@ -59,6 +60,7 @@ export function AccountBadge({ fetcher = fetch }: { readonly fetcher?: typeof fe
       ) : (
         <>
           <span>Angemeldet als <strong>{account.player.githubLogin}</strong></span>
+          {account.owner && <a className="account-link" href="#admin" onClick={() => window.location.reload()}>Admin</a>}
           <button type="button" className="account-link" onClick={signOut}>Abmelden</button>
         </>
       )}
