@@ -10,6 +10,7 @@ require __DIR__ . '/../lib/players.php';
 require __DIR__ . '/../lib/saves.php';
 require __DIR__ . '/../lib/github.php';
 require __DIR__ . '/../lib/access.php';
+require __DIR__ . '/../lib/neighbors.php';
 
 $failures = 0;
 function check(bool $condition, string $label): void
@@ -124,6 +125,29 @@ if (storage_available()) {
         request_access(2000 + $i, 'u' . $i);
     }
     check(request_access(3000, 'late') === null, 'full queue refuses new requests');
+}
+
+// Funkkontakte
+{
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => 1, 'r' => 0]) === 'east', 'bearing east');
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => 1, 'r' => -1]) === 'north-east', 'bearing north-east');
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => 0, 'r' => -1]) === 'north-west', 'bearing north-west');
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => -1, 'r' => 0]) === 'west', 'bearing west');
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => -1, 'r' => 1]) === 'south-west', 'bearing south-west');
+    check(sector_bearing(['q' => 0, 'r' => 0], ['q' => 0, 'r' => 1]) === 'south-east', 'bearing south-east');
+    check(sector_distance(['q' => 0, 'r' => 0], ['q' => 2, 'r' => -1]) === 2, 'hex distance');
+    check(contact_band(1) === 'near' && contact_band(2) === 'middle' && contact_band(5) === 'far', 'distance bands');
+    $people = [];
+    foreach ([0, 1, 2, 3, 4, 5, 6] as $i) {
+        $people[] = ['githubUserId' => 100 + $i, 'githubLogin' => 'p' . $i, 'sectorIndex' => $i];
+    }
+    $status = static fn (int $id): ?string => $id === 101 ? 'denied' : null;
+    $mine = sector_for_index(0);
+    $contacts = neighbor_contacts($mine, 0, $people, $status);
+    check(count($contacts) === 3, 'at most three contacts');
+    check(!in_array('p0', array_column($contacts, 'login'), true), 'own entry is not listed');
+    check(!in_array('p1', array_column($contacts, 'login'), true), 'locked-out players are not listed');
+    check($contacts[0]['distanceBand'] === 'near' && !isset($contacts[0]['sector']), 'only coarse data leaves the server');
 }
 
 echo $failures === 0 ? "All passed\n" : "$failures failed\n";

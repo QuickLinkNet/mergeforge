@@ -3,6 +3,8 @@ import { GAME_SAVE_KEY, type StorageLike } from './persistence';
 import {
   SaveSync,
   UNIVERSE_SEED,
+  fetchContacts,
+  parseContacts,
   prepareOnline,
   reconcile,
   scopedStorage,
@@ -259,5 +261,29 @@ describe('SaveSync', () => {
     await vi.advanceTimersByTimeAsync(15_100);
     expect((down as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(2);
     sync.stop();
+  });
+});
+
+describe('radio contacts', () => {
+  it('keeps only well-formed contacts', () => {
+    const body = { contacts: [
+      { login: 'eve', bearing: 'north-east', distanceBand: 'near' },
+      { login: 'x', bearing: 'up', distanceBand: 'near' },
+      { login: 'y', bearing: 'west', distanceBand: 'huge' },
+      { bearing: 'west', distanceBand: 'far' },
+      null,
+    ] };
+    expect(parseContacts(body)).toEqual([{ login: 'eve', bearing: 'north-east', distanceBand: 'near' }]);
+    expect(parseContacts(null)).toEqual([]);
+    expect(parseContacts({ contacts: 'nope' })).toEqual([]);
+  });
+
+  it('answers with an empty list when the server fails', async () => {
+    const down = vi.fn(async () => new Response('{}', { status: 500 })) as unknown as typeof fetch;
+    const broken = vi.fn(async () => { throw new Error('offline'); }) as unknown as typeof fetch;
+    expect(await fetchContacts(down)).toEqual([]);
+    expect(await fetchContacts(broken)).toEqual([]);
+    const ok = vi.fn(async () => new Response(JSON.stringify({ ok: true, contacts: [{ login: 'bob', bearing: 'east', distanceBand: 'far' }] }), { status: 200 })) as unknown as typeof fetch;
+    expect(await fetchContacts(ok)).toEqual([{ login: 'bob', bearing: 'east', distanceBand: 'far' }]);
   });
 });
