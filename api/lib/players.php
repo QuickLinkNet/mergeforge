@@ -50,10 +50,16 @@ function allowed_github_user_ids(): array
  * were already registered, and everyone with a merged pull request. If GitHub could
  * not answer ($contributorCheck === null) nobody new gets in.
  */
-function may_play(int $githubUserId, bool $alreadyRegistered, ?bool $contributorCheck): bool
+function may_play(int $githubUserId, bool $alreadyRegistered, ?bool $contributorCheck, ?string $accessStatus = null): bool
 {
-    return $githubUserId === OWNER_GITHUB_USER_ID
-        || in_array($githubUserId, allowed_github_user_ids(), true)
+    if ($githubUserId === OWNER_GITHUB_USER_ID) {
+        return true;
+    }
+    if ($accessStatus === 'denied') {
+        return false; // the owner revoked or refused this person (D-019)
+    }
+    return in_array($githubUserId, allowed_github_user_ids(), true)
+        || $accessStatus === 'approved'
         || $alreadyRegistered
         || $contributorCheck === true;
 }
@@ -105,6 +111,15 @@ function db(): PDO
             github_login TEXT NOT NULL,
             sector_index INTEGER NOT NULL UNIQUE,
             created_at TEXT NOT NULL
+        )'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS access (
+            github_user_id INTEGER PRIMARY KEY,
+            github_login TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            decided_at TEXT
         )'
     );
     return $pdo;

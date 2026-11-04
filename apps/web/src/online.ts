@@ -308,8 +308,11 @@ function isPlayer(value: unknown): value is AccountPlayer {
 export type GateResult =
   | { readonly kind: 'online'; readonly session: OnlineSession }
   | { readonly kind: 'signed-out' }
-  | { readonly kind: 'not-contributor'; readonly login: string }
+  | { readonly kind: 'not-contributor'; readonly login: string; readonly access: AccessRequestStatus }
   | { readonly kind: 'unreachable' };
+
+/** What the owner decided about a person who asked to join (D-019). */
+export type AccessRequestStatus = 'none' | 'pending' | 'denied';
 
 /**
  * Decides how this browser starts: online as the signed-in contributor with that
@@ -322,10 +325,18 @@ export async function prepareOnline(fetcher: typeof fetch, base: StorageLike): P
     const response = await request(fetcher, `${API_BASE}/me`);
     if (response.status === 401) return { kind: 'signed-out' };
     if (!response.ok) return { kind: 'unreachable' };
-    const body = (await response.json()) as { account?: { githubLogin?: unknown; contributor?: unknown }; player?: unknown };
+    const body = (await response.json()) as {
+      account?: { githubLogin?: unknown; contributor?: unknown; access?: unknown };
+      player?: unknown;
+    };
     if (body.account?.contributor === false) {
       const login = body.account.githubLogin;
-      return { kind: 'not-contributor', login: typeof login === 'string' ? login : '' };
+      const access = body.account.access;
+      return {
+        kind: 'not-contributor',
+        login: typeof login === 'string' ? login : '',
+        access: access === 'pending' || access === 'denied' ? access : 'none',
+      };
     }
     if (!isPlayer(body.player)) return { kind: 'unreachable' };
     player = body.player;

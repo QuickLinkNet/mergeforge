@@ -113,3 +113,12 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Client:** `OnlineGate` shows an access page (sign in / how to become a contributor / sign out) instead of the game for visitors, non-contributors and an unreachable server. Only on localhost the anonymous sandbox remains for development.
 - **Consequences:** The MVP goal of two test players needs a second GitHub account that is a contributor or is listed in `allowed_github_user_ids`. A new contributor signs in again after their pull request is merged.
 - **Governance (MVP mode):** While the MVP is built, the branch rulesets require a pull request and green CI but no approving review, so the maintainer can merge quickly. Deletion, force pushes and direct pushes stay blocked. Strict mode (1 approval + code owner review) returns before the public launch.
+
+## D-019 — Access requests and owner admin page
+
+- **Status:** Accepted on 2026-11-04 (extends D-018)
+- **Decision:** A merged pull request is not the only way in. Signed-in people who are not contributors can ask to join with one click; the owner decides on `#admin` (approve, deny, lock out, invite by GitHub name). Contributors by merged PR still get in without asking.
+- **Data:** SQLite table `access` (GitHub user ID, login, status `pending|approved|denied`). `denied` wins over everything except the owner: it also locks out an already registered player. A new request never overrides a decision; at most 100 requests wait at once.
+- **Immediate effect:** `/me` and `/save` re-check the decision on every request, so an approval opens the game at once (the player is registered in the next free sector on first use) and a lock-out closes it at once. No new sign-in needed.
+- **Admin API:** `GET /admin/overview`, `POST /admin/decide` (owner session only, same-origin). Inviting by name resolves the numeric ID through the public GitHub API. `POST /access/request` for signed-in non-contributors.
+- **Limits:** The owner account itself cannot be locked out. The allowlist in `config.local.php` remains as an emergency list, but the admin page replaces it for daily use.
