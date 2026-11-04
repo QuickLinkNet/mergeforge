@@ -1,4 +1,4 @@
-import { sectorSeed, type SectorCoord } from '@mergeforge/domain';
+import { SIGNAL_BEARINGS, sectorSeed, type SectorCoord, type SignalBearing } from '@mergeforge/domain';
 import { GAME_SAVE_KEY, type StorageLike } from './persistence';
 
 /** The API sits next to the page (relative URL), on the subdomain and under /apps/mergeforge alike. */
@@ -18,6 +18,13 @@ export interface AccountPlayer {
   readonly sector: SectorCoord;
 }
 
+/** A real neighbour: only compass bearing and a coarse distance class (no coordinates). */
+export interface RadioContact {
+  readonly login: string;
+  readonly bearing: SignalBearing;
+  readonly distanceBand: 'near' | 'middle' | 'far';
+}
+
 export type SyncStatus = 'synced' | 'saving' | 'offline' | 'conflict';
 
 export interface OnlineSession {
@@ -27,6 +34,37 @@ export interface OnlineSession {
   readonly storage: StorageLike;
   readonly sync: SaveSync;
   readonly notice: string | null;
+  /** Real neighbouring players (best effort: an empty list when the server cannot say). */
+  readonly loadContacts?: () => Promise<readonly RadioContact[]>;
+}
+
+/** Keeps only well-formed contacts from a /neighbors answer. */
+export function parseContacts(body: unknown): RadioContact[] {
+  const list = (body as { contacts?: unknown } | null)?.contacts;
+  if (!Array.isArray(list)) return [];
+  const bands = ['near', 'middle', 'far'];
+  return list.flatMap((entry: unknown) => {
+    const item = entry as { login?: unknown; bearing?: unknown; distanceBand?: unknown } | null;
+    if (
+      typeof item?.login !== 'string' ||
+      typeof item.bearing !== 'string' ||
+      !(SIGNAL_BEARINGS as readonly string[]).includes(item.bearing) ||
+      typeof item.distanceBand !== 'string' ||
+      !bands.includes(item.distanceBand)
+    ) {
+      return [];
+    }
+    return [{ login: item.login, bearing: item.bearing as SignalBearing, distanceBand: item.distanceBand as RadioContact['distanceBand'] }];
+  });
+}
+
+export async function fetchContacts(fetcher: typeof fetch): Promise<RadioContact[]> {
+  try {
+    const response = await request(fetcher, `${API_BASE}/neighbors`);
+    return response.ok ? parseContacts(await response.json()) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Sector (0,0) keeps the original genesis seed so existing saves stay valid. */
@@ -384,5 +422,8 @@ export async function prepareOnline(fetcher: typeof fetch, base: StorageLike): P
     decision.kind === 'import-anonymous' ||
     (decision.kind === 'keep-local' && (meta.dirty || server === null || server === undefined));
   if (needsUpload) sync.noteChange();
-  return { kind: 'online', session: { player, worldSeed, storage: cache, sync, notice } };
+  return {
+    kind: 'online',
+    session: { player, worldSeed, storage: cache, sync, notice, loadContacts: () => fetchContacts(fetcher) },
+  };
 }

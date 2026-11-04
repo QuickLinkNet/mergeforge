@@ -6,13 +6,14 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.5.0';
+const API_VERSION = '0.6.0';
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';
 require __DIR__ . '/lib/github.php';
 require __DIR__ . '/lib/saves.php';
 require __DIR__ . '/lib/access.php';
+require __DIR__ . '/lib/neighbors.php';
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin !== '' && preg_match('#^https://(mergeforge|www)\.red-it\.org$|^http://(localhost|127\.0\.0\.1):\d+$#', $origin) === 1) {
@@ -220,6 +221,11 @@ if ($path === '/admin/decide' && $method === 'POST') {
     }
     decide_access($id, $login, $decision);
     respond(200, ['ok' => true, 'githubUserId' => $id, 'githubLogin' => $login, 'status' => $decision]);
+}
+
+if ($path === '/neighbors' && $method === 'GET') {
+    $player = require_player();
+    respond(200, ['ok' => true, 'contacts' => neighbor_contacts($player['sector'], $player['sectorIndex'], list_players(), 'access_status')]);
 }
 
 if ($path === '/save' && $method === 'GET') {
