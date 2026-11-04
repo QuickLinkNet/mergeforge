@@ -8,6 +8,12 @@
       name="description"
       content="MERGEFORGE – eine kollaborativ erweiterte, persistente Hexwelt."
     />
+    <script>
+      // Always play over HTTPS (the login cookie is secure-only); local development stays on http.
+      if (location.protocol === 'http:' && !/^(localhost|127.0.0.1)$/.test(location.hostname)) {
+        location.replace('https://' + location.host + location.pathname + location.search + location.hash);
+      }
+    </script>
     <title>MERGEFORGE · Genesis</title>
   </head>
   <body>

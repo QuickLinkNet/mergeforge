@@ -1,4 +1,4 @@
-export type BuildingVisualType = "lumber-camp" | "quarry";
+export type BuildingVisualType = "lumber-camp" | "quarry" | "module";
 export type BuildingVisualState = "construction" | "complete";
 
 export interface BuildingVisual {

@@ -446,6 +446,44 @@ function drawLumberCamp(
   target.addChild(camp);
 }
 
+/** Neutral marker for data-defined module buildings: a stone plinth with a teal crystal. */
+function drawModuleBuilding(target: Container, coord: HexCoord, state: BuildingVisualState): void {
+  const center = axialToPixel(coord, HEX_SIZE);
+  const marker = new Container();
+  marker.position.set(center.x, center.y + 3);
+
+  const shadow = new Graphics().ellipse(0, 13, 30, 12).fill({ color: 0x0a120c, alpha: 0.4 });
+  const plinth = new Graphics()
+    .ellipse(0, 9, 27, 12)
+    .fill({ color: state === "construction" ? 0x56606a : 0x4a5560 })
+    .stroke({ color: 0x9fb4c0, width: 1.2, alpha: 0.7 });
+  marker.addChild(shadow, plinth);
+
+  if (state === "construction") {
+    const frame = new Graphics()
+      .poly([0, -20, 11, -6, 0, 8, -11, -6])
+      .stroke({ color: 0x8ad9cf, width: 1.8, alpha: 0.8 })
+      .moveTo(0, -20)
+      .lineTo(0, 8)
+      .moveTo(-11, -6)
+      .lineTo(11, -6)
+      .stroke({ color: 0x8ad9cf, width: 1, alpha: 0.5 });
+    marker.addChild(frame);
+    target.addChild(marker);
+    return;
+  }
+
+  const glow = new Graphics().circle(0, -6, 17).fill({ color: 0x4fd1c5, alpha: 0.16 });
+  const crystal = new Graphics()
+    .poly([0, -24, 11, -6, 0, 9, -11, -6])
+    .fill({ color: 0x59d6c9 })
+    .stroke({ color: 0x1f6f69, width: 1.4 })
+    .poly([0, -24, 0, 9, -11, -6])
+    .fill({ color: 0x8be8de, alpha: 0.75 });
+  marker.addChild(glow, crystal);
+  target.addChild(marker);
+}
+
 function drawQuarry(target: Container, coord: HexCoord, state: BuildingVisualState): void {
   const center = axialToPixel(coord, HEX_SIZE);
   const quarry = new Container();
@@ -654,6 +692,8 @@ function drawDataDrivenVisuals(
     if (coord !== undefined) {
       if (building.type === "quarry") {
         drawQuarry(target, coord, building.state);
+      } else if (building.type === "module") {
+        drawModuleBuilding(target, coord, building.state);
       } else {
         drawLumberCamp(target, coord, building.state);
       }
