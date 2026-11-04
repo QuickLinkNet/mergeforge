@@ -140,7 +140,7 @@ describe('prepareOnline', () => {
 
   it('keeps strangers out: signed out, not a contributor, or API unreachable', async () => {
     expect(await prepareOnline(fakeServer({ player: null }).fetcher, new MemoryStorage())).toEqual({ kind: 'signed-out' });
-    expect(await prepareOnline(fakeServer({ stranger: true }).fetcher, new MemoryStorage())).toEqual({ kind: 'not-contributor', login: 'eve' });
+    expect(await prepareOnline(fakeServer({ stranger: true }).fetcher, new MemoryStorage())).toEqual({ kind: 'not-contributor', login: 'eve', access: 'none' });
     const failing = vi.fn(async () => {
       throw new Error('offline');
     }) as unknown as typeof fetch;

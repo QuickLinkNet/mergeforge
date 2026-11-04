@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AccessGate, loginNotice } from './AccessGate';
+import { AdminPage } from './AdminPage';
 import { App } from './App';
 import { prepareOnline, type GateResult } from './online';
 
@@ -19,8 +20,10 @@ function isLocalDevHost(hostname: string): boolean {
  */
 export function OnlineGate({ fetcher = fetch }: { readonly fetcher?: typeof fetch }) {
   const [state, setState] = useState<GateState>({ kind: 'checking' });
+  const adminRequested = window.location.hash === '#admin';
 
   useEffect(() => {
+    if (adminRequested) return undefined;
     let cancelled = false;
     let storage: Storage | undefined;
     try {
@@ -43,8 +46,9 @@ export function OnlineGate({ fetcher = fetch }: { readonly fetcher?: typeof fetc
     return () => {
       cancelled = true;
     };
-  }, [fetcher]);
+  }, [fetcher, adminRequested]);
 
+  if (adminRequested) return <AdminPage fetcher={fetcher} />;
   if (state.kind === 'checking') {
     return <main className="game-shell" aria-busy="true" aria-label="MERGEFORGE wird geladen" />;
   }
@@ -54,6 +58,6 @@ export function OnlineGate({ fetcher = fetch }: { readonly fetcher?: typeof fetc
   if (result.kind === 'online') return <App online={result.session} />;
   const notice = loginNotice(window.location.search);
   return result.kind === 'not-contributor'
-    ? <AccessGate kind="not-contributor" login={result.login} notice={notice} />
+    ? <AccessGate kind="not-contributor" login={result.login} access={result.access} notice={notice} />
     : <AccessGate kind={result.kind} notice={notice} />;
 }

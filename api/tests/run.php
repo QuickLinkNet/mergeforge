@@ -8,6 +8,8 @@ declare(strict_types=1);
 require __DIR__ . '/../lib/util.php';
 require __DIR__ . '/../lib/players.php';
 require __DIR__ . '/../lib/saves.php';
+require __DIR__ . '/../lib/github.php';
+require __DIR__ . '/../lib/access.php';
 
 $failures = 0;
 function check(bool $condition, string $label): void
@@ -90,6 +92,29 @@ check(!may_play(888, false, null), 'nobody new gets in when GitHub cannot answer
 check(may_play(888, false, true), 'contributor with a merged PR may play');
 check(may_play(888, true, null), 'known players keep access when GitHub is down');
 check(allowed_github_user_ids() === [777], 'non-integer allowlist entries are ignored');
+
+// Access requests and owner decisions (D-019).
+check(may_play(888, false, false, 'approved'), 'approved person may play');
+check(!may_play(888, true, true, 'denied'), 'denied person may not play, even as registered contributor');
+check(may_play(OWNER_GITHUB_USER_ID, true, true, 'denied'), 'the owner can never be locked out');
+if (storage_available()) {
+    $GLOBALS['mf_config_override'] = ['session_secret' => str_repeat('s', 40), 'data_dir' => $dataDir];
+    check(access_status(900) === null, 'no request yet');
+    check(request_access(900, 'carol') === 'pending', 'request is pending');
+    check(request_access(900, 'carol') === 'pending', 'asking twice keeps one row');
+    check(count(list_access()) === 1, 'one access row');
+    decide_access(900, 'carol', 'denied');
+    check(request_access(900, 'carol') === 'denied', 'a new request never overrides a denial');
+    decide_access(900, 'carol', 'approved');
+    check(access_status(900) === 'approved', 'owner approves');
+    decide_access(901, 'dave', 'approved');
+    check(access_status(901) === 'approved' && count(list_access()) === 2, 'invitation creates an approved row');
+    check(count(list_players()) >= 2, 'players are listed');
+    for ($i = 0; $i < ACCESS_MAX_PENDING; $i++) {
+        request_access(2000 + $i, 'u' . $i);
+    }
+    check(request_access(3000, 'late') === null, 'full queue refuses new requests');
+}
 
 echo $failures === 0 ? "All passed\n" : "$failures failed\n";
 exit($failures === 0 ? 0 : 1);

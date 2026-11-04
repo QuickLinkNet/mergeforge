@@ -1,4 +1,5 @@
-import { API_BASE } from './online';
+import { useState } from 'react';
+import { API_BASE, type AccessRequestStatus } from './online';
 
 const REPO_URL = 'https://github.com/QuickLinkNet/mergeforge';
 const CONTRIBUTING_URL = `${REPO_URL}/blob/main/CONTRIBUTING.md`;
@@ -27,12 +28,30 @@ function signOut(): void {
 export function AccessGate({
   kind,
   login = '',
+  access = 'none',
   notice = null,
+  fetcher = fetch,
 }: {
   readonly kind: AccessGateKind;
   readonly login?: string;
+  readonly access?: AccessRequestStatus;
   readonly notice?: string | null;
+  readonly fetcher?: typeof fetch;
 }) {
+  const [requested, setRequested] = useState<AccessRequestStatus>(access);
+  const [failed, setFailed] = useState(false);
+
+  function askToJoin(): void {
+    setFailed(false);
+    fetcher(`${API_BASE}/access/request`, { method: 'POST', credentials: 'same-origin' })
+      .then(async (response) => {
+        const body = (await response.json()) as { access?: unknown };
+        if (!response.ok) throw new Error('request failed');
+        setRequested(body.access === 'denied' ? 'denied' : 'pending');
+      })
+      .catch(() => setFailed(true));
+  }
+
   return (
     <main className="access-gate" aria-label="MERGEFORGE Zugang">
       <section className="access-card">
@@ -56,12 +75,20 @@ export function AccessGate({
         {kind === 'not-contributor' && (
           <>
             <p>
-              Hallo <strong>{login}</strong>, du bist angemeldet, aber noch kein Contributor. Sobald ein Pull
-              Request von dir gemergt wurde, melde dich hier erneut an und das Spiel öffnet sich.
+              Hallo <strong>{login}</strong>, du bist angemeldet, aber noch kein Contributor.
+              {requested === 'none' && ' Du kannst den Beitritt anfragen, der Betreiber gibt dich dann frei.'}
+              {requested === 'pending' && ' Deine Anfrage ist angekommen und wartet auf Freigabe.'}
+              {requested === 'denied' && ' Deine Anfrage wurde leider abgelehnt.'}
             </p>
+            {failed && <p className="access-notice" role="alert">Die Anfrage ist nicht angekommen. Bitte versuche es noch einmal.</p>}
             <div className="access-actions">
-              <a className="access-primary" href={CONTRIBUTING_URL} target="_blank" rel="noreferrer">So wirst du Contributor</a>
-              <a href={`${API_BASE}/auth/login`}>Erneut prüfen</a>
+              {requested === 'none' && (
+                <button type="button" className="access-primary" onClick={askToJoin}>Beitritt anfragen</button>
+              )}
+              {requested === 'pending' && (
+                <button type="button" className="access-primary" onClick={() => window.location.reload()}>Erneut prüfen</button>
+              )}
+              <a href={CONTRIBUTING_URL} target="_blank" rel="noreferrer">Oder werde Contributor per Pull Request</a>
               <button type="button" onClick={signOut}>Abmelden</button>
             </div>
           </>
