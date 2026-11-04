@@ -60,7 +60,7 @@ export function AccountBadge({ fetcher = fetch }: { readonly fetcher?: typeof fe
       ) : (
         <>
           <span>Angemeldet als <strong>{account.player.githubLogin}</strong></span>
-          {account.owner && <a className="account-link" href="#admin" onClick={() => window.location.reload()}>Admin</a>}
+          {account.owner && <a className="account-link" href="#admin">Admin</a>}
           <button type="button" className="account-link" onClick={signOut}>Abmelden</button>
         </>
       )}

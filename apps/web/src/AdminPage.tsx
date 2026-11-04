@@ -72,8 +72,7 @@ export function AdminPage({ fetcher = fetch }: { readonly fetcher?: typeof fetch
   }
 
   const leave = (): void => {
-    window.location.hash = '';
-    window.location.reload();
+    window.location.hash = ''; // OnlineGate reloads on hashchange
   };
 
   if (load.kind === 'loading') return <main className="access-gate" aria-busy="true" />;
