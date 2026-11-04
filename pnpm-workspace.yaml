@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# The canonical checkout currently lives on a Windows SMB share. Copy-based,
+# injected installs avoid junctions/symlinks that Windows cannot create there.
+storeDir: .pnpm-store
+nodeLinker: hoisted
+packageImportMethod: copy
+injectWorkspacePackages: true
+dedupeInjectedDeps: false
+shellEmulator: true
+syncInjectedDepsAfterScripts:
+  - build
