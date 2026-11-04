@@ -18,6 +18,7 @@
     "setup:config": "node scripts/setup-config.mjs",
     "test:api": "php api/tests/run.php",
     "live:check": "node scripts/live-check.mjs",
+    "protection": "node scripts/branch-protection.mjs",
     "validate:modules": "node scripts/validate-modules.mjs",
     "check": "node scripts/workspace-runner.mjs check"
   },
