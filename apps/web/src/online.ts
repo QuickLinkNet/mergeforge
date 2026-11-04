@@ -304,23 +304,33 @@ function isPlayer(value: unknown): value is AccountPlayer {
   );
 }
 
+/** How this browser may start (D-018: playing is for contributors only). */
+export type GateResult =
+  | { readonly kind: 'online'; readonly session: OnlineSession }
+  | { readonly kind: 'signed-out' }
+  | { readonly kind: 'not-contributor'; readonly login: string }
+  | { readonly kind: 'unreachable' };
+
 /**
- * Decides how this browser starts: anonymous sandbox, or online as the signed-in
- * player with that player's sector world and server-backed save.
+ * Decides how this browser starts: online as the signed-in contributor with that
+ * player's sector world and server-backed save, or not at all (sign in / not a
+ * contributor / server unreachable).
  */
-export async function prepareOnline(
-  fetcher: typeof fetch,
-  base: StorageLike,
-): Promise<OnlineSession | null> {
+export async function prepareOnline(fetcher: typeof fetch, base: StorageLike): Promise<GateResult> {
   let player: AccountPlayer;
   try {
     const response = await request(fetcher, `${API_BASE}/me`);
-    if (!response.ok) return null;
-    const body = (await response.json()) as { player?: unknown };
-    if (!isPlayer(body.player)) return null;
+    if (response.status === 401) return { kind: 'signed-out' };
+    if (!response.ok) return { kind: 'unreachable' };
+    const body = (await response.json()) as { account?: { githubLogin?: unknown; contributor?: unknown }; player?: unknown };
+    if (body.account?.contributor === false) {
+      const login = body.account.githubLogin;
+      return { kind: 'not-contributor', login: typeof login === 'string' ? login : '' };
+    }
+    if (!isPlayer(body.player)) return { kind: 'unreachable' };
     player = body.player;
   } catch {
-    return null;
+    return { kind: 'unreachable' };
   }
 
   const worldSeed = worldSeedForSector(player.sector);
@@ -363,5 +373,5 @@ export async function prepareOnline(
     decision.kind === 'import-anonymous' ||
     (decision.kind === 'keep-local' && (meta.dirty || server === null || server === undefined));
   if (needsUpload) sync.noteChange();
-  return { player, worldSeed, storage: cache, sync, notice };
+  return { kind: 'online', session: { player, worldSeed, storage: cache, sync, notice } };
 }

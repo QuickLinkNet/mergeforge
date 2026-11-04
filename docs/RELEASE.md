@@ -30,4 +30,4 @@ This repository intentionally contains no deployment target or credentials. No w
 
 ## Branch protection (enforced by GitHub rulesets)
 
-`main` and `dev` reject deletion, force pushes and direct pushes. Merging needs a pull request, the green `verify` and `release-route` checks, resolved conversations and a code-owner approval. Only the repository admin may bypass the approval, and only through a pull request. Release pull requests (`dev` -> `main`) are squash-merged to keep `main` linear.
+`main` and `dev` reject deletion, force pushes and direct pushes. Merging needs a pull request, the green `verify` and `release-route` checks, resolved conversations. **MVP mode (current, D-018):** no approving review is required, so the maintainer can merge quickly; **strict mode (before public launch):** additionally 1 approval and code-owner review. Only the repository admin may bypass rules, and only through a pull request. Release pull requests (`dev` -> `main`) are squash-merged to keep `main` linear.

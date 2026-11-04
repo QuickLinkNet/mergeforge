@@ -16,7 +16,7 @@ Short records of confirmed project-level decisions. Newer approved records super
 
 ## D-003 — Contributor identity
 
-- **Status:** Accepted for MVP planning
+- **Status:** Superseded in part by D-018 (playing now requires being a contributor)
 - **Decision:** Contributor is a separate role, not a prerequisite for playing. A merged pull request can create a contribution record and cosmetic recognition, but grants no game resources or administrative rights.
 
 ## D-004 — GitHub integration
@@ -104,3 +104,12 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Decision:** A signed-in player has one server save (`GET/PUT /api/save`, SQLite). Every PUT names the revision it is based on; a stale base answers 409 and the client pauses uploads until the player loads the newer save. The save is stored byte for byte as the client wrote it (no re-encoding). The browser keeps a per-player cache under its own key, separate from the anonymous sandbox save, plus a small meta record (base revision, dirty flag). On sign-in the newer state wins: a clean cache yields to a newer server save, a dirty cache wins only if it was played more recently (`lastAdvancedAtMs`).
 - **Worlds:** Sector (0,0) keeps the genesis seed `mergeforge-genesis-001`, so existing saves stay valid and the first player's anonymous browser save is adopted into the account once. Other sectors use `sectorSeed(genesis, sector)`.
 - **Limits:** The server checks shape and size (max 1 MB), not game rules; the client is still authoritative. Rule validation on the server is a later step. Uploads are debounced (3 s), the page checks for newer revisions every 30 s.
+
+## D-018 — Playing is for contributors only
+
+- **Status:** Accepted on 2026-11-04 (supersedes the "not a prerequisite for playing" part of D-003)
+- **Decision:** Opening the site is not enough to play. Only contributors get the game: GitHub accounts with at least one merged pull request in `QuickLinkNet/mergeforge`. The owner (GitHub user ID 33082510) is always allowed.
+- **How:** After the GitHub login the API checks the merged-PR search once (`github_is_contributor`) and decides with `may_play`. Allowed are: the owner, IDs in `allowed_github_user_ids` (`api/config.local.php`, for testers), already registered players (grandfathered, also when GitHub is down), and contributors. Everyone else gets a session without a player; `/me` reports `contributor: false` and `/save` answers 403. If GitHub cannot answer for a new person, they are not let in and may retry.
+- **Client:** `OnlineGate` shows an access page (sign in / how to become a contributor / sign out) instead of the game for visitors, non-contributors and an unreachable server. Only on localhost the anonymous sandbox remains for development.
+- **Consequences:** The MVP goal of two test players needs a second GitHub account that is a contributor or is listed in `allowed_github_user_ids`. A new contributor signs in again after their pull request is merged.
+- **Governance (MVP mode):** While the MVP is built, the branch rulesets require a pull request and green CI but no approving review, so the maintainer can merge quickly. Deletion, force pushes and direct pushes stay blocked. Strict mode (1 approval + code owner review) returns before the public launch.

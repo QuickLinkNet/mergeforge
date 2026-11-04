@@ -81,5 +81,15 @@ if (storage_available()) {
     echo "skip registry tests (pdo_sqlite missing)\n";
 }
 
+// Playing is for contributors only (D-018).
+$GLOBALS['mf_config_override'] = ['session_secret' => str_repeat('s', 40), 'allowed_github_user_ids' => [777, 'x']];
+check(may_play(OWNER_GITHUB_USER_ID, false, false), 'owner may always play');
+check(may_play(777, false, false), 'explicitly allowed tester may play');
+check(!may_play(888, false, false), 'stranger without merged PR may not play');
+check(!may_play(888, false, null), 'nobody new gets in when GitHub cannot answer');
+check(may_play(888, false, true), 'contributor with a merged PR may play');
+check(may_play(888, true, null), 'known players keep access when GitHub is down');
+check(allowed_github_user_ids() === [777], 'non-integer allowlist entries are ignored');
+
 echo $failures === 0 ? "All passed\n" : "$failures failed\n";
 exit($failures === 0 ? 0 : 1);
