@@ -37,6 +37,6 @@ Read the current handoff, decision log and project bible. Do not introduce a com
 
 - Nobody pushes to `main` or `dev` directly. Every change is a pull request, including the maintainer's own.
 - New accounts are **contributors**: fork the repository, open a pull request against `dev`, and wait for the maintainer's review. The first CI run of a new contributor is started by the maintainer.
-- A pull request needs green CI (`verify`, `release-route`), resolved conversations and the maintainer's approval (`.github/CODEOWNERS`). The maintainer is the only exception and may merge own pull requests without a second reviewer.
+- A pull request needs green CI (`verify`, `release-route`), resolved conversations; during the MVP no separate approval is required, before the public launch the maintainer's approval (`.github/CODEOWNERS`) is added back. Playing the game requires a merged pull request (D-018). The maintainer is the only exception and may merge own pull requests without a second reviewer.
 - A gameplay module should be a pure data pull request that only touches `modules/<id>/`; core changes need a decision-log entry and a stricter review.
 - CI runs on `pull_request` without any secrets. Deployment credentials never exist in the repository or in CI.
