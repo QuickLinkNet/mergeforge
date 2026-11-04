@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { API_BASE, type AccessRequestStatus } from './online';
 
 const REPO_URL = 'https://github.com/QuickLinkNet/mergeforge';
-const CONTRIBUTING_URL = `${REPO_URL}/blob/main/CONTRIBUTING.md`;
+const CONTRIBUTING_URL = `${REPO_URL}/blob/main/CONTRIBUTORS.md`;
 
 export type AccessGateKind = 'signed-out' | 'not-contributor' | 'unreachable';
 

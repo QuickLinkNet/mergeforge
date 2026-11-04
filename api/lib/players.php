@@ -35,6 +35,8 @@ function sector_for_index(int $index): array
 
 /** The repository whose merged pull requests make someone a contributor. */
 const CONTRIBUTOR_REPO = 'QuickLinkNet/mergeforge';
+/** Seed of the first world; sector (0,0) keeps it (twin of UNIVERSE_SEED in apps/web/src/online.ts). */
+const UNIVERSE_SEED = 'mergeforge-genesis-001';
 /** The maintainer (stable numeric GitHub ID) may always play. */
 const OWNER_GITHUB_USER_ID = 33082510;
 
