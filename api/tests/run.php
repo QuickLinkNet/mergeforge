@@ -11,6 +11,7 @@ require __DIR__ . '/../lib/saves.php';
 require __DIR__ . '/../lib/github.php';
 require __DIR__ . '/../lib/access.php';
 require __DIR__ . '/../lib/neighbors.php';
+require __DIR__ . '/../lib/market.php';
 
 $failures = 0;
 function check(bool $condition, string $label): void
@@ -125,6 +126,43 @@ if (storage_available()) {
         request_access(2000 + $i, 'u' . $i);
     }
     check(request_access(3000, 'late') === null, 'full queue refuses new requests');
+}
+
+// Handelsangebote (D-021)
+if (storage_available()) {
+    $offer = ['giveResource' => 'wood', 'giveAmount' => 10, 'wantResource' => 'stone', 'wantAmount' => 4];
+    check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => 10, 'wantResource' => 'wood', 'wantAmount' => 4]) === ['error' => 'invalid-offer'], 'same resource both ways is invalid');
+    check(create_offer(1, 'alice', ['giveResource' => 'gold', 'giveAmount' => 1, 'wantResource' => 'wood', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'unknown resource is invalid');
+    check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => 51, 'wantResource' => 'stone', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'amount above the limit is invalid');
+    check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => '5', 'wantResource' => 'stone', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'non-integer amount is invalid');
+    $made = create_offer(1, 'alice', $offer);
+    check(isset($made['id']), 'offer is created');
+    check(market_overview(2, [])['offers'] === [], 'strangers do not see offers');
+    check(count(market_overview(2, [1])['offers']) === 1, 'neighbours see the offer');
+    check(count(market_overview(1, [])['mine']) === 1, 'sellers see their own offer');
+    check(accept_offer(1, [1], ['offerId' => $made['id']]) === ['error' => 'not-found'], 'nobody trades with themselves');
+    check(accept_offer(3, [2], ['offerId' => $made['id']]) === ['error' => 'not-found'], 'only neighbours can accept');
+    $deal = accept_offer(2, [1], ['offerId' => $made['id']]);
+    check(($deal['giveAmount'] ?? 0) === 10 && ($deal['wantAmount'] ?? 0) === 4, 'accepting returns both sides');
+    check(accept_offer(2, [1], ['offerId' => $made['id']]) === ['error' => 'not-found'], 'an offer settles only once');
+    check(market_overview(2, [1])['offers'] === [], 'settled offers disappear');
+    $buyerInbox = market_overview(2, [1])['inbox'];
+    $sellerInbox = market_overview(1, [])['inbox'];
+    check(count($buyerInbox) === 1 && $buyerInbox[0]['resource'] === 'wood' && $buyerInbox[0]['amount'] === 10, 'buyer gets the offered goods');
+    check(count($sellerInbox) === 1 && $sellerInbox[0]['resource'] === 'stone' && $sellerInbox[0]['amount'] === 4, 'seller gets the wanted goods');
+    check(claim_inbox(1, ['ids' => [$buyerInbox[0]['id']]])['claimed'] === [], 'nobody claims the deliveries of someone else');
+    check(count(claim_inbox(2, ['ids' => [$buyerInbox[0]['id']]])['claimed']) === 1, 'owner claims a delivery');
+    check(claim_inbox(2, ['ids' => [$buyerInbox[0]['id']]])['claimed'] === [], 'a delivery is claimed only once');
+    check(claim_inbox(2, ['ids' => ['x']]) === ['error' => 'invalid-claim'], 'invalid claim list rejected');
+    foreach ([1, 2, 3] as $n) {
+        create_offer(9, 'zed', $offer);
+    }
+    check(create_offer(9, 'zed', $offer) === ['error' => 'too-many-offers'], 'open offers per player are limited');
+    $own = market_overview(9, [])['mine'];
+    check(cancel_offer(8, ['offerId' => $own[0]['id']]) === ['error' => 'not-found'], 'only the seller can withdraw');
+    check(cancel_offer(9, ['offerId' => $own[0]['id']]) === [], 'seller withdraws an offer');
+    $refund = market_overview(9, [])['inbox'];
+    check(count($refund) === 1 && $refund[0]['reason'] === 'refund' && $refund[0]['amount'] === 10, 'withdrawn goods come back');
 }
 
 // Funkkontakte

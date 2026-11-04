@@ -71,6 +71,7 @@ import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
 import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame, type StorageLike } from './persistence';
+import { MarketPanel } from './MarketPanel';
 import { UNIVERSE_SEED, type OnlineSession, type RadioContact, type SyncStatus } from './online';
 
 const WORLD_SEED = UNIVERSE_SEED;
@@ -792,6 +793,9 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   const chapterSevenComplete = gameState === null ? false : hasCompletedChapter(gameState, 7);
   const signalNetworkActive = gameState !== null && hasRelayCapability(gameState, 'signal_network_active');
   const farSignals = gameState?.signals ?? [];
+  const changeGameState = useCallback((update: (state: GameState) => GameState) => {
+    setGameState((current) => (current === null ? current : update(current)));
+  }, []);
   const [radioContacts, setRadioContacts] = useState<readonly RadioContact[]>([]);
   useEffect(() => {
     if (!signalNetworkActive || online?.loadContacts === undefined) return undefined;
@@ -1070,6 +1074,10 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           </ul>
           <p className="build-explanation">Das sind echte Mitspieler. Du siehst nur Richtung und grobe Entfernung ihres Sektors, keine Karte und keine Orte.</p>
         </section>
+      )}
+
+      {signalNetworkActive && gameState !== null && online?.market !== undefined && (
+        <MarketPanel market={online.market} state={gameState} onChange={changeGameState} />
       )}
 
       {signalNetworkActive && farSignals.length > 0 && (
