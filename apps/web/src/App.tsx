@@ -71,7 +71,7 @@ import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
 import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame, type StorageLike } from './persistence';
-import { UNIVERSE_SEED, type OnlineSession, type SyncStatus } from './online';
+import { UNIVERSE_SEED, type OnlineSession, type RadioContact, type SyncStatus } from './online';
 
 const WORLD_SEED = UNIVERSE_SEED;
 const WORLD_RADIUS = 12;
@@ -155,6 +155,12 @@ const signalBearingCopy: Readonly<Record<SignalBearing, { readonly label: string
   west: { label: 'Westen', angle: -90 },
   'south-west': { label: 'Südwesten', angle: -150 },
   'south-east': { label: 'Südosten', angle: 150 },
+};
+
+const contactBandCopy: Readonly<Record<RadioContact['distanceBand'], string>> = {
+  near: 'direkter Nachbarsektor',
+  middle: 'zwei Sektoren entfernt',
+  far: 'weiter entfernt',
 };
 
 const relayRepairFailureCopy: Readonly<Record<StartRelayRepairRejection, string>> = {
@@ -786,6 +792,17 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   const chapterSevenComplete = gameState === null ? false : hasCompletedChapter(gameState, 7);
   const signalNetworkActive = gameState !== null && hasRelayCapability(gameState, 'signal_network_active');
   const farSignals = gameState?.signals ?? [];
+  const [radioContacts, setRadioContacts] = useState<readonly RadioContact[]>([]);
+  useEffect(() => {
+    if (!signalNetworkActive || online?.loadContacts === undefined) return undefined;
+    let cancelled = false;
+    void online.loadContacts().then((contacts) => {
+      if (!cancelled) setRadioContacts(contacts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signalNetworkActive, online]);
   const surveyTentActive = surveyTent?.status === 'active';
   const workshopActive = workshop?.status === 'active';
   const relayVisible = gameState?.visibleTileKeys.includes(gameState.world.relaySite.tileKey) ?? false;
@@ -1027,6 +1044,31 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           <div className="build-actions">
             <button className="primary-action" type="button" onClick={confirmSignalScan}>Fernsignal scannen</button>
           </div>
+        </section>
+      )}
+
+      {signalNetworkActive && radioContacts.length > 0 && (
+        <section className="build-card signal-card" aria-labelledby="contacts-title">
+          <div className="build-card-heading">
+            <span className="road-symbol relay-symbol" aria-hidden="true">☍</span>
+            <span><small>Echte Nachbarn</small><h2 id="contacts-title">Funkkontakte</h2></span>
+          </div>
+          <ul className="signal-list">
+            {radioContacts.map((contact) => {
+              const bearing = signalBearingCopy[contact.bearing];
+              return (
+                <li className="signal-item" key={contact.login}>
+                  <span className="signal-arrow" aria-hidden="true" style={{ transform: `rotate(${bearing.angle}deg)` }}>↑</span>
+                  <span>
+                    <small>Siedlung von</small>
+                    <strong>{contact.login} · {bearing.label}</strong>
+                    <em>{contactBandCopy[contact.distanceBand]}</em>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="build-explanation">Das sind echte Mitspieler. Du siehst nur Richtung und grobe Entfernung ihres Sektors, keine Karte und keine Orte.</p>
         </section>
       )}
 

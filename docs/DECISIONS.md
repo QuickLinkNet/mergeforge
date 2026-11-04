@@ -122,3 +122,9 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Immediate effect:** `/me` and `/save` re-check the decision on every request, so an approval opens the game at once (the player is registered in the next free sector on first use) and a lock-out closes it at once. No new sign-in needed.
 - **Admin API:** `GET /admin/overview`, `POST /admin/decide` (owner session only, same-origin). Inviting by name resolves the numeric ID through the public GitHub API. `POST /access/request` for signed-in non-contributors.
 - **Limits:** The owner account itself cannot be locked out. The allowlist in `config.local.php` remains as an emergency list, but the admin page replaces it for daily use.
+
+## D-020 — Radio contacts: real neighbours, coarse only
+
+- **Status:** Accepted on 2026-11-04
+- **Decision:** After the signal network is active (chapter 7) an online player sees up to three real neighbouring players as "Funkkontakte": GitHub login, compass bearing and a coarse distance class (near = adjacent sector, middle = 2 sectors, far = more). The server computes this from the start-sector spiral (`GET /api/neighbors`, API 0.6.0); locked-out players are not listed.
+- **Consequence:** Nothing is stored in the save and no coordinate, map or terrain of a foreign sector is exposed, so the chapter-7 contract ("no foreign map, trade or finished connection") stays intact. The simulated far signals remain as the offline/sandbox flavour. Trade, shared map areas or interaction are separate, later decisions.
