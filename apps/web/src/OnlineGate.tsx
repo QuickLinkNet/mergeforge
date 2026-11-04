@@ -22,6 +22,13 @@ export function OnlineGate({ fetcher = fetch }: { readonly fetcher?: typeof fetc
   const [state, setState] = useState<GateState>({ kind: 'checking' });
   const adminRequested = window.location.hash === '#admin';
 
+  // The page decides between game and admin once per load, so a changed hash reloads it.
+  useEffect(() => {
+    const reload = (): void => window.location.reload();
+    window.addEventListener('hashchange', reload);
+    return () => window.removeEventListener('hashchange', reload);
+  }, []);
+
   useEffect(() => {
     if (adminRequested) return undefined;
     let cancelled = false;

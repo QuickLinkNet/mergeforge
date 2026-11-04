@@ -64,6 +64,16 @@ if (storage_available()) {
     // Saves: optimistic revisions.
     $good = json_encode(['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's'], 'empty' => new stdClass()]);
     check(save_payload_error(json_decode($good, true)) === null, 'plausible save accepted');
+    check(save_payload_error(json_decode($good, true), 's') === null, 'save of the own world accepted');
+    check(save_payload_error(json_decode($good, true), 'other-world') === 'wrong-world', 'save of a foreign world rejected');
+    check(world_seed_for_sector(['q' => 0, 'r' => 0]) === 'mergeforge-genesis-001', 'sector 0 keeps the genesis seed');
+    check(world_seed_for_sector(['q' => -1, 'r' => 1]) === 'mergeforge-genesis-001|sector|-1,1', 'other sectors derive their seed');
+    $bad = json_decode($good, true);
+    $bad['buildings'] = ['not' => 'a list'];
+    check(save_payload_error($bad) === 'invalid-save', 'buildings must be a list');
+    $bad = json_decode($good, true);
+    $bad['gameSchemaVersion'] = 99999;
+    check(save_payload_error($bad) === 'invalid-save', 'absurd schema version rejected');
     check(save_payload_error([1, 2]) !== null && save_payload_error('x') !== null, 'non-object save rejected');
     check(save_payload_error(['formatVersion' => 2, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's']]) !== null, 'wrong format rejected');
     check(save_payload_error(['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => '']]) !== null, 'empty world seed rejected');
