@@ -128,3 +128,10 @@ Short records of confirmed project-level decisions. Newer approved records super
 - **Status:** Accepted on 2026-11-04
 - **Decision:** After the signal network is active (chapter 7) an online player sees up to three real neighbouring players as "Funkkontakte": GitHub login, compass bearing and a coarse distance class (near = adjacent sector, middle = 2 sectors, far = more). The server computes this from the start-sector spiral (`GET /api/neighbors`, API 0.6.0); locked-out players are not listed.
 - **Consequence:** Nothing is stored in the save and no coordinate, map or terrain of a foreign sector is exposed, so the chapter-7 contract ("no foreign map, trade or finished connection") stays intact. The simulated far signals remain as the offline/sandbox flavour. Trade, shared map areas or interaction are separate, later decisions.
+
+## D-021 — Trade offers between neighbours
+
+- **Status:** Accepted on 2026-11-04 (supersedes the "no trade" non-goal of the chapter-7 slice for online players)
+- **Decision:** Players whose signal network is active can post trade offers (wood <-> stone, 1-50 per side, at most 3 open offers) that only their radio contacts (D-020) see. A neighbour accepts an offer; the server settles it exactly once in one SQLite transaction (`offers` and `inbox` tables, API 0.7.0: `GET /api/market`, `POST /api/market/offers|accept|cancel|claim`). Goods travel through a per-player inbox that the client claims once, only as far as the storage has room.
+- **Flow:** The offered goods leave the seller's stock when the offer is posted and return through the inbox when it is withdrawn. The buyer pays after the server confirmed the acceptance and receives the goods from the inbox; the seller receives the payment the same way.
+- **Known limit:** Saves are client-authoritative (the server checks only shape and world), so a manipulated client could post an offer without paying its stock or skip paying as a buyer. This is accepted for the MVP with small, invited groups; server-side stock tracking is the follow-up before an open launch. A crash between claiming a delivery and saving can lose that delivery.

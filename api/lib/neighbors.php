@@ -41,9 +41,9 @@ function contact_band(int $sectors): string
  * @param array{q:int,r:int} $mySector
  * @param list<array{githubUserId:int,githubLogin:string,sectorIndex:int}> $players
  * @param callable(int):?string $statusOf access status of a GitHub user ID
- * @return list<array{login:string,bearing:string,distanceBand:string}>
+ * @return list<array{githubUserId:int,contact:array{login:string,bearing:string,distanceBand:string}}>
  */
-function neighbor_contacts(array $mySector, int $myIndex, array $players, callable $statusOf): array
+function neighbor_entries(array $mySector, int $myIndex, array $players, callable $statusOf): array
 {
     $found = [];
     foreach ($players as $other) {
@@ -54,6 +54,7 @@ function neighbor_contacts(array $mySector, int $myIndex, array $players, callab
         $found[] = [
             'distance' => sector_distance($mySector, $sector),
             'index' => $other['sectorIndex'],
+            'githubUserId' => $other['githubUserId'],
             'contact' => [
                 'login' => $other['githubLogin'],
                 'bearing' => sector_bearing($mySector, $sector),
@@ -62,5 +63,20 @@ function neighbor_contacts(array $mySector, int $myIndex, array $players, callab
         ];
     }
     usort($found, static fn (array $a, array $b): int => [$a['distance'], $a['index']] <=> [$b['distance'], $b['index']]);
-    return array_map(static fn (array $row): array => $row['contact'], array_slice($found, 0, CONTACT_LIMIT));
+    return array_map(
+        static fn (array $row): array => ['githubUserId' => $row['githubUserId'], 'contact' => $row['contact']],
+        array_slice($found, 0, CONTACT_LIMIT)
+    );
+}
+
+/**
+ * Same as neighbor_entries, but only what may leave the server.
+ * @return list<array{login:string,bearing:string,distanceBand:string}>
+ */
+function neighbor_contacts(array $mySector, int $myIndex, array $players, callable $statusOf): array
+{
+    return array_map(
+        static fn (array $entry): array => $entry['contact'],
+        neighbor_entries($mySector, $myIndex, $players, $statusOf)
+    );
 }
