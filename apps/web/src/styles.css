@@ -1199,3 +1199,50 @@ a {
   color: inherit;
   font: inherit;
 }
+
+.market-subtitle {
+  margin: 14px 0 6px;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.market-notice {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(120, 200, 140, 0.16);
+}
+
+.market-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.market-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-item span {
+  display: grid;
+  gap: 2px;
+}
+
+.market-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.market-form input {
+  width: 4.5rem;
+}

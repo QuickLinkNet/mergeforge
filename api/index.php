@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.6.0';
+const API_VERSION = '0.7.0';
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';
@@ -14,6 +14,7 @@ require __DIR__ . '/lib/github.php';
 require __DIR__ . '/lib/saves.php';
 require __DIR__ . '/lib/access.php';
 require __DIR__ . '/lib/neighbors.php';
+require __DIR__ . '/lib/market.php';
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin !== '' && preg_match('#^https://(mergeforge|www)\.red-it\.org$|^http://(localhost|127\.0\.0\.1):\d+$#', $origin) === 1) {
@@ -226,6 +227,34 @@ if ($path === '/admin/decide' && $method === 'POST') {
 if ($path === '/neighbors' && $method === 'GET') {
     $player = require_player();
     respond(200, ['ok' => true, 'contacts' => neighbor_contacts($player['sector'], $player['sectorIndex'], list_players(), 'access_status')]);
+}
+
+if (str_starts_with($path, '/market')) {
+    $player = require_player();
+    $gid = (int) (current_session()['gid'] ?? 0);
+    $contacts = neighbor_entries($player['sector'], $player['sectorIndex'], list_players(), 'access_status');
+    $contactIds = array_map(static fn (array $entry): int => $entry['githubUserId'], $contacts);
+    if ($path === '/market' && $method === 'GET') {
+        respond(200, ['ok' => true] + market_overview($gid, $contactIds));
+    }
+    if ($method === 'POST') {
+        require_same_origin();
+        $request = json_decode((string) file_get_contents('php://input', false, null, 0, 4096), true);
+        $request = is_array($request) ? $request : [];
+        if ($path === '/market/offers') {
+            $result = create_offer($gid, $player['githubLogin'], $request);
+        } elseif ($path === '/market/accept') {
+            $result = accept_offer($gid, $contactIds, $request);
+        } elseif ($path === '/market/cancel') {
+            $result = cancel_offer($gid, $request);
+        } elseif ($path === '/market/claim') {
+            $result = claim_inbox($gid, $request);
+        } else {
+            respond(404, ['ok' => false, 'error' => 'not-found']);
+        }
+        respond(isset($result['error']) ? ($result['error'] === 'not-found' ? 404 : 409) : 200, ['ok' => !isset($result['error'])] + $result);
+    }
+    respond(404, ['ok' => false, 'error' => 'not-found']);
 }
 
 if ($path === '/save' && $method === 'GET') {

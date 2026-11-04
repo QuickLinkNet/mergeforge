@@ -124,6 +124,33 @@ function db(): PDO
             decided_at TEXT
         )'
     );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS offers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_gid INTEGER NOT NULL,
+            seller_login TEXT NOT NULL,
+            give_resource TEXT NOT NULL,
+            give_amount INTEGER NOT NULL,
+            want_resource TEXT NOT NULL,
+            want_amount INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            buyer_gid INTEGER,
+            created_at TEXT NOT NULL,
+            closed_at TEXT
+        )'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS inbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_gid INTEGER NOT NULL,
+            resource TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            counterpart TEXT NOT NULL,
+            claimed INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )'
+    );
     return $pdo;
 }
 
