@@ -33,6 +33,39 @@ function sector_for_index(int $index): array
     return ['q' => $q + SECTOR_DIRECTIONS[$side][0] * $step, 'r' => $r + SECTOR_DIRECTIONS[$side][1] * $step];
 }
 
+/** The repository whose merged pull requests make someone a contributor. */
+const CONTRIBUTOR_REPO = 'QuickLinkNet/mergeforge';
+/** The maintainer (stable numeric GitHub ID) may always play. */
+const OWNER_GITHUB_USER_ID = 33082510;
+
+/** @return list<int> GitHub user IDs the owner allowed explicitly (testers), from config.local.php. */
+function allowed_github_user_ids(): array
+{
+    $ids = config()['allowed_github_user_ids'] ?? [];
+    return is_array($ids) ? array_values(array_filter($ids, 'is_int')) : [];
+}
+
+/**
+ * Playing is for contributors only: the owner, explicitly allowed users, players that
+ * were already registered, and everyone with a merged pull request. If GitHub could
+ * not answer ($contributorCheck === null) nobody new gets in.
+ */
+function may_play(int $githubUserId, bool $alreadyRegistered, ?bool $contributorCheck): bool
+{
+    return $githubUserId === OWNER_GITHUB_USER_ID
+        || in_array($githubUserId, allowed_github_user_ids(), true)
+        || $alreadyRegistered
+        || $contributorCheck === true;
+}
+
+function find_player_by_github_id(int $githubUserId): ?array
+{
+    $find = db()->prepare('SELECT * FROM players WHERE github_user_id = ?');
+    $find->execute([$githubUserId]);
+    $row = $find->fetch();
+    return $row === false ? null : player_view($row);
+}
+
 function new_player_id(): string
 {
     return 'mf_' . bin2hex(random_bytes(16));

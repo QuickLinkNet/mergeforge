@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.3.0';
+const API_VERSION = '0.4.0';
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';
@@ -72,28 +72,65 @@ if ($path === '/auth/callback' && $method === 'GET') {
     if ($identity === null) {
         redirect($back . '?login=error');
     }
+    $thirtyDays = 60 * 60 * 24 * 30;
     try {
+        // Playing is for contributors (D-018): the owner, allowed testers, known players
+        // and everyone with a merged pull request. Anyone else is signed in but not let in.
+        $existing = find_player_by_github_id($identity['id']);
+        $check = may_play($identity['id'], $existing !== null, false)
+            ? true
+            : github_is_contributor($identity['token'], $identity['login']);
+        if (!may_play($identity['id'], $existing !== null, $check)) {
+            if ($check === null) {
+                redirect($back . '?login=check-failed');
+            }
+            set_cookie_value('mf_session', sign_token(['gid' => $identity['id'], 'login' => $identity['login']], $thirtyDays), $thirtyDays);
+            redirect($back . '?login=not-contributor');
+        }
         $player = register_player($identity['id'], $identity['login']);
     } catch (Throwable $error) {
         redirect($back . '?login=error');
     }
-    set_cookie_value('mf_session', sign_token(['pid' => $player['playerId']], 60 * 60 * 24 * 30), 60 * 60 * 24 * 30);
+    set_cookie_value('mf_session', sign_token(['gid' => $identity['id'], 'login' => $identity['login'], 'pid' => $player['playerId']], $thirtyDays), $thirtyDays);
     redirect($back . '?login=ok');
 }
 
-/** The signed-in player of this request, or a 401 response. */
-function require_player(): array
+/** The verified session of this request (signed in, contributor or not), or null. */
+function current_session(): ?array
 {
     $session = login_configured() ? verify_token($_COOKIE['mf_session'] ?? null) : null;
+    if ($session === null || (!is_string($session['pid'] ?? null) && !is_int($session['gid'] ?? null))) {
+        return null;
+    }
+    return $session;
+}
+
+/** The signed-in contributor of this request, or a 401 (not signed in) / 403 (not a contributor) response. */
+function require_player(): array
+{
+    $session = current_session();
+    if ($session === null) {
+        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
     $player = is_string($session['pid'] ?? null) ? find_player($session['pid']) : null;
     if ($player === null) {
-        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+        respond(403, ['ok' => false, 'error' => 'not-a-contributor']);
     }
     return $player;
 }
 
 if ($path === '/me' && $method === 'GET') {
-    respond(200, ['ok' => true, 'player' => require_player()]);
+    $session = current_session();
+    if ($session === null) {
+        respond(401, ['ok' => false, 'error' => 'not-signed-in']);
+    }
+    $player = is_string($session['pid'] ?? null) ? find_player($session['pid']) : null;
+    $login = $player !== null ? $player['githubLogin'] : (is_string($session['login'] ?? null) ? $session['login'] : '');
+    $body = ['ok' => true, 'account' => ['githubLogin' => $login, 'contributor' => $player !== null]];
+    if ($player !== null) {
+        $body['player'] = $player;
+    }
+    respond(200, $body);
 }
 
 if ($path === '/save' && $method === 'GET') {
