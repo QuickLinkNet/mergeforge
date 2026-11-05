@@ -149,6 +149,22 @@ describe('prepareOnline', () => {
     expect(await prepareOnline(failing, new MemoryStorage())).toEqual({ kind: 'unreachable' });
   });
 
+  it('marks the maintainer account (test tools) and nobody else', async () => {
+    const plain = await online(fakeServer({ save: null }).fetcher, new MemoryStorage());
+    expect(plain.isOwner).toBe(false);
+    plain.sync.stop();
+    const inner = fakeServer({ save: null }).fetcher;
+    const asOwner = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await inner(input, init);
+      if (!String(input).endsWith('/me')) return response;
+      const body = (await response.json()) as { account: Record<string, unknown> };
+      return new Response(JSON.stringify({ ...body, account: { ...body.account, owner: true } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const owner = await online(asOwner, new MemoryStorage());
+    expect(owner.isOwner).toBe(true);
+    owner.sync.stop();
+  });
+
   it('copies the server save into the player cache', async () => {
     const server = fakeServer({ save: { revision: 5, payload: save(UNIVERSE_SEED, 7) } });
     const base = new MemoryStorage();
