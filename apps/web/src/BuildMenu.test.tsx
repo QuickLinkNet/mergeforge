@@ -47,7 +47,7 @@ describe('build menu status', () => {
     const state = createInitialGameState(world, 0);
     expect(statusOf(state, 'road')).toMatchObject({ kind: 'field', candidates: ['1,0', '0,1'] });
     expect(statusOf(state, 'pathfinder')).toMatchObject({ kind: 'ready' });
-    expect(statusOf(state, 'lumber-camp')).toMatchObject({ kind: 'locked', note: 'Wald-Feld mit Straße' });
+    expect(statusOf(state, 'lumber-camp')).toMatchObject({ kind: 'locked', note: 'Zuerst eine Straße bis zu einem Wald-Feld bauen' });
     expect(statusOf(state, 'survey-tent')).toMatchObject({ kind: 'locked', note: 'Zuerst einen Wegfinder ausbilden' });
     expect(statusOf(state, 'workshop').kind).toBe('locked');
     expect(statusOf(state, 'relay-repair').kind).toBe('locked');
@@ -86,7 +86,8 @@ describe('BuildMenu', () => {
     const state = createInitialGameState(world, 0);
     const onAction = vi.fn();
     render(<BuildMenu state={state} nowMs={1_000} catalog={catalog} modules={[]} onClose={() => undefined} onAction={onAction} />);
-    for (const item of catalog) expect(screen.getAllByText(item.name).length).toBeGreaterThan(0);
+    for (const item of catalog.filter((candidate) => candidate.revealAfterChapter === undefined)) expect(screen.getAllByText(item.name).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Relaiswerkstatt')).toBeNull();
     expect(screen.getByText('4 Holz · 1 Stein')).toBeTruthy();
     fireEvent.click(screen.getByText('Feld wählen'));
     expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ id: 'road' }), expect.objectContaining({ kind: 'field' }));
