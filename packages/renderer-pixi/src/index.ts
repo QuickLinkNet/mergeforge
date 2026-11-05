@@ -36,6 +36,7 @@ export type {
 
 const HEX_SIZE = 42;
 const MIN_SCALE = 0.45;
+const START_SCALE_MIN = 0.95;
 const MAX_SCALE = 2.2;
 const EDGE_GUARD = 84;
 
@@ -936,9 +937,14 @@ export async function mountHexWorld(
   let bounds = renderedWorld.bounds;
   let contentWidth = bounds.maxX - bounds.minX;
   let contentHeight = bounds.maxY - bounds.minY;
-  const fitScale = Math.min(
-    1.1,
-    Math.max(MIN_SCALE, Math.min((viewportWidth - 48) / contentWidth, (viewportHeight - 48) / contentHeight)),
+  // Start readable: the whole (mostly fogged) world is far larger than the screen, so fitting it
+  // would shrink the village to a speck. Players can still zoom out to the minimum scale.
+  const fitScale = Math.max(
+    START_SCALE_MIN,
+    Math.min(
+      1.1,
+      Math.max(MIN_SCALE, Math.min((viewportWidth - 48) / contentWidth, (viewportHeight - 48) / contentHeight)),
+    ),
   );
   layer.scale.set(fitScale);
   layer.position.set(
