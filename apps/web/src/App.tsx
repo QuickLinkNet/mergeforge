@@ -23,6 +23,7 @@ import {
   RELAY_REPAIR_WOOD_COST,
   WORLD_PULSE_MS,
   advanceTime,
+  buildCatalog,
   buildRoad,
   createInitialGameState,
   describeDistanceBand,
@@ -44,6 +45,7 @@ import {
   type GameState,
   type ModuleManifest,
   type MovePathfinderRejection,
+  type CatalogEntry,
   type SignalBearing,
   type StartLumberCampRejection,
   type StartPathfinderTrainingRejection,
@@ -71,6 +73,8 @@ import { LOADED_MODULES, MODULE_REGISTRY } from './moduleRegistry';
 import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame, type StorageLike } from './persistence';
+import { BuildMenu } from './BuildMenu';
+import type { MenuStatus } from './buildMenuStatus';
 import { MarketPanel } from './MarketPanel';
 import { UNIVERSE_SEED, type OnlineSession, type RadioContact, type SyncStatus } from './online';
 
@@ -148,6 +152,8 @@ const workshopFailureCopy: Readonly<Record<StartWorkshopRejection, string>> = {
   'build-slot-occupied': 'Euer Bautrupp arbeitet bereits an einem anderen Auftrag.',
   'insufficient-resources': 'Für die Werkstatt fehlen Holz oder Stein.',
 };
+
+const MODULE_MANIFESTS = LOADED_MODULES.map((entry) => entry.manifest);
 
 const signalBearingCopy: Readonly<Record<SignalBearing, { readonly label: string; readonly angle: number }>> = {
   east: { label: 'Osten', angle: 90 },
@@ -304,6 +310,9 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   const [eventMessage, setEventMessage] = useState<string | null>(null);
   const [highlightedFindEffects, setHighlightedFindEffects] = useState<readonly FindEffectVisual[]>([]);
   const [signalwerkOpen, setSignalwerkOpen] = useState(false);
+  const [buildMenuOpen, setBuildMenuOpen] = useState(false);
+  /** Fields highlighted on the map after "Feld wählen" in the build menu. */
+  const [placementKeys, setPlacementKeys] = useState<readonly string[]>([]);
 
   const selectedWorldTile = useMemo(
     () =>
@@ -476,7 +485,9 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
       selectedTileKey: selectedTile?.key ?? null,
       roadTileKeys: gameState?.roadTileKeys ?? [],
       roadPreviewTileKeys:
-        selectedTile !== null && roadPreview?.ok === true ? [selectedTile.key] : [],
+        placementKeys.length > 0
+          ? placementKeys
+          : selectedTile !== null && roadPreview?.ok === true ? [selectedTile.key] : [],
       buildings:
         gameState?.buildings
           .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
@@ -498,8 +509,11 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         : { state: surveyTent.status === 'constructing' ? 'construction' : 'complete' },
       relayDiscoveryHighlight: relayDiscovered,
     }),
-    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, pathfinder, relayDiscovered, roadPreview, selectedTile, surveyPreview, surveyTent],
+    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, pathfinder, placementKeys, relayDiscovered, roadPreview, selectedTile, surveyPreview, surveyTent],
   );
+
+  // Picking a field (or closing the highlight) ends the placement help of the build menu.
+  useEffect(() => setPlacementKeys((keys) => (keys.length === 0 ? keys : [])), [selectedTile]);
 
   if (effectiveWorld !== null) latestRenderRef.current = { world: effectiveWorld, view: rendererView };
 
@@ -776,6 +790,22 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
       setEventMessage('Signalwerk gelöst · Resonanzkern geborgen');
     }
   }, [gameState]);
+
+  const catalog = useMemo(() => buildCatalog(MODULE_MANIFESTS), []);
+  const handleMenuAction = useCallback((entry: CatalogEntry, status: MenuStatus) => {
+    if (status.kind === 'field') {
+      setPlacementKeys(status.candidates);
+      setBuildMenuOpen(false);
+      setEventMessage(`${entry.name}: Wähle ein markiertes Feld (${entry.condition})`);
+      return;
+    }
+    if (status.kind !== 'ready') return;
+    if (entry.id === 'pathfinder') confirmTraining();
+    else if (entry.id === 'survey-tent') confirmSurveyTent();
+    else if (entry.id === 'workshop') confirmWorkshop();
+    else if (entry.id === 'relay-repair') confirmRelayRepair();
+    else if (entry.id === 'signal-scan') confirmSignalScan();
+  }, [confirmRelayRepair, confirmSignalScan, confirmSurveyTent, confirmTraining, confirmWorkshop]);
 
   const cancelSelection = useCallback(() => setSelectedTile(null), []);
 
@@ -1415,6 +1445,29 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
             <button className="primary-action" type="button" disabled={!roadPreview.ok} onClick={confirmRoad}>Straße bauen</button>
           </div>
         </section>
+      )}
+
+      {gameState !== null && (
+        <>
+          {buildMenuOpen && (
+            <BuildMenu
+              state={gameState}
+              nowMs={commandNowMs}
+              catalog={catalog}
+              modules={MODULE_MANIFESTS}
+              onClose={() => setBuildMenuOpen(false)}
+              onAction={handleMenuAction}
+            />
+          )}
+          <button
+            className="build-menu-toggle"
+            type="button"
+            aria-expanded={buildMenuOpen}
+            onClick={() => setBuildMenuOpen((open) => !open)}
+          >
+            {buildMenuOpen ? 'Baumenü schließen' : 'Bauen'}
+          </button>
+        </>
       )}
 
       {syncStatus === 'conflict' && (
