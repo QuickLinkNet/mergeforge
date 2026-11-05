@@ -14,6 +14,7 @@ import {
 } from '@mergeforge/domain';
 
 import { pathfinderGuidance } from './pathfinderGuidance';
+import { compassDirection } from './relayHint';
 
 export type MenuStatus =
   /** done for good (one-time entries) */
@@ -131,7 +132,16 @@ function noFieldNote(entry: CatalogEntry, state: GameState, modules: readonly Mo
       .filter((tile) => terrains.includes(tile.terrain) && visible.has(`${tile.coord.q},${tile.coord.r}`))
       .map((tile) => `${tile.coord.q},${tile.coord.r}`);
   }
-  if (sightedKeys.length === 0) return `Noch kein ${label} in Sicht: erkunde weiter`;
+  if (sightedKeys.length === 0) {
+    if (entry.id === 'quarry') {
+      const stone = state.world.resourceSites.find((site) => site.type === 'stone');
+      if (stone !== undefined) {
+        const direction = compassDirection(state.world.village.coord, keyToCoord(stone.tileKey));
+        return `Noch kein Steinvorkommen in Sicht (Symbol mit Fähnchen, graue Hügel genügen nicht). Es liegt Richtung ${direction}.`;
+      }
+    }
+    return `Noch kein ${label} in Sicht: erkunde weiter`;
+  }
   if (sightedKeys.some((key) => roads.has(key) && taken(key))) {
     return `Dein ${label}-Feld mit Straße ist schon bebaut. Baue eine Straße zu einem weiteren ${label}-Feld.`;
   }
