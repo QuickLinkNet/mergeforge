@@ -7,6 +7,10 @@ declare(strict_types=1);
 // the save belongs to the player's own sector world, not the game rules itself.
 
 const SAVE_MAX_BYTES = 1048576;
+const SAVE_MAX_WOOD = 300;
+const SAVE_MAX_STONE = 150;
+/** A save may not claim to be advanced further into the future than this (clock skew allowance). */
+const SAVE_MAX_FUTURE_MS = 86400000;
 
 function saves_table(): PDO
 {
@@ -85,7 +89,38 @@ function save_payload_error(mixed $payload, ?string $expectedSeed = null): ?stri
     if (array_key_exists('lastAdvancedAtMs', $payload) && !(is_int($payload['lastAdvancedAtMs']) || is_float($payload['lastAdvancedAtMs']))) {
         return 'invalid-save';
     }
+    if (isset($payload['lastAdvancedAtMs']) && $payload['lastAdvancedAtMs'] > time() * 1000 + SAVE_MAX_FUTURE_MS) {
+        return 'invalid-save';
+    }
+    foreach (['roadTileKeys' => 20000, 'visibleTileKeys' => 20000, 'buildings' => 500, 'units' => 100] as $listKey => $maxLength) {
+        if (isset($payload[$listKey]) && count($payload[$listKey]) > $maxLength) {
+            return 'invalid-save';
+        }
+    }
+    foreach (['wood' => SAVE_MAX_WOOD, 'stone' => SAVE_MAX_STONE] as $resource => $max) {
+        $amount = $payload['resources'][$resource] ?? 0;
+        if (!is_int($amount) || $amount < 0 || $amount > $max) {
+            return 'invalid-save';
+        }
+    }
     return null;
+}
+
+/** Stock and upload time of a player's last stored save; zero stock when there is none. @return array{wood:int,stone:int,since:string} */
+function saved_stock(string $playerId): array
+{
+    $none = ['wood' => 0, 'stone' => 0, 'since' => ''];
+    $save = load_save($playerId, true);
+    if ($save === null) {
+        return $none;
+    }
+    $payload = json_decode((string) $save['payload'], true);
+    $resources = is_array($payload) && is_array($payload['resources'] ?? null) ? $payload['resources'] : [];
+    return [
+        'wood' => is_int($resources['wood'] ?? null) ? max(0, $resources['wood']) : 0,
+        'stone' => is_int($resources['stone'] ?? null) ? max(0, $resources['stone']) : 0,
+        'since' => (string) $save['updatedAt'],
+    ];
 }
 
 /**

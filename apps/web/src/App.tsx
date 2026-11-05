@@ -156,6 +156,7 @@ const workshopFailureCopy: Readonly<Record<StartWorkshopRejection, string>> = {
 };
 
 const COMMAND_COOLDOWN_MS = 500;
+const CLOCK_SKEW_NOTICE_MS = 5 * 60 * 1_000;
 const MODULE_MANIFESTS = LOADED_MODULES.map((entry) => entry.manifest);
 
 const signalBearingCopy: Readonly<Record<SignalBearing, { readonly label: string; readonly angle: number }>> = {
@@ -216,7 +217,9 @@ function bootstrapGame(nowMs: number, worldSeed: string, storage: StorageLike): 
       return {
         ok: true,
         state: advanceTime(loaded.state, Math.max(nowMs, loaded.state.lastAdvancedAtMs)),
-        notice: null,
+        notice: loaded.state.lastAdvancedAtMs - nowMs > CLOCK_SKEW_NOTICE_MS
+          ? 'Die Uhr deines Geräts geht nach oder ging vor. Der Spielstand pausiert, bis die Uhr den gespeicherten Zeitpunkt wieder erreicht.'
+          : null,
       };
     }
     if (loaded.kind === 'blocked') {
