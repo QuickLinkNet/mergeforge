@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
   buildPulses,
+  hasCompletedChapter,
   formatBuildTime,
   type CatalogCategory,
   type CatalogEntry,
@@ -48,7 +49,9 @@ export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, o
     return byId;
   }, [catalog, modules, state]);
 
-  const rows = catalog.map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? []) }));
+  const rows = catalog
+    .filter((entry) => entry.revealAfterChapter === undefined || hasCompletedChapter(state, entry.revealAfterChapter))
+    .map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? [], modules) }));
   const running = rows.filter((row) => row.status.kind === 'running');
 
   return (
@@ -59,6 +62,7 @@ export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, o
           <i className="resource-dot wood" aria-hidden="true" /> {state.resources.wood}
           <i className="resource-dot stone" aria-hidden="true" /> {state.resources.stone}
         </span>
+        <span className="build-menu-legend">1 Takt = 10 Minuten Spielzeit</span>
         {running.map(({ entry, status }) => (
           <span className="build-menu-running" key={entry.id} role="status">
             {entry.name}: noch {status.kind === 'running' ? formatClock(status.remainingMs) : ''}
