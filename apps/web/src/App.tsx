@@ -75,6 +75,7 @@ import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame, type StorageLike } from './persistence';
 import { BuildMenu } from './BuildMenu';
 import { pathfinderGuidance } from './pathfinderGuidance';
+import { relayHint } from './relayHint';
 import type { MenuStatus } from './buildMenuStatus';
 import { MarketPanel } from './MarketPanel';
 import { UNIVERSE_SEED, type OnlineSession, type RadioContact, type SyncStatus } from './online';
@@ -919,7 +920,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
               : signalwerkSolved
                 ? 'Errichtet die Werkstatt, installiert den einzigartigen Kern und repariert anschließend das Relais.'
               : 'Wählt das entdeckte Relais und richtet im Signalwerk eine durchgehende Energieverbindung ein.'
-            : 'Folgt Straße und Wegfinder tiefer in den Nebel, bis die verlassene Relaisstation sichtbar wird.';
+            : `Folgt Straße und Wegfinder tiefer in den Nebel, bis die verlassene Relaisstation sichtbar wird. ${gameState === null ? '' : relayHint(gameState)}`;
   const missionObjective = chapterNumber === 1
     ? 'Zwei Straßenfelder errichten'
     : chapterNumber === 2

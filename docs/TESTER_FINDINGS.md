@@ -53,3 +53,21 @@ Laufendes Log der ehrlichen Spieltests. Der KI-Tester ist `.claude/agents/tester
 | 15 | Mittel | Hinweistext zeitweise veraltet, Doppelklick auf "Zelt errichten" löst Folgeaktion aus (Wegfinder springt ins Dorf). | Doppelklick behoben (fix/double-click: 0,5 s Sperre nach jedem Befehl), Hinweistext offen |
 | 16 | Mittel | 390 px: Leiste läuft aus dem Bild, Kapitelkarte verdeckt Karte. Baumenü verdeckt halbe Karte, Vorspulknopf wandert. | behoben (fix/mobile-layout): kompakte Leiste, kurze Kapitelkarte, Bauen-Knopf rechts unten, Menü max. halbe Höhe (im Browser bei 390 px geprüft) |
 | 17 | Niedrig | Koordinatentexte ("Wegfinder nach 4, 0"), Steinbruch-Karte "erkunde weiter" obwohl Kapitel ihn verlangt, kein Bau-Fortschritt auf der Karte, "Bauplatz belegt" missverständlich. | offen |
+
+---
+
+## Lauf 4 · 2026-11-05 · Mia (Sandbox, bis Kapitel 5)
+
+**Gesamteindruck:** Kapitel 1 bis 4 laufen jetzt durch. In Kapitel 5 (Relais finden) blieb Mia nach vielen Dutzend Klicks stecken, weil das Spiel nicht sagt, wo das Relais liegt. Wärst du drangeblieben: **Vielleicht.**
+
+| # | Schwere | Fund | Status |
+|---|---|---|---|
+| 18 | Hoch | Relais in Kapitel 5 nicht auffindbar, nur "tiefer in den Nebel". | behoben (fix/tester-run4): Kapiteltext nennt Himmelsrichtung und grobe Entfernung vom Dorf |
+| 19 | Hoch | Steinvorkommen von Deko-Hügeln nicht zu unterscheiden, ca. 15 Aktionen in die falsche Richtung. | behoben (fix/tester-run4): Karte nennt Richtung und das Fähnchen-Symbol. Die Symbole selbst sind unverändert |
+| 20 | Mittel | Gestapelte Panels mit nahen Knöpfen führen zu Fehlklicks. | offen |
+| 21 | Mittel | Bau-Timer nach Neuladen 15 s auf 10:00 (vermutlich Browser-Pane, nicht geklärt). | offen |
+| 22 | Mittel | Kapitelwechsel ohne Rückmeldung, Kapitel 4 startet schon halb erfüllt. | offen |
+| 23 | Mittel | 1024x768: Baumenü deckt Karte, Menü reagiert verzögert. | offen |
+| 24 | Niedrig | Baumenü verrät die Kapitelkette, Koordinaten und "Ladungen" unerklärt, "Felder markieren" ohne sichtbare Wirkung bei leerem Ziel. | offen |
+
+**Nicht geprüft:** Signalwerk-Rätsel, Relaiswerkstatt, Relais reparieren, Signalscan, Handelsposten, alles ab Kapitel 5 Abschluss.
