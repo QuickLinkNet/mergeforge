@@ -457,7 +457,6 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
       pathfinder?.status !== 'active' ||
       selectedTile.key === pathfinder.tileKey ||
       selectedBuilding !== undefined ||
-      buildingPlan !== null ||
       surveyPreview !== null ||
       trainingPreview !== null ||
       surveyTentPreview !== null
@@ -481,6 +480,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     () => (gameState === null ? null : worldForRenderer(gameState)),
     [gameState],
   );
+  const guidance = useMemo(() => (gameState === null ? null : pathfinderGuidance(gameState)), [gameState]);
   const rendererView = useMemo<HexWorldViewState>(
     () => ({
       selectedTileKey: selectedTile?.key ?? null,
@@ -488,7 +488,9 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
       roadPreviewTileKeys:
         placementKeys.length > 0
           ? placementKeys
-          : selectedTile !== null && roadPreview?.ok === true ? [selectedTile.key] : [],
+          : selectedTile !== null && roadPreview?.ok === true
+            ? [selectedTile.key]
+            : selectedTile === null && guidance !== null ? guidance.highlightKeys : [],
       buildings:
         gameState?.buildings
           .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
@@ -510,7 +512,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         : { state: surveyTent.status === 'constructing' ? 'construction' : 'complete' },
       relayDiscoveryHighlight: relayDiscovered,
     }),
-    [gameState?.buildings, gameState?.roadTileKeys, highlightedFindEffects, pathfinder, placementKeys, relayDiscovered, roadPreview, selectedTile, surveyPreview, surveyTent],
+    [gameState?.buildings, gameState?.roadTileKeys, guidance, highlightedFindEffects, pathfinder, placementKeys, relayDiscovered, roadPreview, selectedTile, surveyPreview, surveyTent],
   );
 
   // Picking a field (or closing the highlight) ends the placement help of the build menu.
@@ -793,7 +795,6 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   }, [gameState]);
 
   const catalog = useMemo(() => buildCatalog(MODULE_MANIFESTS), []);
-  const guidance = useMemo(() => (gameState === null ? null : pathfinderGuidance(gameState)), [gameState]);
   const handleMenuAction = useCallback((entry: CatalogEntry, status: MenuStatus) => {
     if (status.kind === 'field') {
       setPlacementKeys(status.candidates);
@@ -1088,6 +1089,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         )}
       </section>
 
+      <div className="build-stack">
       {chapterSixComplete && !chapterSevenComplete && (
         <section className="build-card signal-card" aria-labelledby="signal-scan-title">
           <div className="build-card-heading">
@@ -1361,14 +1363,14 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         <section className="build-card exploration-card" aria-labelledby="wayfinder-title">
           <div className="build-card-heading">
             <span className="road-symbol wayfinder-symbol" aria-hidden="true">✦</span>
-            <span><small>Einheit bereit</small><h2 id="wayfinder-title">Wegfinder am Straßenkopf</h2></span>
+            <span><small>Einheit bereit</small><h2 id="wayfinder-title">{guidance?.step === 'move' ? 'Wegfinder: nicht am Straßenende' : 'Wegfinder am Straßenkopf'}</h2></span>
           </div>
           <dl className="build-preview">
             <div><dt>Ladungen</dt><dd>{pathfinder.charges} / {maxPathfinderCharges}</dd></div>
             <div><dt>Vermessung</dt><dd>1 Zielhex</dd></div>
             <div><dt>Nächste Ladung</dt><dd>{pathfinder.charges >= maxPathfinderCharges ? 'Speicher voll' : formatRemaining(pathfinderRemainingMs)}</dd></div>
           </dl>
-          <p className="build-explanation">Wählt ein einzelnes Nebelhex in Vermessungsreichweite des Straßenkopfs.</p>
+          <p className="build-explanation">{guidance?.text ?? 'Wählt ein einzelnes Nebelhex in Vermessungsreichweite des Straßenkopfs.'}</p>
           <div className="build-actions single"><button className="secondary-action" type="button" onClick={cancelSelection}>Schließen</button></div>
         </section>
       )}
@@ -1402,7 +1404,6 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         </section>
       )}
 
-      <div className="build-stack">
       {selectedBuilding === undefined && buildingPlan !== null && (
         <section className="build-card" aria-labelledby="build-title">
           <div className="build-card-heading">
@@ -1442,7 +1443,6 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           onCancel={cancelSelection}
         />
       )}
-      </div>
 
       {selectedBuilding === undefined && buildingPlan === null && movementPreview === null && selectedTile !== null && roadPreview !== null && (
         <section className="build-card" aria-labelledby="build-title">
@@ -1466,6 +1466,8 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           </div>
         </section>
       )}
+
+      </div>
 
       {gameState !== null && (
         <>

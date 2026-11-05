@@ -20,9 +20,22 @@ Laufendes Log der ehrlichen Spieltests. Der KI-Tester ist `.claude/agents/tester
 |---|---|---|---|
 | 1 | Blocker | Vermessung nicht auffindbar. Nach dem Ausbilden bleibt das Ziel "Vermessen 0/1" stehen, Klicks auf Nebelfelder tun nichts, kein Hinweis. **Ursache (vom Projektleiter geprüft):** Der Wegfinder muss erst auf einen Straßenkopf gezogen werden, erst dann ist ein Nebelfeld vermessbar. Das sagt dem Spieler nirgends jemand, der Satz "Vermessungen beginnen an einem Straßenkopf" steht nur in der Fehlermeldung. Die Wegfinder-Karte im Baumenü hat nach "Ausgebildet" keine Aktion. | behoben (fix/tester-run1): Hinweisbox im Kapitelfenster mit Schritt 1 und 2, "Felder markieren", Hinweis auch auf der Wegfinder-Karte |
 | 2 | Hoch | Gesperrte Baukarten nennen den Grund nicht ("Wald-Feld mit Straße" liest sich wie eine Beschreibung). Nach dem Bau eines Holzfällers ist die Karte wieder grau ohne Hinweis. Wald ist nur an winzigen Symbolen erkennbar. | behoben (fix/tester-run1): Karten sagen "Noch kein Wald in Sicht: erkunde weiter" oder "Zuerst eine Straße bis zu einem Wald-Feld bauen" |
-| 3 | Mittel | Startansicht: winziges Cluster im riesigen Nebel, Symbole sehr klein. Zoom-Hinweis nur klein unten rechts. | offen |
+| 3 | Mittel | Startansicht: winziges Cluster im riesigen Nebel, Symbole sehr klein. Zoom-Hinweis nur klein unten rechts. | behoben (fix/tester-run2): Startzoom |
 | 4 | Mittel | 390 px: Kopfleiste läuft rechts aus dem Bild, Kapitel-Badge nicht sichtbar. "Bauen"-Knopf überdeckt die Sektoranzeige. Offenes Menü lässt nur schmalen Kartenstreifen. | offen |
 | 5 | Mittel | Baumenü zeigt ab Kapitel 2 zehn Karten mit unerklärten Begriffen (Resonanzkern, Takt, Ladungen, Nebelhex, Online-Konto). Leiste horizontal scrollbar. Spätere Karten sollten ausgeblendet oder erklärt sein. | teilweise behoben: Karten der Relaiskette erscheinen erst nach Kapitel 4, Legende "1 Takt = 10 Minuten". Begriffe wie Ladungen bleiben unerklärt |
 | 6 | Niedrig | "Feld: forest mit Straße" auf der Harzsammler-Karte (englisches Wort). | behoben (fix/tester-run1) |
 | 7 | Niedrig | Waldfeld zeigt zwei Bau-Panels (Holzfällerlager und Harzsammler), das Kapitelziel ist nicht hervorgehoben. | offen |
 | 8 | Niedrig | Panel "Steinbruch – Produktion aktiv" mit starrem Timer 10:00 bleibt stehen. Klick auf Feld mit Straße zeigt "Straße planen" mit grauem Knopf. | offen |
+
+---
+
+## Lauf 2 · 2026-11-05 · Mia (Sandbox)
+
+**Gesamteindruck:** Der Hinweistext allein reichte nicht. Kapitel 3 blieb unlösbar, obwohl er jetzt dasteht.
+
+| # | Schwere | Fund | Status |
+|---|---|---|---|
+| 9 | Blocker | Das Straßenende ist oft ein Wald- oder Steinfeld. Ein Klick darauf zeigte nur Baukarten, die Karte "Wegfinder bewegen" blieb unsichtbar. Karten lagen außerdem übereinander. | behoben (fix/tester-run2): Wegfinder-Karte erscheint auch auf Baufeldern, alle Karten in einem gemeinsamen Stapel, Straßenenden werden automatisch markiert (im Browser geprüft) |
+| 10 | Mittel | Kartentitel und Hinweis widersprachen sich ("am Straßenkopf", obwohl er es nicht war). | behoben (fix/tester-run2): Titel und Text kommen aus derselben Quelle |
+| 11 | Mittel | Startansicht winzig. | behoben (fix/tester-run2): Mindestmaßstab 0,95 beim Start |
+| 12 | Niedrig | Hinweis bei bereits bebautem Waldfeld war missverständlich. | behoben (fix/tester-run2) |
