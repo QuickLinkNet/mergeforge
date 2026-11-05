@@ -39,3 +39,17 @@ Laufendes Log der ehrlichen Spieltests. Der KI-Tester ist `.claude/agents/tester
 | 10 | Mittel | Kartentitel und Hinweis widersprachen sich ("am Straßenkopf", obwohl er es nicht war). | behoben (fix/tester-run2): Titel und Text kommen aus derselben Quelle |
 | 11 | Mittel | Startansicht winzig. | behoben (fix/tester-run2): Mindestmaßstab 0,95 beim Start |
 | 12 | Niedrig | Hinweis bei bereits bebautem Waldfeld war missverständlich. | behoben (fix/tester-run2) |
+
+---
+
+## Lauf 3 · 2026-11-05 · Mia (Sandbox)
+
+**Gesamteindruck:** Kapitel 1 und 2 laufen glatt. In Kapitel 3 blieb Mia wieder hängen. Wärst du drangeblieben: **Vielleicht.**
+
+| # | Schwere | Fund | Status |
+|---|---|---|---|
+| 13 | Blocker | Nebelfelder ließen sich nicht anklicken und "Felder markieren" zeigte nichts. **Ursache (vom Projektleiter geprüft):** Der Renderer ignorierte Klicks auf Nebelfelder komplett, und Markierungen wurden nur auf sichtbaren Feldern gezeichnet. Die Vermessung war damit nie auslösbar. | behoben (fix/tester-run3): Nebelfelder wählbar und markierbar, Vermessung bis Kapitel 4 im Browser durchgespielt |
+| 14 | Hoch | Straßenende mit Gebäude (Steinbruch) zeigt nur das Gebäude-Panel, kein "Wegfinder bewegen". | behoben (fix/tester-run3) |
+| 15 | Mittel | Hinweistext zeitweise veraltet, Doppelklick auf "Zelt errichten" löst Folgeaktion aus (Wegfinder springt ins Dorf). | offen |
+| 16 | Mittel | 390 px: Leiste läuft aus dem Bild, Kapitelkarte verdeckt Karte. Baumenü verdeckt halbe Karte, Vorspulknopf wandert. | offen |
+| 17 | Niedrig | Koordinatentexte ("Wegfinder nach 4, 0"), Steinbruch-Karte "erkunde weiter" obwohl Kapitel ihn verlangt, kein Bau-Fortschritt auf der Karte, "Bauplatz belegt" missverständlich. | offen |

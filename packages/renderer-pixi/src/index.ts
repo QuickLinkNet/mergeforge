@@ -708,6 +708,16 @@ function areNeighbors(left: HexCoord, right: HexCoord): boolean {
   return Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) === 1;
 }
 
+/** Like drawableCoordinates, but includes fogged tiles (for selection and highlight outlines). */
+function existingCoordinates(world: WorldSnapshot, keys: readonly string[]): Map<string, HexCoord> {
+  const requested = new Set(keys);
+  const result = new Map<string, HexCoord>();
+  for (const tile of world.tiles) {
+    if (requested.has(axialKey(tile.coord))) result.set(axialKey(tile.coord), tile.coord);
+  }
+  return result;
+}
+
 function drawableCoordinates(world: WorldSnapshot, keys: readonly string[]): Map<string, HexCoord> {
   const requested = new Set(keys);
   const visible = new Set(world.visibleTileKeys);
@@ -784,7 +794,7 @@ function drawInteractionOverlay(
   viewState: NormalizedViewState,
 ): void {
   const visible = new Set(world.visibleTileKeys);
-  if (viewState.selectedTileKey !== null && visible.has(viewState.selectedTileKey)) {
+  if (viewState.selectedTileKey !== null) {
     const tile = world.tiles.find((candidate) => axialKey(candidate.coord) === viewState.selectedTileKey);
     if (tile !== undefined) {
       const center = axialToPixel(tile.coord, HEX_SIZE);
@@ -796,7 +806,7 @@ function drawInteractionOverlay(
     }
   }
 
-  const previewCoordinates = drawableCoordinates(world, viewState.roadPreviewTileKeys);
+  const previewCoordinates = existingCoordinates(world, viewState.roadPreviewTileKeys);
   if (previewCoordinates.size > 0) {
     const outlines = new Graphics();
     for (const coord of previewCoordinates.values()) {
@@ -1042,9 +1052,7 @@ export async function mountHexWorld(
       HEX_SIZE,
     );
     const key = axialKey(coord);
-    if (!currentWorld.visibleTileKeys.includes(key)) {
-      return;
-    }
+    // Fogged tiles stay selectable: the pathfinder survey targets exactly those.
     const tileExists = currentWorld.tiles.some((tile) => axialKey(tile.coord) === key);
     if (!tileExists) {
       return;
