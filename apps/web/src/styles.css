@@ -1394,3 +1394,22 @@ a {
   font-size: 12px;
   opacity: 0.7;
 }
+
+/* Phone layout (390 px): compact HUD, short chapter card, build button out of the way. */
+@media (max-width: 580px) {
+  .top-bar { gap: 8px; }
+  .wordmark { gap: 0; padding: 0 9px; font-size: 0; }
+  .status-cluster { flex: 1; min-width: 0; padding: 4px 6px; justify-content: space-around; }
+  .resource { min-width: 0; padding: 0 5px; }
+  .mission-card { padding: 12px 14px; top: 64px; }
+  .mission-card h1 { margin: 4px 0 8px; font-size: 18px; }
+  .mission-card .prototype-badge,
+  .mission-card > p,
+  .mission-card .mission-note { display: none; }
+  .mission-hint { margin-top: 8px; padding: 8px 10px; }
+  .mission-hint p { font-size: 12px; }
+  .build-menu-toggle { left: auto; right: 10px; bottom: 10px; min-width: 0; transform: none; padding: 10px 20px; }
+  .build-menu { bottom: 62px; max-height: 50vh; overflow-y: auto; }
+  .build-stack { right: 10px; bottom: 62px; width: calc(100vw - 20px); max-height: 46vh; }
+  .account-badge { display: none; }
+}
