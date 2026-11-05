@@ -6,7 +6,19 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.7.0';
+const API_VERSION = '0.7.1';
+
+// Never show PHP errors, paths or SQL to the client: log them and answer with a plain 500.
+ini_set('display_errors', '0');
+set_exception_handler(static function (Throwable $error): void {
+    error_log('mergeforge api: ' . $error::class . ': ' . $error->getMessage());
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo '{"ok":false,"error":"server-error"}';
+    exit;
+});
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/players.php';

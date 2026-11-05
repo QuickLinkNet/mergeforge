@@ -36,10 +36,12 @@ export interface BuildMenuProps {
   readonly onAction: (entry: CatalogEntry, status: MenuStatus) => void;
   /** Test tool for the maintainer: moves the game clock forward by one world pulse. */
   readonly onSkipTime?: () => void;
+  /** False in the offline sandbox: trading needs the online account. */
+  readonly tradeAvailable?: boolean;
 }
 
 /** Bottom drawer with everything the player can build, what it costs and why something is locked. */
-export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, onSkipTime }: BuildMenuProps) {
+export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, onSkipTime, tradeAvailable = true }: BuildMenuProps) {
   // The field search is the expensive part, so it only follows the game state, not the clock.
   const candidates = useMemo(() => {
     const byId = new Map<string, readonly string[]>();
@@ -51,7 +53,7 @@ export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, o
 
   const rows = catalog
     .filter((entry) => entry.revealAfterChapter === undefined || hasCompletedChapter(state, entry.revealAfterChapter))
-    .map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? [], modules) }));
+    .map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? [], modules, tradeAvailable) }));
   const running = rows.filter((row) => row.status.kind === 'running');
 
   return (
