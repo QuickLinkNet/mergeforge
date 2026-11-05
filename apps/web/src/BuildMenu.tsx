@@ -1,0 +1,100 @@
+import { useMemo } from 'react';
+import {
+  buildPulses,
+  formatBuildTime,
+  type CatalogCategory,
+  type CatalogEntry,
+  type GameState,
+  type ModuleManifest,
+} from '@mergeforge/domain';
+import { entryStatus, fieldCandidates, type MenuStatus } from './buildMenuStatus';
+
+const categoryLabel: Readonly<Record<CatalogCategory, string>> = {
+  infrastructure: 'Infrastruktur',
+  production: 'Produktion',
+  unit: 'Einheit',
+  research: 'Forschung',
+  network: 'Signalnetz',
+  module: 'Modul',
+};
+
+export function formatClock(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+export interface BuildMenuProps {
+  readonly state: GameState;
+  readonly nowMs: number;
+  readonly catalog: readonly CatalogEntry[];
+  readonly modules: readonly ModuleManifest[];
+  readonly onClose: () => void;
+  /** The player pressed the main button of an entry that is ready or needs a field. */
+  readonly onAction: (entry: CatalogEntry, status: MenuStatus) => void;
+}
+
+/** Bottom drawer with everything the player can build, what it costs and why something is locked. */
+export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction }: BuildMenuProps) {
+  // The field search is the expensive part, so it only follows the game state, not the clock.
+  const candidates = useMemo(() => {
+    const byId = new Map<string, readonly string[]>();
+    for (const entry of catalog) {
+      if (entry.placement === 'field') byId.set(entry.id, fieldCandidates(state, entry, modules));
+    }
+    return byId;
+  }, [catalog, modules, state]);
+
+  const rows = catalog.map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? []) }));
+  const running = rows.filter((row) => row.status.kind === 'running');
+
+  return (
+    <section className="build-menu" aria-labelledby="build-menu-title">
+      <header className="build-menu-header">
+        <h2 id="build-menu-title">Bauen</h2>
+        <span className="build-menu-resources">
+          <i className="resource-dot wood" aria-hidden="true" /> {state.resources.wood}
+          <i className="resource-dot stone" aria-hidden="true" /> {state.resources.stone}
+        </span>
+        {running.map(({ entry, status }) => (
+          <span className="build-menu-running" key={entry.id} role="status">
+            {entry.name}: noch {status.kind === 'running' ? formatClock(status.remainingMs) : ''}
+          </span>
+        ))}
+        <button className="build-menu-close" type="button" aria-label="Baumenü schließen" onClick={onClose}>×</button>
+      </header>
+      <ul className="build-menu-cards">
+        {rows.map(({ entry, status }) => {
+          const pulses = buildPulses(entry.buildMs);
+          const cost =
+            entry.cost.wood === 0 && entry.cost.stone === 0
+              ? 'kostenlos'
+              : [entry.cost.wood > 0 ? `${entry.cost.wood} Holz` : '', entry.cost.stone > 0 ? `${entry.cost.stone} Stein` : '']
+                  .filter(Boolean)
+                  .join(' · ');
+          const actionable = status.kind === 'ready' || status.kind === 'field';
+          return (
+            <li className={`build-menu-card status-${status.kind}`} key={entry.id}>
+              <small>{categoryLabel[entry.category]}</small>
+              <h3>{entry.name}</h3>
+              <p className="build-menu-cost">{cost}</p>
+              <p className="build-menu-time">
+                {entry.buildMs === 0 ? 'Sofort' : `${formatBuildTime(entry.buildMs)} (${pulses} ${pulses === 1 ? 'Takt' : 'Takte'})`}
+              </p>
+              <p className="build-menu-effect">{entry.effect}</p>
+              <p className="build-menu-note" role="status">
+                {status.kind === 'running' ? `${status.note} · noch ${formatClock(status.remainingMs)}` : status.note}
+              </p>
+              {actionable && (
+                <button className="primary-action" type="button" onClick={() => onAction(entry, status)}>
+                  {status.kind === 'field' ? 'Feld wählen' : entry.placement === 'village' && entry.cost.wood + entry.cost.stone === 0 ? 'Starten' : 'Bauen'}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
