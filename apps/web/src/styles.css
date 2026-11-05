@@ -1306,6 +1306,21 @@ a {
   font-size: 12px;
 }
 
+.build-menu-skip {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px dashed rgb(232 194 122 / 60%);
+  border-radius: 999px;
+  background: transparent;
+  color: #e8c27a;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.build-menu-skip + .build-menu-close {
+  margin-left: 0;
+}
+
 .build-menu-close {
   margin-left: auto;
   border: 0;
