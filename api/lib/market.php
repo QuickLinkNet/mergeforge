@@ -3,9 +3,10 @@ declare(strict_types=1);
 
 // Trade offers between neighbouring players (D-021).
 //
-// The save stays client-authoritative: the server cannot see a player's stock. It therefore
-// only mediates: offers are visible to the poster's neighbours, a trade is settled exactly once
-// (atomically), and the goods travel through a per-player inbox that is claimed once.
+// The save stays client-authoritative, but the server checks every new offer against the stock in the
+// player's last uploaded save (minus offers posted since that upload), so goods cannot be invented from
+// nothing. Offers are visible to the poster's neighbours, a trade is settled exactly once (atomically),
+// and the goods travel through a per-player inbox that is claimed once.
 
 const MARKET_RESOURCES = ['wood', 'stone'];
 const MARKET_MAX_AMOUNT = 50;
@@ -57,8 +58,11 @@ function valid_trade_amount(mixed $value): bool
     return is_int($value) && $value >= 1 && $value <= MARKET_MAX_AMOUNT;
 }
 
-/** @return array<string,mixed> error => code, or id => new offer id */
-function create_offer(int $gid, string $login, array $request): array
+/**
+ * @param array{wood:int,stone:int,since:string} $stock stock of the last uploaded save and its upload time
+ * @return array<string,mixed> error => code, or id => new offer id
+ */
+function create_offer(int $gid, string $login, array $request, array $stock = ['wood' => 0, 'stone' => 0, 'since' => '']): array
 {
     $give = $request['giveResource'] ?? null;
     $want = $request['wantResource'] ?? null;
@@ -76,6 +80,13 @@ function create_offer(int $gid, string $login, array $request): array
         if ((int) $count->fetchColumn() >= MARKET_MAX_OPEN_OFFERS) {
             $pdo->exec('ROLLBACK');
             return ['error' => 'too-many-offers'];
+        }
+        // Goods already promised in offers posted after the last upload are not in the saved stock yet.
+        $reserved = $pdo->prepare("SELECT COALESCE(SUM(give_amount), 0) FROM offers WHERE status = 'open' AND seller_gid = ? AND give_resource = ? AND created_at > ?");
+        $reserved->execute([$gid, $give, $stock['since']]);
+        if ((int) $stock[$give] - (int) $reserved->fetchColumn() < $request['giveAmount']) {
+            $pdo->exec('ROLLBACK');
+            return ['error' => 'not-enough-stock'];
         }
         $insert = $pdo->prepare(
             "INSERT INTO offers (seller_gid, seller_login, give_resource, give_amount, want_resource, want_amount, status, created_at)

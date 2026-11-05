@@ -12,14 +12,20 @@ SQL nur mit Prepared Statements. Session-Cookie HttpOnly, Secure, SameSite=Lax. 
 - `.htaccess` (Web und API): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`.
 - `api/.htaccess`: `lib/`, `tests/`, `data/` per URL gesperrt.
 
+## Umgesetzt in Runde 2 (API 0.8.0)
+
+- **H1:** Neue Angebote werden gegen den Bestand im zuletzt hochgeladenen Spielstand geprüft, abzüglich Angeboten, die seitdem eingestellt wurden (`not-enough-stock`). Grenze: Wer seinen Spielstand selbst fälscht, kann weiter Bestand vortäuschen (siehe H2).
+- **H2 (teilweise):** Spielstände werden abgelehnt bei Holz/Stein außerhalb 0..300/0..150 oder nicht ganzzahlig, bei absurd langen Listen und bei `lastAdvancedAtMs` mehr als 24 Stunden in der Zukunft. Echte Sicherheit braucht weiterhin Server-Simulation.
+- **H4:** Der Server lehnt Zukunfts-Stände ab (siehe H2). Der Client zeigt bei einer nachgehenden Systemuhr einen Hinweis, dass der Spielstand pausiert.
+
 ## Offen, nach Schwere
 
 | # | Schwere | Befund | Fix-Idee |
 |---|---|---|---|
-| H1 | Hoch | Markt prüft nie, ob der Verkäufer die Ware besitzt. Zwei Accounts können Ressourcen erzeugen (bekannte Grenze aus D-021: Spielstand ist client-autoritativ). Client bucht erst nach dem Server-Call ab; Reload dazwischen verdoppelt Ware. | Vor offenem Start: Server-Bestand/Abbuchung beim Anlegen des Angebots prüfen. |
-| H2 | Hoch/Mittel | `save_payload_error` prüft nur Form und Größe, nicht Werte. Hängt mit H1 zusammen. | Kernwerte serverseitig begrenzen; echte Sicherheit nur mit Server-Simulation. |
+| H1 | ~~Hoch~~ teilweise behoben | Markt prüft nie, ob der Verkäufer die Ware besitzt. Zwei Accounts können Ressourcen erzeugen (bekannte Grenze aus D-021: Spielstand ist client-autoritativ). Client bucht erst nach dem Server-Call ab; Reload dazwischen verdoppelt Ware. | Vor offenem Start: Server-Bestand/Abbuchung beim Anlegen des Angebots prüfen. |
+| H2 | Mittel, teilweise behoben | `save_payload_error` prüft nur Form und Größe, nicht Werte. Hängt mit H1 zusammen. | Kernwerte serverseitig begrenzen; echte Sicherheit nur mit Server-Simulation. |
 | H3 | Mittel | Ungültiger Online-Save wird beim Reset gelöscht und vom frischen Stand überschrieben, ohne Vorversion. | Rohstring vorher sichern, Hochladen erst nach Bestätigung; Serverhistorie der letzten Stände. |
-| H4 | Mittel | Systemuhr weit vorstellen und ein Tick friert den Spielstand ein (`lastAdvancedAtMs` in der Zukunft). | Beim Laden und im Tick auf `Date.now()` + wenige Minuten begrenzen. |
+| H4 | ~~Mittel~~ behoben | Systemuhr weit vorstellen und ein Tick friert den Spielstand ein (`lastAdvancedAtMs` in der Zukunft). | Beim Laden und im Tick auf `Date.now()` + wenige Minuten begrenzen. |
 | H5 | Mittel | CORS mit Credentials auch für `www.red-it.org` und localhost in Produktion; leerer Origin wird durchgelassen. | Nur `https://mergeforge.red-it.org`; localhost per Config-Flag. |
 | H6 | Mittel | Kein Rate-Limiting (Angebote, Cancel, Inbox wächst unbegrenzt). | Limit pro Spieler/Minute; Cap für offene Inbox-Zeilen. |
 | H7 | Niedrig | Inbox-Auslieferung kann bei 50 nicht passenden Zeilen vorn „verhungern"; verlorene Claim-Antwort bedeutet verlorene Ware. | Claim idempotent machen. |

@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Live at https://mergeforge.red-it.org/api. Secrets belong in
 // config.local.php (git-ignored, see api/config.example.php), never in Git.
 
-const API_VERSION = '0.7.1';
+const API_VERSION = '0.8.0';
 
 // Never show PHP errors, paths or SQL to the client: log them and answer with a plain 500.
 ini_set('display_errors', '0');
@@ -254,7 +254,7 @@ if (str_starts_with($path, '/market')) {
         $request = json_decode((string) file_get_contents('php://input', false, null, 0, 4096), true);
         $request = is_array($request) ? $request : [];
         if ($path === '/market/offers') {
-            $result = create_offer($gid, $player['githubLogin'], $request);
+            $result = create_offer($gid, $player['githubLogin'], $request, saved_stock($player['playerId']));
         } elseif ($path === '/market/accept') {
             $result = accept_offer($gid, $contactIds, $request);
         } elseif ($path === '/market/cancel') {
