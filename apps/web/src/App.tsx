@@ -456,7 +456,6 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
       selectedTile === null ||
       pathfinder?.status !== 'active' ||
       selectedTile.key === pathfinder.tileKey ||
-      selectedBuilding !== undefined ||
       surveyPreview !== null ||
       trainingPreview !== null ||
       surveyTentPreview !== null
