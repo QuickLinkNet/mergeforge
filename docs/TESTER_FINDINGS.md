@@ -50,6 +50,6 @@ Laufendes Log der ehrlichen Spieltests. Der KI-Tester ist `.claude/agents/tester
 |---|---|---|---|
 | 13 | Blocker | Nebelfelder ließen sich nicht anklicken und "Felder markieren" zeigte nichts. **Ursache (vom Projektleiter geprüft):** Der Renderer ignorierte Klicks auf Nebelfelder komplett, und Markierungen wurden nur auf sichtbaren Feldern gezeichnet. Die Vermessung war damit nie auslösbar. | behoben (fix/tester-run3): Nebelfelder wählbar und markierbar, Vermessung bis Kapitel 4 im Browser durchgespielt |
 | 14 | Hoch | Straßenende mit Gebäude (Steinbruch) zeigt nur das Gebäude-Panel, kein "Wegfinder bewegen". | behoben (fix/tester-run3) |
-| 15 | Mittel | Hinweistext zeitweise veraltet, Doppelklick auf "Zelt errichten" löst Folgeaktion aus (Wegfinder springt ins Dorf). | offen |
+| 15 | Mittel | Hinweistext zeitweise veraltet, Doppelklick auf "Zelt errichten" löst Folgeaktion aus (Wegfinder springt ins Dorf). | Doppelklick behoben (fix/double-click: 0,5 s Sperre nach jedem Befehl), Hinweistext offen |
 | 16 | Mittel | 390 px: Leiste läuft aus dem Bild, Kapitelkarte verdeckt Karte. Baumenü verdeckt halbe Karte, Vorspulknopf wandert. | behoben (fix/mobile-layout): kompakte Leiste, kurze Kapitelkarte, Bauen-Knopf rechts unten, Menü max. halbe Höhe (im Browser bei 390 px geprüft) |
 | 17 | Niedrig | Koordinatentexte ("Wegfinder nach 4, 0"), Steinbruch-Karte "erkunde weiter" obwohl Kapitel ihn verlangt, kein Bau-Fortschritt auf der Karte, "Bauplatz belegt" missverständlich. | offen |
