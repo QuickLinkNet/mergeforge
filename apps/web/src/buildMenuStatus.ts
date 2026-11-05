@@ -132,8 +132,8 @@ function noFieldNote(entry: CatalogEntry, state: GameState, modules: readonly Mo
       .map((tile) => `${tile.coord.q},${tile.coord.r}`);
   }
   if (sightedKeys.length === 0) return `Noch kein ${label} in Sicht: erkunde weiter`;
-  if (sightedKeys.every((key) => roads.has(key) && taken(key))) {
-    return `Alle ${label}-Felder mit Straße sind bebaut: baue eine Straße zu einem weiteren`;
+  if (sightedKeys.some((key) => roads.has(key) && taken(key))) {
+    return `Dein ${label}-Feld mit Straße ist schon bebaut. Baue eine Straße zu einem weiteren ${label}-Feld.`;
   }
   return `Zuerst eine Straße bis zu einem ${label}-Feld bauen`;
 }

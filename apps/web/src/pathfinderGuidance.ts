@@ -4,7 +4,10 @@ const keyToCoord = (key: string): HexCoord => {
   return { q: q ?? 0, r: r ?? 0 };
 };
 
+export type GuidanceStep = 'move' | 'survey' | 'no-charge' | 'nothing-here';
+
 export interface PathfinderGuidance {
+  readonly step: GuidanceStep;
   /** One plain sentence telling the player what to do next. */
   readonly text: string;
   /** Map fields worth highlighting for that step (may be empty). */
@@ -39,14 +42,19 @@ export function pathfinderGuidance(state: GameState): PathfinderGuidance | null 
 
   if (pathfinder.charges < 1) {
     return {
+      step: 'no-charge',
       text: 'Der Wegfinder hat keine Ladung. Pro Takt (10 Minuten) kommt eine dazu.',
       highlightKeys: [],
     };
   }
 
   if (!isRoadEnd(pathfinder.tileKey)) {
+    const onRoad = state.roadTileKeys.includes(pathfinder.tileKey);
     return {
-      text: 'Schritt 1 von 2: Klicke das äußerste Straßenfeld (das Ende einer Straße) und dann „Wegfinder bewegen“.',
+      step: 'move',
+      text: onRoad
+        ? 'Schritt 1 von 2: Der Wegfinder steht an einer Abzweigung, nicht am Ende einer Straße. Klicke ein markiertes Straßenende und dann „Wegfinder bewegen“.'
+        : 'Schritt 1 von 2: Klicke ein markiertes Straßenende (das letzte Feld einer Straße) und dann „Wegfinder bewegen“.',
       highlightKeys: state.roadTileKeys.filter(isRoadEnd),
     };
   }
@@ -57,12 +65,14 @@ export function pathfinderGuidance(state: GameState): PathfinderGuidance | null 
     .map((tile) => keyOf(tile.coord));
   if (targets.length === 0) {
     return {
+      step: 'nothing-here',
       text: 'Hier gibt es nichts zu vermessen. Baue die Straße weiter aus oder bewege den Wegfinder zu einem anderen Straßenende.',
       highlightKeys: state.roadTileKeys.filter((key) => isRoadEnd(key) && key !== pathfinder.tileKey),
     };
   }
   return {
-    text: 'Schritt 2 von 2: Klicke ein Nebelfeld, das zwei Felder vom Wegfinder entfernt liegt, und dann „Jetzt vermessen“.',
+    step: 'survey',
+    text: 'Schritt 2 von 2: Klicke ein markiertes Nebelfeld, zwei Felder vom Wegfinder entfernt, und dann „Jetzt vermessen“.',
     highlightKeys: targets,
   };
 }
