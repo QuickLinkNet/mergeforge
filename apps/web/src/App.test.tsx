@@ -60,11 +60,19 @@ vi.mock('@mergeforge/renderer-pixi', () => ({
   }),
 }));
 
+// The double-click guard reads performance.now(); let it run ahead so tests that click quickly
+// in a row are not mistaken for double clicks.
+let fakeNow = 0;
+let clockSpy: ReturnType<typeof vi.spyOn> | undefined;
+
 beforeEach(() => {
   window.localStorage.clear();
+  fakeNow = 0;
+  clockSpy = vi.spyOn(performance, 'now').mockImplementation(() => (fakeNow += 1000));
 });
 
 afterEach(() => {
+  clockSpy?.mockRestore();
   vi.clearAllMocks();
   rendererHarness.onHexSelect = undefined;
   window.localStorage.clear();
@@ -185,6 +193,21 @@ describe('MERGEFORGE web shell', () => {
     expect(screen.getByText('Kapitel 2 · Waldlinie')).toBeTruthy();
     expect(rendererHarness.update).toHaveBeenCalled();
 
+    view.unmount();
+  });
+
+  it('ignores a fast second click on a confirm button', async () => {
+    const view = await renderReadyApp();
+    const selectHex = rendererHarness.onHexSelect;
+    clockSpy?.mockImplementation(() => 5000);
+
+    act(() => selectHex?.({ key: '1,0', coord: { q: 1, r: 0 } }));
+    const build = screen.getByRole('button', { name: 'Straße bauen' });
+    fireEvent.click(build);
+    fireEvent.click(build);
+
+    // One road costs 1 wood; a second command would have been a second road or a stray action.
+    expect(screen.getByLabelText('Holz: 12')).toBeTruthy();
     view.unmount();
   });
 

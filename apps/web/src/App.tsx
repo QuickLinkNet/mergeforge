@@ -154,6 +154,7 @@ const workshopFailureCopy: Readonly<Record<StartWorkshopRejection, string>> = {
   'insufficient-resources': 'Für die Werkstatt fehlen Holz oder Stein.',
 };
 
+const COMMAND_COOLDOWN_MS = 500;
 const MODULE_MANIFESTS = LOADED_MODULES.map((entry) => entry.manifest);
 
 const signalBearingCopy: Readonly<Record<SignalBearing, { readonly label: string; readonly angle: number }>> = {
@@ -657,7 +658,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     if (effectiveWorld !== null) rendererRef.current?.update(effectiveWorld, rendererView);
   }, [effectiveWorld, rendererView]);
 
-  const confirmRoad = useCallback(() => {
+  const confirmRoadRaw = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
     const relayWasDiscovered = hasPrologueEvent(gameState, 'relay_discovered');
     const previousFinds = new Set(gameState.claimedSurfaceFindTileKeys);
@@ -704,7 +705,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     }
   }, [gameState, selectedTile]);
 
-  const confirmBuilding = useCallback(() => {
+  const confirmBuildingRaw = useCallback(() => {
     if (gameState === null || selectedTile === null || buildingPlan === null) return;
     const result =
       buildingPlan.type === 'lumber-camp'
@@ -714,7 +715,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     if (result.ok) setEventMessage(`${buildingPlan.name} beauftragt · Fertigstellung in 10:00`);
   }, [buildingPlan, commandNowMs, gameState, selectedTile]);
 
-  const confirmModuleBuilding = useCallback((manifest: ModuleManifest) => {
+  const confirmModuleBuildingRaw = useCallback((manifest: ModuleManifest) => {
     if (gameState === null || selectedTile === null) return;
     const result = startModuleBuilding(gameState, manifest, selectedTile.coord, commandNowMs);
     setGameState(result.state);
@@ -723,14 +724,14 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     }
   }, [commandNowMs, gameState, selectedTile]);
 
-  const confirmTraining = useCallback(() => {
+  const confirmTrainingRaw = useCallback(() => {
     if (gameState === null) return;
     const result = startPathfinderTraining(gameState, commandNowMs);
     setGameState(result.state);
     if (result.ok) setEventMessage('Wegfinder in Ausbildung · Bereit in 10:00');
   }, [commandNowMs, gameState]);
 
-  const confirmMovement = useCallback(() => {
+  const confirmMovementRaw = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
     const result = movePathfinder(gameState, selectedTile.coord, commandNowMs);
     setGameState(result.state);
@@ -740,7 +741,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     }
   }, [commandNowMs, gameState, selectedTile]);
 
-  const confirmSurvey = useCallback(() => {
+  const confirmSurveyRaw = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
     const relayWasDiscovered = hasPrologueEvent(gameState, 'relay_discovered');
     const result = surveyWithPathfinder(gameState, selectedTile.coord, commandNowMs);
@@ -755,33 +756,53 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     }
   }, [commandNowMs, gameState, selectedTile]);
 
-  const confirmSurveyTent = useCallback(() => {
+  const confirmSurveyTentRaw = useCallback(() => {
     if (gameState === null) return;
     const result = startSurveyTent(gameState, commandNowMs);
     setGameState(result.state);
     if (result.ok) setEventMessage('Vermesserzelt beauftragt · Fertigstellung in 10:00');
   }, [commandNowMs, gameState]);
 
-  const confirmWorkshop = useCallback(() => {
+  const confirmWorkshopRaw = useCallback(() => {
     if (gameState === null) return;
     const result = startWorkshop(gameState, commandNowMs);
     setGameState(result.state);
     if (result.ok) setEventMessage('Werkstatt beauftragt · Fertigstellung in 20:00');
   }, [commandNowMs, gameState]);
 
-  const confirmRelayRepair = useCallback(() => {
+  const confirmRelayRepairRaw = useCallback(() => {
     if (gameState === null) return;
     const result = startRelayRepair(gameState, commandNowMs);
     setGameState(result.state);
     if (result.ok) setEventMessage('Resonanzkern installiert · Relais bereit in 30:00');
   }, [commandNowMs, gameState]);
 
-  const confirmSignalScan = useCallback(() => {
+  const confirmSignalScanRaw = useCallback(() => {
     if (gameState === null) return;
     const result = scanFarSignals(gameState, commandNowMs);
     setGameState(result.state);
     if (result.ok) setEventMessage('Signalnetz aktiv · Zwei Fernsignale empfangen');
   }, [commandNowMs, gameState]);
+
+  // A fast double click must not trigger a second command: after the first one the card
+  // under the cursor changes (e.g. tent built -> pathfinder move card appears in the same spot).
+  const lastCommandAtRef = useRef(0);
+  const guardCommand = <Args extends unknown[]>(command: (...args: Args) => void) => (...args: Args): void => {
+    const now = performance.now();
+    if (now - lastCommandAtRef.current < COMMAND_COOLDOWN_MS) return;
+    lastCommandAtRef.current = now;
+    command(...args);
+  };
+  const confirmRoad = guardCommand(confirmRoadRaw);
+  const confirmBuilding = guardCommand(confirmBuildingRaw);
+  const confirmModuleBuilding = guardCommand(confirmModuleBuildingRaw);
+  const confirmTraining = guardCommand(confirmTrainingRaw);
+  const confirmMovement = guardCommand(confirmMovementRaw);
+  const confirmSurvey = guardCommand(confirmSurveyRaw);
+  const confirmSurveyTent = guardCommand(confirmSurveyTentRaw);
+  const confirmWorkshop = guardCommand(confirmWorkshopRaw);
+  const confirmRelayRepair = guardCommand(confirmRelayRepairRaw);
+  const confirmSignalScan = guardCommand(confirmSignalScanRaw);
 
   const rotateRune = useCallback((index: number) => {
     if (gameState === null) return;
