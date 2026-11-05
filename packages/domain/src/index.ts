@@ -8,6 +8,8 @@ import { createFarSignals, type FarSignal } from "./signals";
 import type { ModuleManifest, ModuleRef } from "./modules";
 
 export * from "./signals";
+export * from "./catalog";
+export * from "./techtree";
 export * from "./modules";
 export * from "./players";
 
