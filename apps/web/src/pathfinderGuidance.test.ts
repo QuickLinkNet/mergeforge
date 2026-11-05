@@ -49,6 +49,7 @@ describe('pathfinderGuidance', () => {
   it('first sends the player to a road end, with the road end highlighted', () => {
     const state = withActivePathfinder(2);
     const guidance = pathfinderGuidance(state);
+    expect(guidance?.step).toBe('move');
     expect(guidance?.text).toContain('Schritt 1 von 2');
     expect(guidance?.highlightKeys).toEqual(['2,0']);
   });
@@ -58,6 +59,7 @@ describe('pathfinderGuidance', () => {
     const moved = movePathfinder(state, { q: 2, r: 0 }, 700_000);
     expect(moved.ok).toBe(true);
     const guidance = pathfinderGuidance(moved.state);
+    expect(guidance?.step).toBe('survey');
     expect(guidance?.text).toContain('Schritt 2 von 2');
     expect(guidance?.highlightKeys).toEqual(['4,0']);
   });
