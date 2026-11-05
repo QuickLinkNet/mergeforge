@@ -155,6 +155,7 @@ export function entryStatus(
   nowMs: number,
   candidates: readonly string[],
   modules: readonly ModuleManifest[] = [],
+  tradeAvailable = true,
 ): MenuStatus {
   const remaining = (completesAtMs: number) => Math.max(0, completesAtMs - nowMs);
   const built = (type: string) => state.buildings.filter((building) => building.type === type);
@@ -191,7 +192,7 @@ export function entryStatus(
       if (state.relay.status === 'repairing') return { kind: 'running', note: 'Reparatur läuft', remainingMs: remaining(state.relay.completesAtMs) };
       if (state.relay.status === 'active') return { kind: 'done', note: 'Relais aktiv' };
       const result = startRelayRepair(state, nowMs);
-      return result.ok ? { kind: 'ready', note: 'Im Dorf starten' } : rejected(entry, result.reason);
+      return result.ok ? { kind: 'ready', note: 'Startet die Reparatur, Kern wird eingesetzt' } : rejected(entry, result.reason);
     }
     case 'signal-scan': {
       const result = scanFarSignals(state, nowMs);
@@ -199,9 +200,10 @@ export function entryStatus(
       return result.reason === 'already-scanned' ? { kind: 'done', note: 'Signalnetz aktiv' } : { kind: 'locked', note: entry.condition };
     }
     case 'market':
-      return state.relay.status === 'active' && hasCompletedChapter(state, 7)
-        ? { kind: 'info', note: 'Karte „Handelsposten“ im Seitenfenster' }
-        : { kind: 'locked', note: entry.condition };
+      if (state.relay.status !== 'active' || !hasCompletedChapter(state, 7)) return { kind: 'locked', note: entry.condition };
+      return tradeAvailable
+        ? { kind: 'info', note: 'Die Karte „Handelsposten“ erscheint rechts auf der Karte.' }
+        : { kind: 'info', note: 'Handel braucht ein Online-Konto und ist im Sandbox-Modus nicht verfügbar.' };
     default: {
       // Field-based: road, lumber camp, quarry and modules.
       const running = state.buildings.find(
