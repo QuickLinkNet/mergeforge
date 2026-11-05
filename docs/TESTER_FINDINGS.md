@@ -71,3 +71,19 @@ Laufendes Log der ehrlichen Spieltests. Der KI-Tester ist `.claude/agents/tester
 | 24 | Niedrig | Baumenü verrät die Kapitelkette, Koordinaten und "Ladungen" unerklärt, "Felder markieren" ohne sichtbare Wirkung bei leerem Ziel. | offen |
 
 **Nicht geprüft:** Signalwerk-Rätsel, Relaiswerkstatt, Relais reparieren, Signalscan, Handelsposten, alles ab Kapitel 5 Abschluss.
+
+---
+
+## Lauf 5 · 2026-11-05 · Mia (Sandbox, bis Kapitel 7)
+
+**Gesamteindruck:** Kapitel 1 bis 7 laufen durch. Der Richtungshinweis in Kapitel 5 war genau richtig ("Südosten, etwa 10 Felder", das Relais lag dort). Rätsel, Werkstatt, Reparatur und Fernsignal funktionierten. Am Ende steht der Handelsposten ohne Knopf. Wärst du drangeblieben: **Vielleicht.**
+
+| # | Schwere | Fund | Status |
+|---|---|---|---|
+| 25 | Hoch | Handelsposten nicht erreichbar: Karte ohne Knopf, Hinweis verweist auf ein "Seitenfenster", das es nicht gibt; vorher "Online-Konto" im Sandbox-Modus unerklärt. | offen (unklar, ob Absicht: Kontopflicht) |
+| 26 | Mittel | Relais-Entdeckung / Kapitelwechsel 5 auf 6 ohne Rückmeldung; Signalwerk-Rätsel geht als Vollbild auf, Straßen- und Signalwerk-Karte liegen auf derselben Position. | offen (deckt sich mit #22 und #20) |
+| 27 | Mittel | Kapitel 6: zwei Wege für dasselbe ("Kern installieren · Reparatur starten" auf der Relais-Karte und "Relais reparieren" im Baumenü); Text "Relais wird aktiv (Kapitel 6)" landet in Kapitel 7. | offen |
+| 28 | Niedrig | Straßen-Modus bleibt nach dem Bau aktiv, nur am Hinweis unten erkennbar. | offen |
+| 29 | Niedrig | 800x600 und 390 px: Fernsignal- und Relaiskarte verdecken fast die ganze Karte; Handelsposten-Karte im Baumenü am Rand abgeschnitten. | offen (deckt sich mit #23) |
+
+**Nicht geprüft:** Handelsposten selbst, Knopf "Kern installieren · Reparatur starten", Neuladen mitten im Bau, echte Doppelbuchung bei Doppelklick.

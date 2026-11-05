@@ -311,6 +311,8 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   const [nowMs, setNowMs] = useState(bootstrapNowRef.current);
   const [systemNotice, setSystemNotice] = useState<string | null>(bootstrap.ok ? bootstrap.notice : null);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
+  const [chapterBanner, setChapterBanner] = useState<string | null>(null);
+  const previousChapterRef = useRef<number | null>(null);
   const [highlightedFindEffects, setHighlightedFindEffects] = useState<readonly FindEffectVisual[]>([]);
   const [signalwerkOpen, setSignalwerkOpen] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
@@ -983,6 +985,22 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
               : 'Das 5×5-Raster bleibt beim Schließen und nach einem Reload unverändert erhalten.'
             : 'Das Relais wird erst sichtbar, wenn sein Hex durch Straße oder Vermessung aufgedeckt wurde.';
 
+  // Announce a finished chapter once; the first loaded state only sets the baseline (no banner on reload).
+  useEffect(() => {
+    if (gameState === null) return;
+    const previous = previousChapterRef.current;
+    previousChapterRef.current = chapterNumber;
+    if (previous !== null && chapterNumber > previous) {
+      setChapterBanner(`Kapitel ${previous} geschafft! Kapitel ${chapterNumber}: ${chapterName} · Ziel: ${missionObjective}`);
+    }
+  }, [gameState === null, chapterNumber]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (chapterBanner === null) return;
+    const timer = window.setTimeout(() => setChapterBanner(null), 9_000);
+    return () => window.clearTimeout(timer);
+  }, [chapterBanner]);
+
   const buildingRemainingMs =
     selectedBuilding === undefined
       ? 0
@@ -1500,6 +1518,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
               modules={MODULE_MANIFESTS}
               onClose={() => setBuildMenuOpen(false)}
               onAction={handleMenuAction}
+              tradeAvailable={online?.market !== undefined}
               {...(online === undefined || online.isOwner === true ? { onSkipTime: skipOnePulse } : {})}
             />
           )}
@@ -1527,6 +1546,12 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
         </section>
       )}
       {eventMessage !== null && <div className="event-toast" role="status">{eventMessage}</div>}
+      {chapterBanner !== null && (
+        <div className="chapter-banner" role="status">
+          <span>{chapterBanner}</span>
+          <button type="button" aria-label="Meldung schließen" onClick={() => setChapterBanner(null)}>×</button>
+        </div>
+      )}
 
       {signalwerkOpen && gameState !== null && signalwerkPuzzle !== null && (
         <section className="signalwerk-backdrop" role="dialog" aria-modal="true" aria-labelledby="signalwerk-title">
