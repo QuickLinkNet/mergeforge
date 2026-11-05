@@ -807,6 +807,16 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
     else if (entry.id === 'signal-scan') confirmSignalScan();
   }, [confirmRelayRepair, confirmSignalScan, confirmSurveyTent, confirmTraining, confirmWorkshop]);
 
+  // Maintainer test tool: one world pulse forward. The clock never runs backwards, so the
+  // game simply stays ahead of the wall clock until real time catches up.
+  const skipOnePulse = useCallback(() => {
+    setGameState((current) => {
+      if (current === null) return current;
+      return advanceTime(current, Math.max(Date.now(), current.lastAdvancedAtMs) + WORLD_PULSE_MS);
+    });
+    setEventMessage('Testmodus: 10 Minuten vorgespult');
+  }, []);
+
   const cancelSelection = useCallback(() => setSelectedTile(null), []);
 
   const generatorVersion = gameState?.world.generatorVersion ?? 'unbekannt';
@@ -1457,6 +1467,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
               modules={MODULE_MANIFESTS}
               onClose={() => setBuildMenuOpen(false)}
               onAction={handleMenuAction}
+              {...(online === undefined || online.isOwner === true ? { onSkipTime: skipOnePulse } : {})}
             />
           )}
           <button

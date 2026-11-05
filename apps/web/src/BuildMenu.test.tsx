@@ -94,6 +94,17 @@ describe('BuildMenu', () => {
     expect(onAction).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'pathfinder' }), expect.objectContaining({ kind: 'ready' }));
   });
 
+  it('shows the time-skip test tool only when it is handed in', () => {
+    const state = createInitialGameState(world, 0);
+    const props = { state, nowMs: 1_000, catalog, modules: [], onClose: () => undefined, onAction: () => undefined };
+    const { rerender } = render(<BuildMenu {...props} />);
+    expect(screen.queryByText(/vorspulen/)).toBeNull();
+    const skip = vi.fn();
+    rerender(<BuildMenu {...props} onSkipTime={skip} />);
+    fireEvent.click(screen.getByText(/vorspulen/));
+    expect(skip).toHaveBeenCalledOnce();
+  });
+
   it('formats the countdown', () => {
     expect(formatClock(600_000)).toBe('10:00');
     expect(formatClock(61_500)).toBe('1:02');

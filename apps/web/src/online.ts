@@ -38,6 +38,8 @@ export interface OnlineSession {
   readonly loadContacts?: () => Promise<readonly RadioContact[]>;
   /** Trade offers with the neighbours (D-021). */
   readonly market?: MarketApi;
+  /** The maintainer account: may use the test tools (fast-forward). */
+  readonly isOwner?: boolean;
 }
 
 export type TradeResourceId = (typeof TRADE_RESOURCES)[number];
@@ -495,14 +497,16 @@ export type AccessRequestStatus = 'none' | 'pending' | 'denied';
  */
 export async function prepareOnline(fetcher: typeof fetch, base: StorageLike): Promise<GateResult> {
   let player: AccountPlayer;
+  let isOwner = false;
   try {
     const response = await request(fetcher, `${API_BASE}/me`);
     if (response.status === 401) return { kind: 'signed-out' };
     if (!response.ok) return { kind: 'unreachable' };
     const body = (await response.json()) as {
-      account?: { githubLogin?: unknown; contributor?: unknown; access?: unknown };
+      account?: { githubLogin?: unknown; contributor?: unknown; access?: unknown; owner?: unknown };
       player?: unknown;
     };
+    isOwner = body.account?.owner === true;
     if (body.account?.contributor === false) {
       const login = body.account.githubLogin;
       const access = body.account.access;
@@ -568,6 +572,7 @@ export async function prepareOnline(fetcher: typeof fetch, base: StorageLike): P
       notice,
       loadContacts: () => fetchContacts(fetcher),
       market: createMarketApi(fetcher),
+      isOwner,
     },
   };
 }
