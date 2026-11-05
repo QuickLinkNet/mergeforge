@@ -131,11 +131,13 @@ if (storage_available()) {
 // Handelsangebote (D-021)
 if (storage_available()) {
     $offer = ['giveResource' => 'wood', 'giveAmount' => 10, 'wantResource' => 'stone', 'wantAmount' => 4];
+    $rich = ['wood' => 100, 'stone' => 100, 'since' => '2000-01-01T00:00:00+00:00'];
     check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => 10, 'wantResource' => 'wood', 'wantAmount' => 4]) === ['error' => 'invalid-offer'], 'same resource both ways is invalid');
     check(create_offer(1, 'alice', ['giveResource' => 'gold', 'giveAmount' => 1, 'wantResource' => 'wood', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'unknown resource is invalid');
     check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => 51, 'wantResource' => 'stone', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'amount above the limit is invalid');
     check(create_offer(1, 'alice', ['giveResource' => 'wood', 'giveAmount' => '5', 'wantResource' => 'stone', 'wantAmount' => 1]) === ['error' => 'invalid-offer'], 'non-integer amount is invalid');
-    $made = create_offer(1, 'alice', $offer);
+    check(create_offer(1, 'alice', $offer) === ['error' => 'not-enough-stock'], 'an offer without stock in the save is refused');
+    $made = create_offer(1, 'alice', $offer, $rich);
     check(isset($made['id']), 'offer is created');
     check(market_overview(2, [])['offers'] === [], 'strangers do not see offers');
     check(count(market_overview(2, [1])['offers']) === 1, 'neighbours see the offer');
@@ -155,14 +157,37 @@ if (storage_available()) {
     check(claim_inbox(2, ['ids' => [$buyerInbox[0]['id']]])['claimed'] === [], 'a delivery is claimed only once');
     check(claim_inbox(2, ['ids' => ['x']]) === ['error' => 'invalid-claim'], 'invalid claim list rejected');
     foreach ([1, 2, 3] as $n) {
-        create_offer(9, 'zed', $offer);
+        create_offer(9, 'zed', $offer, $rich);
     }
-    check(create_offer(9, 'zed', $offer) === ['error' => 'too-many-offers'], 'open offers per player are limited');
+    check(create_offer(9, 'zed', $offer, $rich) === ['error' => 'too-many-offers'], 'open offers per player are limited');
     $own = market_overview(9, [])['mine'];
     check(cancel_offer(8, ['offerId' => $own[0]['id']]) === ['error' => 'not-found'], 'only the seller can withdraw');
     check(cancel_offer(9, ['offerId' => $own[0]['id']]) === [], 'seller withdraws an offer');
     $refund = market_overview(9, [])['inbox'];
     check(count($refund) === 1 && $refund[0]['reason'] === 'refund' && $refund[0]['amount'] === 10, 'withdrawn goods come back');
+}
+
+// Marktbestand: neue Angebote zählen gegen den gespeicherten Bestand
+if (storage_available()) {
+    $stock = ['wood' => 25, 'stone' => 0, 'since' => '2000-01-01T00:00:00+00:00'];
+    $offer = ['giveResource' => 'wood', 'giveAmount' => 10, 'wantResource' => 'stone', 'wantAmount' => 1];
+    check(isset(create_offer(70, 'bob', $offer, $stock)['id']), 'first offer fits the stock');
+    check(isset(create_offer(70, 'bob', $offer, $stock)['id']), 'second offer still fits');
+    check(create_offer(70, 'bob', $offer, $stock) === ['error' => 'not-enough-stock'], 'promised goods count against the stock');
+    check(create_offer(70, 'bob', ['giveResource' => 'stone', 'wantResource' => 'wood'] + $offer, $stock) === ['error' => 'not-enough-stock'], 'no stone in the save, no stone offer');
+}
+
+// Save-Werte
+{
+    $base = ['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's'], 'resources' => ['wood' => 10, 'stone' => 5]];
+    check(save_payload_error($base) === null, 'a normal save passes');
+    check(save_payload_error(['resources' => ['wood' => 301, 'stone' => 0]] + $base) === 'invalid-save', 'wood above storage is refused');
+    check(save_payload_error(['resources' => ['wood' => 1, 'stone' => 151]] + $base) === 'invalid-save', 'stone above storage is refused');
+    check(save_payload_error(['resources' => ['wood' => -1, 'stone' => 0]] + $base) === 'invalid-save', 'negative stock is refused');
+    check(save_payload_error(['resources' => ['wood' => 1.5, 'stone' => 0]] + $base) === 'invalid-save', 'fractional stock is refused');
+    check(save_payload_error(['lastAdvancedAtMs' => (time() + 10 * 365 * 86400) * 1000] + $base) === 'invalid-save', 'a save far in the future is refused');
+    check(save_payload_error(['lastAdvancedAtMs' => time() * 1000] + $base) === null, 'a current time passes');
+    check(save_payload_error(['buildings' => array_fill(0, 501, 1)] + $base) === 'invalid-save', 'absurd building lists are refused');
 }
 
 // Funkkontakte
