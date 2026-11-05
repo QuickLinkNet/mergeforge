@@ -1,5 +1,6 @@
 import {
   buildRoad,
+  terrainName,
   hasCompletedChapter,
   scanFarSignals,
   startPathfinderTraining,
@@ -11,6 +12,8 @@ import {
   type HexCoord,
   type ModuleManifest,
 } from '@mergeforge/domain';
+
+import { pathfinderGuidance } from './pathfinderGuidance';
 
 export type MenuStatus =
   /** done for good (one-time entries) */
@@ -105,12 +108,43 @@ function rejected(entry: CatalogEntry, reason: string): MenuStatus {
   return { kind: 'locked', note: reasonCopy[reason] ?? entry.condition };
 }
 
+/** Tells the player what is missing when no map field fits yet (not just what the building needs). */
+function noFieldNote(entry: CatalogEntry, state: GameState, modules: readonly ModuleManifest[]): string {
+  if (entry.id === 'road') {
+    return state.resources.wood < 1 ? 'Es fehlt 1 Holz' : 'Kein sichtbares Feld neben dem Straßennetz';
+  }
+  const roads = new Set(state.roadTileKeys);
+  const visible = new Set(state.visibleTileKeys);
+  const taken = (key: string) => state.buildings.some((building) => building.tileKey === key);
+  let label: string;
+  let sightedKeys: string[];
+  if (entry.id === 'quarry') {
+    label = 'Steinvorkommen';
+    sightedKeys = state.world.resourceSites
+      .filter((site) => site.type === 'stone' && visible.has(site.tileKey))
+      .map((site) => site.tileKey);
+  } else {
+    const manifest = modules.find((candidate) => `module:${candidate.id}` === entry.id);
+    const terrains = entry.id === 'lumber-camp' ? ['forest'] : (manifest?.building.placement.terrain as readonly string[] | undefined) ?? [];
+    label = terrains.map(terrainName).join(' oder ') || 'Feld';
+    sightedKeys = state.world.tiles
+      .filter((tile) => terrains.includes(tile.terrain) && visible.has(`${tile.coord.q},${tile.coord.r}`))
+      .map((tile) => `${tile.coord.q},${tile.coord.r}`);
+  }
+  if (sightedKeys.length === 0) return `Noch kein ${label} in Sicht: erkunde weiter`;
+  if (sightedKeys.every((key) => roads.has(key) && taken(key))) {
+    return `Alle ${label}-Felder mit Straße sind bebaut: baue eine Straße zu einem weiteren`;
+  }
+  return `Zuerst eine Straße bis zu einem ${label}-Feld bauen`;
+}
+
 /** How one catalog entry stands for this player right now. */
 export function entryStatus(
   entry: CatalogEntry,
   state: GameState,
   nowMs: number,
   candidates: readonly string[],
+  modules: readonly ModuleManifest[] = [],
 ): MenuStatus {
   const remaining = (completesAtMs: number) => Math.max(0, completesAtMs - nowMs);
   const built = (type: string) => state.buildings.filter((building) => building.type === type);
@@ -119,7 +153,7 @@ export function entryStatus(
     case 'pathfinder': {
       const unit = state.units.find((candidate) => candidate.type === 'pathfinder');
       if (unit?.status === 'training') return { kind: 'running', note: 'In Ausbildung', remainingMs: remaining(unit.completesAtMs) };
-      if (unit !== undefined) return { kind: 'done', note: 'Ausgebildet' };
+      if (unit !== undefined) return { kind: 'done', note: pathfinderGuidance(state)?.text ?? 'Ausgebildet' };
       const result = startPathfinderTraining(state, nowMs);
       return result.ok ? { kind: 'ready', note: 'Im Dorf ausbilden' } : rejected(entry, result.reason);
     }
@@ -170,7 +204,7 @@ export function entryStatus(
       ).length;
       if (running !== undefined) return { kind: 'running', note: 'Wird gebaut', remainingMs: remaining(running.completesAtMs) };
       if (entry.usesBuildSlot && slotOccupied(state)) return { kind: 'locked', note: reasonCopy['build-slot-occupied'] ?? '' };
-      if (candidates.length === 0) return { kind: 'locked', note: entry.condition };
+      if (candidates.length === 0) return { kind: 'locked', note: noFieldNote(entry, state, modules) };
       const lack = missingNote(entry, state);
       if (lack !== null) return { kind: 'locked', note: lack };
       const owned = count > 0 ? ` · ${count} gebaut` : '';

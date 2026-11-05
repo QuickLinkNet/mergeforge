@@ -74,6 +74,7 @@ import { AccountBadge } from './AccountBadge';
 import { ModuleBuildPanel } from './ModuleBuildPanel';
 import { loadGame, saveGame, type StorageLike } from './persistence';
 import { BuildMenu } from './BuildMenu';
+import { pathfinderGuidance } from './pathfinderGuidance';
 import type { MenuStatus } from './buildMenuStatus';
 import { MarketPanel } from './MarketPanel';
 import { UNIVERSE_SEED, type OnlineSession, type RadioContact, type SyncStatus } from './online';
@@ -792,6 +793,7 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
   }, [gameState]);
 
   const catalog = useMemo(() => buildCatalog(MODULE_MANIFESTS), []);
+  const guidance = useMemo(() => (gameState === null ? null : pathfinderGuidance(gameState)), [gameState]);
   const handleMenuAction = useCallback((entry: CatalogEntry, status: MenuStatus) => {
     if (status.kind === 'field') {
       setPlacementKeys(status.candidates);
@@ -1076,6 +1078,14 @@ export function App({ online }: { readonly online?: OnlineSession | undefined } 
           <strong aria-live="polite">{missionProgress}</strong>
         </div>
         <p className="mission-note">{missionNote}</p>
+        {guidance !== null && (
+          <div className="mission-hint" role="status">
+            <p>{guidance.text}</p>
+            {guidance.highlightKeys.length > 0 && (
+              <button className="secondary-action" type="button" onClick={() => setPlacementKeys(guidance.highlightKeys)}>Felder markieren</button>
+            )}
+          </div>
+        )}
       </section>
 
       {chapterSixComplete && !chapterSevenComplete && (

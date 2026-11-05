@@ -75,6 +75,20 @@ export interface CatalogEntry {
   readonly effect: string;
   /** Who contributed it: the core game or a module id. */
   readonly source: "core" | string;
+  /** The build menu hides the entry until this prologue chapter is finished (the tech tree always shows it). */
+  readonly revealAfterChapter?: 3 | 4 | 5 | 6 | 7;
+}
+
+const TERRAIN_NAMES: Readonly<Record<string, string>> = {
+  forest: "Wald",
+  meadow: "Wiese",
+  hills: "Hügel",
+  water: "Wasser",
+};
+
+/** Player-facing name of a terrain type. */
+export function terrainName(terrain: string): string {
+  return TERRAIN_NAMES[terrain] ?? terrain;
 }
 
 const FREE = { wood: 0, stone: 0 } as const;
@@ -159,6 +173,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
       condition: "Relais entdeckt (Kapitel 5), am Relais lösen",
       effect: "Minispiel 5×5; birgt den Resonanzkern",
       source: "core",
+      revealAfterChapter: 4,
     },
     {
       id: "workshop",
@@ -172,6 +187,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
       condition: "Signalwerk gelöst",
       effect: "Schaltet die Relaisreparatur frei",
       source: "core",
+      revealAfterChapter: 4,
     },
     {
       id: "relay-repair",
@@ -185,6 +201,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
       condition: "Werkstatt fertig, Resonanzkern vorhanden",
       effect: "Relais wird aktiv (Kapitel 6)",
       source: "core",
+      revealAfterChapter: 4,
     },
     {
       id: "signal-scan",
@@ -198,6 +215,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
       condition: "Relais aktiv",
       effect: "Signalnetz aktiv, Funkkontakte sichtbar (Kapitel 7)",
       source: "core",
+      revealAfterChapter: 4,
     },
     {
       id: "market",
@@ -211,6 +229,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
       condition: "Signalnetz aktiv, Online-Konto",
       effect: "Tauschangebote mit den Funkkontakten",
       source: "core",
+      revealAfterChapter: 4,
     },
   ];
 }
@@ -218,7 +237,7 @@ export function coreCatalog(): readonly CatalogEntry[] {
 /** The catalog entry of a data module (a producing building on a field). */
 export function moduleCatalogEntry(manifest: ModuleManifest): CatalogEntry {
   const { building } = manifest;
-  const terrain = building.placement.terrain.join(" / ");
+  const terrain = building.placement.terrain.map(terrainName).join(" / ");
   const resourceName = building.production.resource === "wood" ? "Holz" : "Stein";
   return {
     id: `module:${manifest.id}`,
