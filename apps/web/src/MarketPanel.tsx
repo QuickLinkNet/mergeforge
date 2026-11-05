@@ -17,6 +17,7 @@ const errorCopy: Readonly<Record<string, string>> = {
   'too-many-offers': 'Du hast schon drei offene Angebote.',
   'not-found': 'Das Angebot gibt es nicht mehr.',
   'invalid-offer': 'Dieses Angebot ist ungültig.',
+  'not-enough-stock': 'So viel hast du im gespeicherten Stand nicht. Warte kurz, bis der Spielstand gesichert ist.',
   unreachable: 'Der Handelsposten ist gerade nicht erreichbar.',
 };
 
