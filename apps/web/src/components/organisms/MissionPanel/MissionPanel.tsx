@@ -9,10 +9,12 @@ export interface MissionPanelProps {
   readonly guidance: PathfinderGuidance | null;
   /** Highlights map fields named by the guidance. */
   readonly onHighlight: (keys: readonly string[]) => void;
+  /** Scrolls the map to the fields named by the guidance. */
+  readonly onShow: (keys: readonly string[]) => void;
 }
 
 /** Chapter card on the left: story, goal and progress. */
-export function MissionPanel({ mission, guidance, onHighlight }: MissionPanelProps) {
+export function MissionPanel({ mission, guidance, onHighlight, onShow }: MissionPanelProps) {
   return (
     <section className="mission-card" aria-labelledby="mission-title">
       <div className="mission-kicker"><span>Kapitel {mission.chapterNumber}</span><Badge variant="prototype">Lokaler Prototyp</Badge></div>
@@ -28,6 +30,7 @@ export function MissionPanel({ mission, guidance, onHighlight }: MissionPanelPro
         <MissionHint
           text={guidance.text}
           onHighlight={guidance.highlightKeys.length > 0 ? () => onHighlight(guidance.highlightKeys) : undefined}
+          onShow={guidance.highlightKeys.length > 0 ? () => { onHighlight(guidance.highlightKeys); onShow(guidance.highlightKeys); } : undefined}
         />
       )}
     </section>
