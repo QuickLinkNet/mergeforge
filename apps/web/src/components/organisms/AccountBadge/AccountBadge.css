@@ -1,0 +1,29 @@
+.account-badge {
+  position: absolute;
+  z-index: var(--z-hud);
+  bottom: var(--layout-account-bottom);
+  left: var(--layout-gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-6) var(--space-12);
+  border: var(--border-width) solid var(--color-surface-border);
+  border-radius: var(--radius-10);
+  background: var(--gradient-surface);
+  color: inherit;
+  font-size: var(--font-size-account);
+}
+
+.account-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 580px) {
+  .account-badge { display: none; }
+}

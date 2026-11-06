@@ -1,0 +1,15 @@
+.build-card-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.build-card-heading small {
+  display: block;
+  margin-bottom: var(--space-3);
+  color: var(--color-card-kicker);
+  font-size: var(--font-size-10);
+  font-weight: var(--font-weight-black);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}

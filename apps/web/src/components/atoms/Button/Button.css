@@ -1,0 +1,20 @@
+.secondary-action {
+  border: var(--border-width) solid var(--color-button-secondary-border);
+  background: var(--color-button-secondary-bg);
+  color: var(--color-button-secondary-text);
+}
+
+.primary-action {
+  border: var(--border-width) solid var(--color-button-primary-border);
+  background: var(--gradient-button-primary);
+  box-shadow: var(--shadow-button-primary);
+  color: var(--color-button-primary-text);
+}
+
+.primary-action:disabled {
+  border-color: var(--color-button-disabled-border);
+  background: var(--color-button-disabled-bg);
+  box-shadow: none;
+  color: var(--color-button-disabled-text);
+  cursor: not-allowed;
+}
