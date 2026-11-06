@@ -3,6 +3,7 @@ import {
   buildRoad,
   hasCompletedChapter,
   hasPrologueEvent,
+  isProducingBuilding,
   movePathfinder,
   startLumberCamp,
   startPathfinderTraining,
@@ -32,8 +33,9 @@ export function useSelectionPreviews(gameState: GameState | null, selectedTile: 
   );
   const selectedBuilding = useMemo(
     (): ProductionBuilding | undefined => {
-      const building = gameState?.buildings.find((entry) => entry.tileKey === selectedTile?.key);
-      return building?.type === 'survey-tent' || building?.type === 'workshop' ? undefined : building;
+      return gameState?.buildings.find(
+        (entry): entry is ProductionBuilding => entry.tileKey === selectedTile?.key && isProducingBuilding(entry),
+      );
     },
     [gameState?.buildings, selectedTile?.key],
   );

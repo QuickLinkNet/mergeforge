@@ -4,7 +4,8 @@ import type { GameState } from '@mergeforge/domain';
 import { MarketPanel } from './MarketPanel';
 import { createMarketApi, parseMarketOverview, type MarketApi, type MarketOverview } from '../../../online';
 
-const stateWith = (wood: number, stone: number): GameState => ({ resources: { wood, stone } }) as unknown as GameState;
+// The storage limit comes from the buildings (no storehouse = base limit 300/150).
+const stateWith = (wood: number, stone: number): GameState => ({ resources: { wood, stone }, buildings: [] }) as unknown as GameState;
 
 function fakeMarket(overview: MarketOverview, extra: Partial<MarketApi> = {}): MarketApi {
   return {

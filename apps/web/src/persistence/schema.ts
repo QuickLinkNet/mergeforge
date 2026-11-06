@@ -15,6 +15,11 @@ export const SAVE_FORMAT_VERSION = 1;
 export const MIGRATABLE_SCHEMA_VERSION = 5;
 /** Schema 6 (before module references) is migrated by defaulting to no modules. */
 export const PRE_MODULE_SCHEMA_VERSION = 6;
+/**
+ * Schema 7 (before the phase B sinks) is migrated unchanged: it has no storehouse
+ * (level 0) and no production upgrades, so its buildings array may not contain them.
+ */
+export const PRE_SINKS_SCHEMA_VERSION = 7;
 
 export interface StorageLike {
   getItem(key: string): string | null;

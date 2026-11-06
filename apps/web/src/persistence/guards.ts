@@ -1,9 +1,13 @@
-import { MAX_STONE_STORAGE, MAX_WOOD_STORAGE, type ResourceStock } from '@mergeforge/domain';
+import { MAX_STORAGE_LIMITS, type ResourceStock } from '@mergeforge/domain';
 import type { TileByKey } from './schema';
 
+/**
+ * Shape and absolute bounds of the stock. The limit of the save's own storehouse
+ * level is checked once the buildings are known (validate-sinks.ts).
+ */
 export function parseResources(value: unknown): ResourceStock | null {
   if (!isRecord(value) || !isCount(value.wood) || !isCount(value.stone)) return null;
-  if (value.wood > MAX_WOOD_STORAGE || value.stone > MAX_STONE_STORAGE) return null;
+  if (value.wood > MAX_STORAGE_LIMITS.wood || value.stone > MAX_STORAGE_LIMITS.stone) return null;
   return { wood: value.wood, stone: value.stone };
 }
 

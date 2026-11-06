@@ -60,7 +60,7 @@ Beides — aber mit klar getrennten Rollen.
 - Ein angeschlossener Steinbruch produziert **1 Stein pro Welttakt**.
 - Der Takt läuft alle 10 realen Minuten und auch offline.
 - Produktion landet automatisch im Dorflager; es gibt keinen Abholklick.
-- Das Startlager fasst **300 Holz und 150 Stein**. Das entspricht ungefähr 24 Stunden Grundproduktion je Rohstoff. Bei vollem Lager pausiert nur die jeweilige Anlage; bereits erzeugte Rohstoffe gehen nicht verloren.
+- Das Startlager fasst **300 Holz und 150 Stein**; ab Kapitel 8 hebt das Lagerhaus die Grenze stufenweise bis 800 Holz / 400 Stein (D-023). Das entspricht ungefähr 24 Stunden Grundproduktion je Rohstoff. Bei vollem Lager pausiert nur die jeweilige Anlage; bereits erzeugte Rohstoffe gehen nicht verloren.
 - Rohstoffquellen erschöpfen im MVP nicht. Endliche Adern, Aufforstung und Logistik sind spätere PR-Module.
 
 ### Startbestand

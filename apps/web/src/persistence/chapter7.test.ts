@@ -159,7 +159,7 @@ describe('chapter 7 persistence', () => {
     expect(loaded.state.prologue.completedChapterIds).toEqual([]);
   });
 
-  it('migrates a schema-6 save to schema 7 with no modules', () => {
+  it('migrates a schema-6 save to the current schema with no modules', () => {
     const state = scannedState();
     const { storage, payload } = savedPayload(state);
     payload.gameSchemaVersion = 6;

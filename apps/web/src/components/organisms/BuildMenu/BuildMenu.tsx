@@ -3,12 +3,14 @@ import {
   buildPulses,
   hasCompletedChapter,
   formatBuildTime,
+  storageLimits,
   type CatalogCategory,
   type CatalogEntry,
   type GameState,
   type ModuleManifest,
 } from '@mergeforge/domain';
 import { entryStatus, fieldCandidates, type MenuStatus } from '../../../game/buildMenuStatus';
+import { menuEntryForState } from '../../../game/sinks';
 import { Button } from '../../atoms/Button/Button';
 import { IconButton } from '../../atoms/IconButton/IconButton';
 import { ResourceDot } from '../../atoms/ResourceDot/ResourceDot';
@@ -57,16 +59,18 @@ export function BuildMenu({ state, nowMs, catalog, modules, onClose, onAction, o
 
   const rows = catalog
     .filter((entry) => entry.revealAfterChapter === undefined || hasCompletedChapter(state, entry.revealAfterChapter))
+    .map((catalogEntry) => menuEntryForState(catalogEntry, state))
     .map((entry) => ({ entry, status: entryStatus(entry, state, nowMs, candidates.get(entry.id) ?? [], modules, tradeAvailable) }));
   const running = rows.filter((row) => row.status.kind === 'running');
+  const limits = storageLimits(state);
 
   return (
     <section className="build-menu" aria-labelledby="build-menu-title">
       <header className="build-menu-header">
         <h2 id="build-menu-title">Bauen</h2>
         <span className="build-menu-resources">
-          <ResourceDot kind="wood" /> {state.resources.wood}
-          <ResourceDot kind="stone" /> {state.resources.stone}
+          <ResourceDot kind="wood" /> {state.resources.wood} / {limits.wood}
+          <ResourceDot kind="stone" /> {state.resources.stone} / {limits.stone}
         </span>
         <span className="build-menu-legend">1 Takt = 10 Minuten Spielzeit</span>
         {running.map(({ entry, status }) => (

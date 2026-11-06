@@ -1,4 +1,4 @@
-import { MAX_STONE_STORAGE, MAX_WOOD_STORAGE } from "./constants";
+import { storageLimits } from "./storage";
 import type { GameState, ResourceStock } from "./types";
 
 export type TradeResource = keyof ResourceStock;
@@ -6,14 +6,9 @@ export const TRADE_RESOURCES: readonly TradeResource[] = ["wood", "stone"];
 /** Largest single amount in a trade offer (the server enforces the same limit). */
 export const TRADE_MAX_AMOUNT = 50;
 
-const STORAGE_LIMITS: Readonly<Record<TradeResource, number>> = {
-  wood: MAX_WOOD_STORAGE,
-  stone: MAX_STONE_STORAGE,
-};
-
-/** How much of a resource still fits into the storage. */
+/** How much of a resource still fits into the storage (limit from the finished storehouse level). */
 export function storageRoom(state: GameState, resource: TradeResource): number {
-  return Math.max(0, STORAGE_LIMITS[resource] - state.resources[resource]);
+  return Math.max(0, storageLimits(state)[resource] - state.resources[resource]);
 }
 
 /** Takes goods out of the stock for a trade; rejected (state unchanged) when there is not enough. */

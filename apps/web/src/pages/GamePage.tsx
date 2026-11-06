@@ -32,6 +32,7 @@ export function GamePage({ game }: { readonly game: GameController }) {
           syncLabel={syncLabel(game.syncStatus)}
           wood={gameState?.resources.wood ?? 0}
           stone={gameState?.resources.stone ?? 0}
+          limits={game.storageLimits ?? undefined}
           charges={pathfinder === undefined ? undefined : { current: pathfinder.charges, max: game.maxPathfinderCharges }}
           core={coreKnown ? { installed: gameState?.relay.coreInstalled === true } : undefined}
           chapterNumber={mission.chapterNumber}

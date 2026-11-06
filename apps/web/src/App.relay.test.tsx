@@ -106,7 +106,10 @@ describe('relay, Signalwerk and far signals', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Fernsignal scannen' }));
 
-    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('2 / 2');
+    // The scan finishes the prologue; the game goes on with chapter 8 (D-023).
+    expect(screen.getByText('Kapitel 8 · Gründerwerk')).toBeTruthy();
+    expect(screen.getByLabelText('Kapitelziel').textContent).toContain('0 / 3');
+    expect(screen.getByText(/Kapitel 7 geschafft! Kapitel 8: Gründerwerk/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Fernsignal scannen' })).toBeNull();
     const panel = screen.getByRole('heading', { name: 'Fernsignale' }).closest('section');
     expect(panel).not.toBeNull();
@@ -120,7 +123,7 @@ describe('relay, Signalwerk and far signals', () => {
 
     await waitFor(() => {
       const persisted = JSON.parse(window.localStorage.getItem(GAME_SAVE_KEY) ?? '{}') as Record<string, any>;
-      expect(persisted.gameSchemaVersion).toBe(7);
+      expect(persisted.gameSchemaVersion).toBe(8);
       expect(persisted.signals).toHaveLength(2);
       expect(persisted.relay.capabilities).toEqual(['signal_network_active']);
       expect(persisted.prologue.completedChapterIds).toEqual([3, 4, 5, 6, 7]);

@@ -8,9 +8,10 @@ import {
   type GameState,
 } from "./index";
 
-// The trade helpers only touch the resource stock.
+// The trade helpers only touch the resource stock; the storage limit comes from the
+// buildings (no storehouse = the base limits).
 function stateWith(wood: number, stone: number): GameState {
-  return { resources: { wood, stone } } as unknown as GameState;
+  return { resources: { wood, stone }, buildings: [] } as unknown as GameState;
 }
 
 describe("trade helpers", () => {

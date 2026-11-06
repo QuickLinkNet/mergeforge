@@ -6,7 +6,16 @@ import {
 } from '@mergeforge/domain';
 
 /** Core building ids a module must not reuse. */
-const CORE_BUILDING_IDS = ['lumber-camp', 'quarry', 'survey-tent', 'workshop', 'pathfinder'] as const;
+const CORE_BUILDING_IDS = [
+  'lumber-camp',
+  'quarry',
+  'survey-tent',
+  'workshop',
+  'pathfinder',
+  'storehouse',
+  'lumber-upgrade',
+  'quarry-upgrade',
+] as const;
 export const MODULE_ICON_MAX_BYTES = 8 * 1024;
 
 export interface LoadedModule {
