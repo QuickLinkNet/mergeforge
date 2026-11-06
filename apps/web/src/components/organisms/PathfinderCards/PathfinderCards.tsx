@@ -137,7 +137,7 @@ export function WayfinderCard({ pathfinder, maxCharges, nowMs, guidance, onClose
           value: pathfinder.charges >= maxCharges ? 'Speicher voll' : formatRemaining(pathfinderRemainingMs(pathfinder, nowMs)),
         },
       ]} />
-      <BuildExplanation>{guidance?.text ?? 'Wählt ein einzelnes Nebelhex in Vermessungsreichweite des Straßenkopfs.'}</BuildExplanation>
+      <BuildExplanation>{guidance !== null && guidance.step !== 'relay' ? guidance.text : 'Wählt ein einzelnes Nebelhex in Vermessungsreichweite des Straßenkopfs.'}</BuildExplanation>
       <BuildActions single><Button variant="secondary" onClick={onClose}>Schließen</Button></BuildActions>
     </BuildCard>
   );
