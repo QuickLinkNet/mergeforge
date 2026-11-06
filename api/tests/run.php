@@ -181,8 +181,10 @@ if (storage_available()) {
 {
     $base = ['formatVersion' => 1, 'gameSchemaVersion' => 7, 'world' => ['seed' => 's'], 'resources' => ['wood' => 10, 'stone' => 5]];
     check(save_payload_error($base) === null, 'a normal save passes');
-    check(save_payload_error(['resources' => ['wood' => 301, 'stone' => 0]] + $base) === 'invalid-save', 'wood above storage is refused');
-    check(save_payload_error(['resources' => ['wood' => 1, 'stone' => 151]] + $base) === 'invalid-save', 'stone above storage is refused');
+    check(save_payload_error(['resources' => ['wood' => 800, 'stone' => 400]] + $base) === null, 'a full level-3 storehouse passes');
+    check(save_payload_error(['gameSchemaVersion' => 8] + $base) === null, 'schema 8 passes');
+    check(save_payload_error(['resources' => ['wood' => 801, 'stone' => 0]] + $base) === 'invalid-save', 'wood above storage is refused');
+    check(save_payload_error(['resources' => ['wood' => 1, 'stone' => 401]] + $base) === 'invalid-save', 'stone above storage is refused');
     check(save_payload_error(['resources' => ['wood' => -1, 'stone' => 0]] + $base) === 'invalid-save', 'negative stock is refused');
     check(save_payload_error(['resources' => ['wood' => 1.5, 'stone' => 0]] + $base) === 'invalid-save', 'fractional stock is refused');
     check(save_payload_error(['lastAdvancedAtMs' => (time() + 10 * 365 * 86400) * 1000] + $base) === 'invalid-save', 'a save far in the future is refused');

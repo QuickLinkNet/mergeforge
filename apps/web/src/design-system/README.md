@@ -30,7 +30,7 @@ Die Web-UI folgt Atomic Design. Alle Stile hängen an einem zentralen Satz von D
 - `components/atoms` – Button, IconButton, Badge, ProgressBar, Toast, Symbol, ResourceDot
 - `components/molecules` – BuildCardHeading, ResourceChip, MissionHint, Banner, BuildPreview,
   BuildTimer, SignalList
-- `components/organisms` – TopBar, MissionPanel, BuildMenu, BuildCard (+ Varianten), MarketPanel,
-  SignalwerkDialog, RadioContacts, …
+- `components/organisms` – TopBar, MissionPanel, BuildMenu, BuildCard (+ Varianten wie
+  SinkBuildCard für Lagerhaus und Ausbauten), MarketPanel, SignalwerkDialog, RadioContacts, …
 - `components/templates` – GameLayout
 - `pages` – GamePage, OnlineGate, AccessGate, AdminPage

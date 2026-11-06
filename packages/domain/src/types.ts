@@ -101,6 +101,35 @@ export interface Workshop {
   readonly completesAtMs: number;
 }
 
+export type StorehouseLevel = 1 | 2 | 3;
+
+/**
+ * The village storehouse: one building row that is upgraded in place. `level`
+ * is the level reached when the current construction completes; while it is
+ * constructing the storage limits of the previous level still apply.
+ */
+export interface Storehouse {
+  readonly id: string;
+  readonly type: "storehouse";
+  readonly tileKey: string;
+  readonly status: BuildingStatus;
+  readonly level: StorehouseLevel;
+  readonly startedAtMs: number;
+  readonly completesAtMs: number;
+}
+
+export type ProductionUpgradeType = "lumber-upgrade" | "quarry-upgrade";
+
+/** One-time village upgrade that raises the yield of every lumber camp or quarry. */
+export interface ProductionUpgrade {
+  readonly id: string;
+  readonly type: ProductionUpgradeType;
+  readonly tileKey: string;
+  readonly status: BuildingStatus;
+  readonly startedAtMs: number;
+  readonly completesAtMs: number;
+}
+
 /**
  * A building defined by a module manifest. Cost and build time are settled at
  * build start; the production rule is frozen into the building so settling
@@ -122,7 +151,20 @@ export interface ModuleBuilding {
   };
 }
 
-export type Building = LumberCamp | Quarry | SurveyTent | Workshop | ModuleBuilding;
+export type Building =
+  | LumberCamp
+  | Quarry
+  | SurveyTent
+  | Workshop
+  | Storehouse
+  | ProductionUpgrade
+  | ModuleBuilding;
+
+/** Buildings that stand at the village instead of on their own field. */
+export type VillageBuilding = SurveyTent | Workshop | Storehouse | ProductionUpgrade;
+
+/** Buildings that produce resources every world pulse. */
+export type ProducingBuilding = LumberCamp | Quarry | ModuleBuilding;
 
 export type PathfinderStatus = "training" | "active";
 
@@ -139,12 +181,13 @@ export interface Pathfinder {
 
 export type Unit = Pathfinder;
 
-export type PrologueChapterId = 3 | 4 | 5 | 6 | 7;
+export type PrologueChapterId = 3 | 4 | 5 | 6 | 7 | 8;
 export type PrologueEventId =
   | "relay_discovered"
   | "signalwerk_solved"
   | "relay_repaired"
-  | "first_signals_received";
+  | "first_signals_received"
+  | "founders_works_completed";
 
 /** Internal capabilities a module can later require; never a currency. */
 export type RelayCapability = "signal_network_active";
@@ -352,6 +395,27 @@ export type StartRelayRepairRejection =
 export type StartRelayRepairResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly reason: StartRelayRepairRejection; readonly state: GameState };
+
+export type StartStorehouseRejection =
+  | "locked"
+  | "max-level"
+  | "build-slot-occupied"
+  | "insufficient-resources";
+
+export type StartStorehouseResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: StartStorehouseRejection; readonly state: GameState };
+
+export type StartProductionUpgradeRejection =
+  | "locked"
+  | "producer-required"
+  | "already-built"
+  | "build-slot-occupied"
+  | "insufficient-resources";
+
+export type StartProductionUpgradeResult =
+  | { readonly ok: true; readonly state: GameState }
+  | { readonly ok: false; readonly reason: StartProductionUpgradeRejection; readonly state: GameState };
 
 export type ScanFarSignalsRejection = "locked" | "already-scanned";
 

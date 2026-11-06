@@ -46,6 +46,36 @@ describe("build catalog", () => {
     expect(byId.get("relay-repair")).toMatchObject({ cost: { wood: 5, stone: 6 }, buildMs: 3 * WORLD_PULSE_MS });
   });
 
+  it("lists the phase B sinks after chapter 7 (D-023)", () => {
+    const byId = new Map(coreCatalog().map((entry) => [entry.id, entry]));
+    expect(byId.get("storehouse")).toMatchObject({
+      category: "infrastructure",
+      placement: "village",
+      cost: { wood: 60, stone: 30 },
+      buildMs: 3 * WORLD_PULSE_MS,
+      usesBuildSlot: true,
+      requires: ["signal-scan"],
+      revealAfterChapter: 7,
+    });
+    expect(byId.get("storehouse")?.effect).toContain("300/150 → 450/225 → 600/300 → 800/400");
+    expect(byId.get("lumber-upgrade")).toMatchObject({
+      category: "production",
+      cost: { wood: 50, stone: 20 },
+      buildMs: 2 * WORLD_PULSE_MS,
+      requires: ["lumber-camp", "signal-scan"],
+      revealAfterChapter: 7,
+    });
+    expect(byId.get("lumber-upgrade")?.effect).toContain("2 → 4 Holz");
+    expect(byId.get("quarry-upgrade")).toMatchObject({
+      category: "production",
+      cost: { wood: 40, stone: 30 },
+      buildMs: 3 * WORLD_PULSE_MS,
+      requires: ["quarry", "signal-scan"],
+      revealAfterChapter: 7,
+    });
+    expect(byId.get("quarry-upgrade")?.effect).toContain("1 → 2 Stein");
+  });
+
   it("adds modules from their manifest", () => {
     const manifest: ModuleManifest = {
       manifestVersion: 1,

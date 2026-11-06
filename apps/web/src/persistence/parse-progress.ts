@@ -2,6 +2,8 @@ import {
   createFarSignals,
   type FarSignal,
   type GameState,
+  type PrologueChapterId,
+  type PrologueEventId,
   type WorldSnapshot,
 } from '@mergeforge/domain';
 import {
@@ -10,6 +12,15 @@ import {
   type SignalRotation,
 } from '@mergeforge/signalwerk';
 import { isCount, isRecord, parseTimestamp } from './guards';
+
+const CHAPTER_ORDER: readonly unknown[] = [3, 4, 5, 6, 7, 8] satisfies readonly PrologueChapterId[];
+const EVENT_ORDER: readonly unknown[] = [
+  'relay_discovered',
+  'signalwerk_solved',
+  'relay_repaired',
+  'first_signals_received',
+  'founders_works_completed',
+] satisfies readonly PrologueEventId[];
 
 export function parsePrologue(value: unknown): GameState['prologue'] | null {
   if (
@@ -23,27 +34,20 @@ export function parsePrologue(value: unknown): GameState['prologue'] | null {
   const completedChapterIds = value.completedChapterIds;
   const eventIds = value.eventIds;
   if (
-    completedChapterIds.some((chapter) => chapter !== 3 && chapter !== 4 && chapter !== 5 && chapter !== 6 && chapter !== 7) ||
-    eventIds.some((eventId) =>
-      eventId !== 'relay_discovered' &&
-      eventId !== 'signalwerk_solved' &&
-      eventId !== 'relay_repaired' &&
-      eventId !== 'first_signals_received') ||
+    completedChapterIds.some((chapter) => !CHAPTER_ORDER.includes(chapter)) ||
+    eventIds.some((eventId) => !EVENT_ORDER.includes(eventId)) ||
     new Set(completedChapterIds).size !== completedChapterIds.length ||
     new Set(eventIds).size !== eventIds.length
   ) return null;
 
-  const completedSequence = completedChapterIds.join(',');
-  if (!['', '3', '3,4', '3,4,5', '3,4,5,6', '3,4,5,6,7'].includes(completedSequence)) return null;
-  const eventSequence = eventIds.join(',');
-  if (!['', 'relay_discovered', 'relay_discovered,signalwerk_solved', 'relay_discovered,signalwerk_solved,relay_repaired', 'relay_discovered,signalwerk_solved,relay_repaired,first_signals_received'].includes(eventSequence)) {
-    return null;
-  }
+  // Chapters and events are only ever appended in their fixed order.
+  if (completedChapterIds.some((chapter, index) => chapter !== CHAPTER_ORDER[index])) return null;
+  if (eventIds.some((eventId, index) => eventId !== EVENT_ORDER[index])) return null;
 
   return {
     stoneProductionObserved: value.stoneProductionObserved,
     pathfinderSurveysCompleted: value.pathfinderSurveysCompleted,
-    completedChapterIds: [...completedChapterIds] as (3 | 4 | 5 | 6 | 7)[],
+    completedChapterIds: [...completedChapterIds] as PrologueChapterId[],
     eventIds: [...eventIds] as GameState['prologue']['eventIds'][number][],
   };
 }

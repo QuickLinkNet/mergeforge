@@ -3,6 +3,7 @@ import {
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
   findMissingModules,
+  isVillageBuilding,
   type GameState,
   type ModuleManifest,
   type ModuleRef,
@@ -27,10 +28,12 @@ import {
   GAME_SAVE_KEY,
   MIGRATABLE_SCHEMA_VERSION,
   PRE_MODULE_SCHEMA_VERSION,
+  PRE_SINKS_SCHEMA_VERSION,
   SAVE_FORMAT_VERSION,
   type LoadGameResult,
   type StorageLike,
 } from './schema';
+import { hasConsistentSinks } from './validate-sinks';
 
 export function loadGame(
   storage: StorageLike,
@@ -56,9 +59,11 @@ export function loadGame(
 
   if (!isRecord(value)) return reset(storage, 'corrupt');
   const migratingLegacy = value.gameSchemaVersion === MIGRATABLE_SCHEMA_VERSION;
+  const preSinksSchema = value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION;
   if (
     value.formatVersion !== SAVE_FORMAT_VERSION ||
     (value.gameSchemaVersion !== GAME_STATE_SCHEMA_VERSION &&
+      value.gameSchemaVersion !== PRE_SINKS_SCHEMA_VERSION &&
       value.gameSchemaVersion !== PRE_MODULE_SCHEMA_VERSION &&
       !migratingLegacy)
   ) {
@@ -85,7 +90,7 @@ export function loadGame(
   const visibleTileKeys = parseTileKeys(value.visibleTileKeys, tileByKey);
   const claimedSurfaceFindTileKeys = parseTileKeys(value.claimedSurfaceFindTileKeys, tileByKey);
   const villageTileKey = `${world.village.coord.q},${world.village.coord.r}`;
-  const buildings = parseBuildings(value.buildings, tileByKey, stoneSiteKeys, villageTileKey);
+  const buildings = parseBuildings(value.buildings, tileByKey, stoneSiteKeys, villageTileKey, !preSinksSchema);
   const surveyTent = buildings?.find((building) => building.type === 'survey-tent');
   const maxCharges = surveyTent?.status === 'active'
     ? PATHFINDER_EXPANDED_MAX_CHARGES
@@ -130,7 +135,7 @@ export function loadGame(
   ) {
     return reset(storage, 'corrupt');
   }
-  if (buildings.some((building) => building.type !== 'survey-tent' && building.type !== 'workshop' && !roads.has(building.tileKey))) {
+  if (buildings.some((building) => !isVillageBuilding(building) && !roads.has(building.tileKey))) {
     return reset(storage, 'corrupt');
   }
   if (surveyTent !== undefined && units[0]?.status !== 'active') return reset(storage, 'corrupt');
@@ -190,6 +195,8 @@ export function loadGame(
     chapterSeven !== (state.signals.length > 0) ||
     (chapterSeven && (state.relay.status !== 'active' || !state.prologue.completedChapterIds.includes(6)))
   ) return reset(storage, 'corrupt');
+  // Schema 7 saves migrate with storehouse level 0 and no upgrades (rejected above if present).
+  if (!hasConsistentSinks(state)) return reset(storage, 'corrupt');
 
   // Every module building must be covered by a module reference of the same version.
   const moduleBuildings = state.buildings.filter((building) => building.type === 'module');

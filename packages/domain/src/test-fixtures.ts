@@ -121,6 +121,33 @@ export function createChapterFourState(status: SurveyTent["status"]): GameState 
   };
 }
 
+/**
+ * A finished prologue (chapter 7) with an active lumber camp on "1,0" and an
+ * active quarry on "2,0", both last produced at time 0.
+ */
+export function createChapterSevenState(
+  resources: GameState["resources"] = { wood: 300, stone: 150 },
+): GameState {
+  const initial = createInitialGameState(createWorld(["1,0"]));
+  return {
+    ...initial,
+    resources,
+    roadTileKeys: ["1,0", "2,0"],
+    visibleTileKeys: [...initial.visibleTileKeys, "2,0"],
+    buildings: [
+      { id: "lumber-camp:1,0", type: "lumber-camp", tileKey: "1,0", status: "active", startedAtMs: 0, completesAtMs: 0, lastProductionAtMs: 0 },
+      { id: "quarry:2,0", type: "quarry", tileKey: "2,0", status: "active", startedAtMs: 0, completesAtMs: 0, lastProductionAtMs: 0 },
+    ],
+    relay: { status: "active", coreInstalled: true, startedAtMs: 0, completesAtMs: 0, capabilities: ["signal_network_active"] },
+    prologue: {
+      stoneProductionObserved: true,
+      pathfinderSurveysCompleted: 1,
+      completedChapterIds: [3, 4, 5, 6, 7],
+      eventIds: ["relay_discovered", "signalwerk_solved", "relay_repaired", "first_signals_received"],
+    },
+  };
+}
+
 export function lastProductionAt(state: GameState): number | undefined {
   const building = state.buildings[0];
   return building?.type === "lumber-camp" || building?.type === "quarry"

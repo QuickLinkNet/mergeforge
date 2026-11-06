@@ -7,8 +7,9 @@ declare(strict_types=1);
 // the save belongs to the player's own sector world, not the game rules itself.
 
 const SAVE_MAX_BYTES = 1048576;
-const SAVE_MAX_WOOD = 300;
-const SAVE_MAX_STONE = 150;
+/** Largest storage the game allows (storehouse level 3, D-023); the client checks the level itself. */
+const SAVE_MAX_WOOD = 800;
+const SAVE_MAX_STONE = 400;
 /** A save may not claim to be advanced further into the future than this (clock skew allowance). */
 const SAVE_MAX_FUTURE_MS = 86400000;
 

@@ -2,6 +2,7 @@ import {
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
   WORLD_PULSE_MS,
+  isVillageBuilding,
   type Building,
   type GameState,
   type Pathfinder,
@@ -20,7 +21,7 @@ export function nextSettlementAt(state: GameState): number {
   const maxCharges = maxPathfinderCharges(surveyTent);
   const buildingEvents = state.buildings.map((building) => {
     if (building.status === 'constructing') return building.completesAtMs;
-    return building.type === 'survey-tent' || building.type === 'workshop'
+    return isVillageBuilding(building)
       ? Number.POSITIVE_INFINITY
       : building.lastProductionAtMs + WORLD_PULSE_MS;
   });

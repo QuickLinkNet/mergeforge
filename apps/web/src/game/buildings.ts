@@ -5,14 +5,16 @@ import {
   QUARRY_STONE_COST,
   QUARRY_STONE_PER_PULSE,
   QUARRY_WOOD_COST,
-  type Building,
+  yieldPerPulse,
+  type GameState,
+  type ProducingBuilding,
   type StartLumberCampResult,
   type StartQuarryResult,
 } from '@mergeforge/domain';
 import type { LoadedModule } from '../moduleRegistry';
 
-/** Buildings with their own map tile and production (not tent or workshop). */
-export type ProductionBuilding = Exclude<Building, { readonly type: 'survey-tent' | 'workshop' }>;
+/** Buildings with their own map tile and production (not the village buildings). */
+export type ProductionBuilding = ProducingBuilding;
 
 export type BuildingPlan =
   | {
@@ -74,8 +76,15 @@ export interface BuildingDescription {
   readonly yieldPerPulse: number;
 }
 
-/** Name, article and yield of a production building for its status card. */
-export function describeBuilding(building: ProductionBuilding, modules: readonly LoadedModule[]): BuildingDescription {
+/**
+ * Name, article and yield of a production building for its status card. With a game
+ * state the yield includes finished production upgrades; without one it is the base yield.
+ */
+export function describeBuilding(
+  building: ProductionBuilding,
+  modules: readonly LoadedModule[],
+  state?: GameState,
+): BuildingDescription {
   if (building.type === 'module') {
     return {
       name: modules.find((entry) => entry.manifest.id === building.moduleId)?.manifest.name ?? building.moduleId,
@@ -89,6 +98,9 @@ export function describeBuilding(building: ProductionBuilding, modules: readonly
     name: quarry ? 'Steinbruch' : 'Holzfällerlager',
     article: quarry ? 'der ' : 'das ',
     resource: quarry ? 'Stein' : 'Holz',
-    yieldPerPulse: quarry ? QUARRY_STONE_PER_PULSE : LUMBER_CAMP_WOOD_PER_PULSE,
+    yieldPerPulse:
+      state === undefined
+        ? quarry ? QUARRY_STONE_PER_PULSE : LUMBER_CAMP_WOOD_PER_PULSE
+        : yieldPerPulse(state, building).amount,
   };
 }
