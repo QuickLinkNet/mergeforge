@@ -104,6 +104,24 @@ export function viewCenterInWorld(layer: Container, viewport: Viewport): WorldPo
   };
 }
 
+/** Mean scene position of the listed tiles (keys "q,r"); null when none of them is part of the world. */
+export function focusPoint(world: WorldSnapshot, tileKeys: readonly string[]): WorldPoint | null {
+  const wanted = new Set(tileKeys);
+  let sumX = 0;
+  let sumY = 0;
+  let count = 0;
+  for (const tile of world.tiles) {
+    if (!wanted.has(`${tile.coord.q},${tile.coord.r}`)) {
+      continue;
+    }
+    const point = axialToPixel(tile.coord, HEX_SIZE);
+    sumX += point.x;
+    sumY += point.y;
+    count += 1;
+  }
+  return count === 0 ? null : { x: sumX / count, y: sumY / count };
+}
+
 /** Moves the layer so that the given world point sits at the viewport center. */
 export function centerLayerOn(layer: Container, viewport: Viewport, worldCenter: WorldPoint): void {
   layer.position.set(
