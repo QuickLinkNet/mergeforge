@@ -38,7 +38,7 @@ describe("road building", () => {
     expect(state.visibleTileKeys).toEqual(state.world.visibleTileKeys);
     expect(state.visibleTileKeys).not.toBe(state.world.visibleTileKeys);
     expect(state).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 8,
       claimedSurfaceFindTileKeys: [],
       buildings: [],
       units: [],

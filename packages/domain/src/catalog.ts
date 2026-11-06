@@ -15,6 +15,10 @@ import {
   LUMBER_CAMP_STONE_COST,
   LUMBER_CAMP_WOOD_COST,
   LUMBER_CAMP_WOOD_PER_PULSE,
+  LUMBER_UPGRADE_BUILD_MS,
+  LUMBER_UPGRADE_STONE_COST,
+  LUMBER_UPGRADE_WOOD_COST,
+  LUMBER_UPGRADE_WOOD_PER_PULSE,
   PATHFINDER_BASE_MAX_CHARGES,
   PATHFINDER_EXPANDED_MAX_CHARGES,
   PATHFINDER_STONE_COST,
@@ -23,11 +27,16 @@ import {
   QUARRY_BUILD_MS,
   QUARRY_STONE_COST,
   QUARRY_STONE_PER_PULSE,
+  QUARRY_UPGRADE_BUILD_MS,
+  QUARRY_UPGRADE_STONE_COST,
+  QUARRY_UPGRADE_STONE_PER_PULSE,
+  QUARRY_UPGRADE_WOOD_COST,
   QUARRY_WOOD_COST,
   RELAY_REPAIR_MS,
   RELAY_REPAIR_STONE_COST,
   RELAY_REPAIR_WOOD_COST,
   ROAD_WOOD_COST,
+  STOREHOUSE_LEVELS,
   SURVEY_TENT_BUILD_MS,
   SURVEY_TENT_STONE_COST,
   SURVEY_TENT_WOOD_COST,
@@ -37,6 +46,7 @@ import {
   WORLD_PULSE_MS,
 } from "./constants";
 import type { ModuleManifest } from "./modules";
+import { storageLimitsAtLevel } from "./storage";
 
 export type CatalogCategory =
   | "infrastructure"
@@ -230,6 +240,61 @@ export function coreCatalog(): readonly CatalogEntry[] {
       effect: "Tauschangebote mit den Funkkontakten",
       source: "core",
       revealAfterChapter: 4,
+    },
+    ...phaseBCatalog(),
+  ];
+}
+
+const storageText = (level: number): string => {
+  const limits = storageLimitsAtLevel(level);
+  return `${limits.wood}/${limits.stone}`;
+};
+
+/** Phase B sinks after chapter 7 (D-023): storehouse levels and production upgrades. */
+function phaseBCatalog(): readonly CatalogEntry[] {
+  const [first, second, third] = STOREHOUSE_LEVELS;
+  return [
+    {
+      id: "storehouse",
+      name: "Lagerhaus",
+      category: "infrastructure",
+      placement: "village",
+      cost: { wood: first?.wood ?? 0, stone: first?.stone ?? 0 },
+      buildMs: first?.buildMs ?? 0,
+      usesBuildSlot: true,
+      requires: ["signal-scan"],
+      condition: `Kapitel 7 abgeschlossen · Stufe 2: ${second?.wood ?? 0} Holz/${second?.stone ?? 0} Stein, Stufe 3: ${third?.wood ?? 0} Holz/${third?.stone ?? 0} Stein`,
+      effect: `Lager (Holz/Stein) ${storageText(0)} → ${storageText(1)} → ${storageText(2)} → ${storageText(3)}`,
+      source: "core",
+      revealAfterChapter: 7,
+    },
+    {
+      id: "lumber-upgrade",
+      name: "Holzfäller-Ausbau",
+      category: "production",
+      placement: "village",
+      cost: { wood: LUMBER_UPGRADE_WOOD_COST, stone: LUMBER_UPGRADE_STONE_COST },
+      buildMs: LUMBER_UPGRADE_BUILD_MS,
+      usesBuildSlot: true,
+      requires: ["lumber-camp", "signal-scan"],
+      condition: "Holzfällerlager aktiv, Kapitel 7 abgeschlossen",
+      effect: `Holzfällerlager ${LUMBER_CAMP_WOOD_PER_PULSE} → ${LUMBER_UPGRADE_WOOD_PER_PULSE} Holz pro Takt`,
+      source: "core",
+      revealAfterChapter: 7,
+    },
+    {
+      id: "quarry-upgrade",
+      name: "Steinbruch-Ausbau",
+      category: "production",
+      placement: "village",
+      cost: { wood: QUARRY_UPGRADE_WOOD_COST, stone: QUARRY_UPGRADE_STONE_COST },
+      buildMs: QUARRY_UPGRADE_BUILD_MS,
+      usesBuildSlot: true,
+      requires: ["quarry", "signal-scan"],
+      condition: "Steinbruch aktiv, Kapitel 7 abgeschlossen",
+      effect: `Steinbruch ${QUARRY_STONE_PER_PULSE} → ${QUARRY_UPGRADE_STONE_PER_PULSE} Stein pro Takt`,
+      source: "core",
+      revealAfterChapter: 7,
     },
   ];
 }

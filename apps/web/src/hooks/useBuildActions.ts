@@ -24,6 +24,7 @@ import type { BuildingPlan } from '../game/buildings';
 import type { MenuStatus } from '../game/buildMenuStatus';
 import { formatRemaining } from '../game/copy';
 import { describeRoadOutcome } from '../game/roadFinds';
+import { isSinkId, previewSink, sinkStartMessage, type SinkId } from '../game/sinks';
 import { useCommandGuard } from './useCommandGuard';
 
 export interface BuildActionsInput {
@@ -37,12 +38,14 @@ export interface BuildActionsInput {
   readonly setHighlightedFindEffects: (effects: readonly FindEffectVisual[]) => void;
   readonly setPlacementKeys: (keys: readonly string[]) => void;
   readonly setBuildMenuOpen: (open: boolean) => void;
+  /** Opens (id) or closes (null) the confirmation card of a storehouse or upgrade order. */
+  readonly setPendingSink: (sink: SinkId | null) => void;
 }
 
 /** Every player command: runs the domain rule, stores the result and announces it. */
 export function useBuildActions(input: BuildActionsInput) {
   const { gameState, selectedTile, commandNowMs, buildingPlan } = input;
-  const { setGameState, setSelectedTile, setEventMessage, setHighlightedFindEffects, setPlacementKeys, setBuildMenuOpen } = input;
+  const { setGameState, setSelectedTile, setEventMessage, setHighlightedFindEffects, setPlacementKeys, setBuildMenuOpen, setPendingSink } = input;
 
   const confirmRoadRaw = useCallback(() => {
     if (gameState === null || selectedTile === null) return;
@@ -134,6 +137,16 @@ export function useBuildActions(input: BuildActionsInput) {
     if (result.ok) setEventMessage('Signalnetz aktiv · Zwei Fernsignale empfangen');
   }, [commandNowMs, gameState]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const confirmSinkRaw = useCallback((sink: SinkId) => {
+    if (gameState === null) return;
+    const result = previewSink(sink, gameState, commandNowMs);
+    setGameState(result.state);
+    if (result.ok) {
+      setEventMessage(sinkStartMessage(sink, advanceTime(gameState, commandNowMs)));
+      setPendingSink(null);
+    }
+  }, [commandNowMs, gameState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const guardCommand = useCommandGuard();
   const confirmRoad = guardCommand(confirmRoadRaw);
   const confirmBuilding = guardCommand(confirmBuildingRaw);
@@ -145,6 +158,7 @@ export function useBuildActions(input: BuildActionsInput) {
   const confirmWorkshop = guardCommand(confirmWorkshopRaw);
   const confirmRelayRepair = guardCommand(confirmRelayRepairRaw);
   const confirmSignalScan = guardCommand(confirmSignalScanRaw);
+  const confirmSink = guardCommand(confirmSinkRaw);
 
   const rotateRune = useCallback((index: number) => {
     if (gameState === null) return;
@@ -164,7 +178,11 @@ export function useBuildActions(input: BuildActionsInput) {
       return;
     }
     if (status.kind !== 'ready') return;
-    if (entry.id === 'pathfinder') confirmTraining();
+    if (isSinkId(entry.id)) {
+      // Storehouse and upgrades are confirmed on their own card, like the workshop.
+      setPendingSink(entry.id);
+      setBuildMenuOpen(false);
+    } else if (entry.id === 'pathfinder') confirmTraining();
     else if (entry.id === 'survey-tent') confirmSurveyTent();
     else if (entry.id === 'workshop') confirmWorkshop();
     else if (entry.id === 'relay-repair') confirmRelayRepair();
@@ -192,6 +210,7 @@ export function useBuildActions(input: BuildActionsInput) {
     confirmWorkshop,
     confirmRelayRepair,
     confirmSignalScan,
+    confirmSink,
     rotateRune,
     handleMenuAction,
     skipOnePulse,

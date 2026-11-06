@@ -144,7 +144,7 @@ Issue #10 macht Stein als zweite Ressource erstmals vollständig spielbar:
 - `claimedSurfaceFindTileKeys` bleibt die persistierte Historie aller bereits geborgenen Wald- und Steinfunde, auch bei vollem Lager.
 - Ein Steinbruch kann nur auf einem ausgewiesenen, per Straße verbundenen Steinvorkommen entstehen.
 - Der Steinbruch kostet 3 Holz und 1 Stein, benötigt 10 Minuten Bauzeit und produziert danach 1 Stein je 10-Minuten-Welttakt.
-- Offline-Nachholung und Lagergrenzen gelten einheitlich: maximal 300 Holz und 150 Stein; verstrichene Takte werden auch bei vollem Lager verbraucht.
+- Offline-Nachholung und Lagergrenzen gelten einheitlich: maximal 300 Holz und 150 Stein, mit Lagerhaus bis 800 Holz / 400 Stein (D-023); verstrichene Takte werden auch bei vollem Lager verbraucht.
 - Renderer und Weboberfläche verwenden generische Gebäude- und Fundmodelle für Holz und Stein statt ressourcenspezifischer Sonderpfade.
 - Der lokale Spielstand akzeptiert Steinbrüche nur auf weiterhin gültigen Steinquellen und verwirft manipulierte oder strukturell ungültige Daten kontrolliert.
 - Nach Beauftragung des Holzfällerlagers weist die Kapitelanzeige in Richtung Steinlinie; der vollständige Prolog-Kapitelabschluss bleibt Issue #12 vorbehalten.

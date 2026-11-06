@@ -1,4 +1,10 @@
-import type { Building, GameState, WorldSnapshot } from '@mergeforge/domain';
+import {
+  isVillageBuilding,
+  type Building,
+  type GameState,
+  type ProducingBuilding,
+  type WorldSnapshot,
+} from '@mergeforge/domain';
 import type {
   FindEffectVisual,
   HexSelectionEvent,
@@ -11,10 +17,10 @@ export function worldForRenderer(state: GameState): WorldSnapshot {
   return { ...state.world, visibleTileKeys: state.visibleTileKeys };
 }
 
-/** Map buildings: tent and workshop live in the village and have no own map sprite. */
+/** Map buildings: tent, workshop, storehouse and upgrades live in the village and have no own map sprite. */
 export function rendererBuildings(buildings: readonly Building[]): NonNullable<HexWorldViewState['buildings']> {
   return buildings
-    .filter((building) => building.type !== 'survey-tent' && building.type !== 'workshop')
+    .filter((building): building is ProducingBuilding => !isVillageBuilding(building))
     .map((building) => ({
       tileKey: building.tileKey,
       type: building.type,

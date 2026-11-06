@@ -6,7 +6,16 @@ import { validateModuleManifest } from "../packages/domain/src/modules.ts";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modulesDirectory = path.join(root, "modules");
 const iconMaxBytes = 8 * 1024;
-const coreBuildingIds = ["lumber-camp", "quarry", "survey-tent", "workshop", "pathfinder"];
+const coreBuildingIds = [
+  "lumber-camp",
+  "quarry",
+  "survey-tent",
+  "workshop",
+  "pathfinder",
+  "storehouse",
+  "lumber-upgrade",
+  "quarry-upgrade",
+];
 // Kept equal to WORLD_PULSE_MS. Importing the domain entry point would require
 // Node to strip TypeScript in pnpm's workspace symlink, which Node rejects.
 const worldPulseMs = 10 * 60 * 1_000;

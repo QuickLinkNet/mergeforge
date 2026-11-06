@@ -1,4 +1,5 @@
 import { hasCompletedChapter, hasPrologueEvent, type GameState } from '@mergeforge/domain';
+import { describeChapterEight } from './missionChapter8';
 import { relayHint } from './relayHint';
 
 export const CHAPTER_ONE_ROAD_TARGET = 2;
@@ -40,6 +41,8 @@ export function describeMission(gameState: GameState | null): Mission {
 
   const prologueChapter = !chapterThreeComplete ? 3 : !chapterFourComplete ? 4 : !chapterFiveComplete ? 5 : !chapterSixComplete ? 6 : 7;
   const chapterNumber = !chapterComplete ? 1 : !hasLumberCamp ? 2 : prologueChapter;
+  // After the scan (chapter 7) the game goes on with chapter 8 and its own texts.
+  if (chapterNumber === 7 && chapterSevenComplete && gameState !== null) return describeChapterEight(gameState);
   const chapterName = chapterNumber === 1
     ? 'Gründungsring'
     : chapterNumber === 2
