@@ -1,0 +1,391 @@
+/*
+ * MERGEFORGE design tokens: the only place for raw colours, pixel values, shadows and layers.
+ * Component styles use these variables exclusively (see README.md in this folder).
+ * Scales named by number (space-12, radius-9, font-size-11) equal that many CSS pixels.
+ */
+:root {
+  /* ---- Typography ---- */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --font-size-9: 9px;
+  --font-size-10: 10px;
+  --font-size-11: 11px;
+  --font-size-12: 12px;
+  --font-size-12-5: 12.5px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-15: 15px;
+  --font-size-17: 17px;
+  --font-size-18: 18px;
+  --font-size-19: 19px;
+  --font-size-20: 20px;
+  --font-size-22: 22px;
+  --font-size-25: 25px;
+  --font-size-26: 26px;
+  --font-size-30: 30px;
+  --font-size-35: 35px;
+  --font-size-mission-title: clamp(24px, 2.4vw, 31px);
+  --font-size-account: 0.8rem;
+  --font-size-market-subtitle: 0.85rem;
+  --font-size-admin-heading: 1rem;
+
+  --font-weight-medium: 600;
+  --font-weight-semibold: 650;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 750;
+  --font-weight-black: 800;
+
+  /* ---- Spacing (margins, paddings, gaps, offsets inside components) ---- */
+  --space-2: 2px;
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-5: 5px;
+  --space-6: 6px;
+  --space-7: 7px;
+  --space-8: 8px;
+  --space-9: 9px;
+  --space-10: 10px;
+  --space-11: 11px;
+  --space-12: 12px;
+  --space-13: 13px;
+  --space-14: 14px;
+  --space-15: 15px;
+  --space-16: 16px;
+  --space-17: 17px;
+  --space-18: 18px;
+  --space-20: 20px;
+  --space-22: 22px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+
+  /* ---- Radii ---- */
+  --radius-3: 3px;
+  --radius-5: 5px;
+  --radius-7: 7px;
+  --radius-8: 8px;
+  --radius-9: 9px;
+  --radius-10: 10px;
+  --radius-11: 11px;
+  --radius-12: 12px;
+  --radius-13: 13px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-20: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Borders and focus ---- */
+  --border-width: 1px;
+  --border-width-strong: 2px;
+  --focus-ring-width: 2px;
+  --focus-ring-width-strong: 3px;
+  --focus-ring-offset: 3px;
+
+  /* ---- Layers (z-index) ---- */
+  --z-map: 0;
+  --z-atmosphere: 1;
+  --z-hud-low: 3;
+  --z-hud: 4;
+  --z-overlay: 5;
+  --z-notice: 6;
+  --z-banner: 8;
+  --z-dialog: 20;
+  --z-rune-line: 1;
+  --z-rune-core: 2;
+
+  /* ---- Screen layout (HUD placement) ---- */
+  --layout-gutter: 22px;
+  --layout-gutter-md: 14px;
+  --layout-gutter-sm: 10px;
+  --layout-topbar-top: 18px;
+  --layout-hud-top: 94px;
+  --layout-mission-top-md: 88px;
+  --layout-mission-top-sm: 64px;
+  --layout-bottom: 20px;
+  --layout-card-bottom-md: 72px;
+  --layout-card-bottom-sm: 58px;
+  --layout-stack-bottom-sm: 62px;
+  --layout-stack-reserve: 180px;
+  --layout-notice-top: 84px;
+  --layout-notice-top-sm: 66px;
+  --layout-notice-gutter: 32px;
+  --layout-banner-gutter: 24px;
+  --layout-toast-bottom: 70px;
+  --layout-toast-bottom-sm: 122px;
+  --layout-menu-bottom: 70px;
+  --layout-toggle-bottom: 16px;
+  --layout-account-bottom: 76px;
+  --layout-camera-bottom-sm: 74px;
+  --layout-dialog-gutter: 28px;
+
+  /* ---- Component sizes ---- */
+  --size-min-viewport: 320px;
+  --size-hud-height: 52px;
+  --size-hud-height-sm: 46px;
+  --size-control: 44px;
+  --size-control-large: 46px;
+  --size-control-touch: 48px;
+  --size-row: 56px;
+  --size-icon: 40px;
+  --size-symbol: 41px;
+  --size-dot: 8px;
+  --size-dot-small: 7px;
+  --size-progress-height: 7px;
+  --size-spinner: 30px;
+  --size-notice-button: 28px;
+  --size-objective-column: 34px;
+  --size-objective-icon: 32px;
+  --size-resource-min: 78px;
+  --size-wordmark-mark: 31px;
+  --size-wordmark-hex-width: 17px;
+  --size-wordmark-hex-height: 15px;
+  --size-mission-width: 356px;
+  --size-mission-width-sm: 330px;
+  --size-card-width: 342px;
+  --size-banner-width: 560px;
+  --size-view-message-min: 280px;
+  --size-toggle-min: 140px;
+  --size-menu-card: 214px;
+  --size-market-input: 4.5rem;
+  --size-access-card: 460px;
+  --size-admin-card: 560px;
+  --size-signalwerk-panel: 880px;
+  --size-signalwerk-text: 650px;
+  --size-signalwerk-grid: 530px;
+  --size-signalwerk-grid-min: 300px;
+  --size-terminal-column: 72px;
+  --size-terminal-dot: 17px;
+  --size-rune-min: 52px;
+  --size-rune-core: 13px;
+  --size-rune-line: 4px;
+
+  /* ---- Base colours ---- */
+  --color-text: #f7f3df;
+  --color-page: #0b1715;
+  --color-text-muted: #91a598;
+  --color-text-label: #8da093;
+  --color-link: #e6dca3;
+  --color-white-5: rgb(255 255 255 / 5%);
+  --color-white-6: rgb(255 255 255 / 6%);
+  --color-white-7: rgb(255 255 255 / 7%);
+  --color-white-8: rgb(255 255 255 / 8%);
+  --color-white-12: rgb(255 255 255 / 12%);
+  --color-white-13: rgb(255 255 255 / 13%);
+  --color-focus-ring: #f4d483;
+  --color-focus-ring-strong: #f2d27d;
+  --color-gold-border-strong: rgb(232 194 122 / 60%);
+
+  /* ---- Map and HUD surfaces ---- */
+  --gradient-world: radial-gradient(circle at 55% 42%, #486d52 0%, #1b3730 38%, #0a1714 100%);
+  --gradient-atmosphere-vertical: linear-gradient(180deg, rgb(5 15 13 / 72%) 0%, transparent 18%, transparent 75%, rgb(4 12 10 / 74%) 100%);
+  --gradient-atmosphere-horizontal: linear-gradient(90deg, rgb(5 14 12 / 58%) 0%, transparent 34%, transparent 76%, rgb(4 12 10 / 32%) 100%);
+  --shadow-atmosphere: inset 0 0 130px rgb(0 0 0 / 48%);
+  --color-surface-border: rgb(230 220 175 / 18%);
+  --color-surface-divider: rgb(230 220 175 / 14%);
+  --gradient-surface: linear-gradient(145deg, rgb(18 36 31 / 92%), rgb(8 23 20 / 84%));
+  --shadow-surface: 0 16px 45px rgb(0 0 0 / 27%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  --blur-surface: blur(14px) saturate(120%);
+  --blur-14: blur(14px);
+  --blur-12: blur(12px);
+
+  /* ---- Top bar ---- */
+  --color-wordmark: #f6efcf;
+  --color-wordmark-hex-border: #e2ba66;
+  --gradient-wordmark-hex: linear-gradient(145deg, #477c59, #1e4938);
+  --color-status-text: #d9ddcc;
+  --color-status-label: #a9b8a8;
+  --color-resource-value: #fff6d5;
+  --color-resource-wood: #d79a52;
+  --color-resource-stone: #a7c4b9;
+  --color-resource-charge: #65d7d0;
+  --color-resource-core: #e8c96e;
+  --shadow-glow-current: 0 0 10px currentColor;
+  --color-chapter-bg: rgb(217 171 84 / 12%);
+  --color-chapter-text: #e4ca8f;
+  --color-chapter-complete-text: #a9d7aa;
+
+  /* ---- Mission card ---- */
+  --color-mission-kicker: #d7b66c;
+  --color-prototype-badge-border: rgb(215 182 108 / 24%);
+  --color-prototype-badge-text: #aebcac;
+  --color-heading-mission: #fff7d9;
+  --color-mission-text: #bdc8b9;
+  --color-mission-note: #819489;
+  --color-objective-border: rgb(229 187 99 / 22%);
+  --color-objective-bg: rgb(235 190 92 / 7%);
+  --color-objective-text: #eee7cb;
+  --color-objective-icon-bg: rgb(224 177 79 / 16%);
+  --color-objective-icon: #e5bd63;
+  --color-objective-progress: #dabd77;
+  --color-success-border: rgb(119 190 128 / 31%);
+  --color-success-bg: rgb(103 183 120 / 10%);
+  --color-success-bg-strong: rgb(103 183 120 / 15%);
+  --color-success-bg-icon: rgb(103 183 120 / 18%);
+  --color-success-icon: #9bd3a3;
+  --color-hint-border: rgb(232 194 122 / 45%);
+  --color-hint-bg: rgb(232 194 122 / 9%);
+
+  /* ---- Build cards ---- */
+  --color-build-card-border: rgb(226 186 100 / 31%);
+  --color-exploration-card-border: rgb(96 211 200 / 22%);
+  --color-signal-card-border: rgb(104 218 207 / 28%);
+  --color-card-kicker: #d6b667;
+  --color-heading-card: #fff5d3;
+  --color-preview-rule: rgb(236 222 170 / 13%);
+  --color-preview-divider: rgb(236 222 170 / 11%);
+  --color-preview-label: #7f9588;
+  --color-preview-value: #e5e2cc;
+  --color-warning-border: rgb(207 118 83 / 28%);
+  --color-warning-bg: rgb(173 77 53 / 10%);
+  --color-warning-text: #e0ac91;
+  --color-timer-value: #f2db9f;
+  --gradient-progress: linear-gradient(90deg, #70a76f, #d4b35f);
+  --shadow-progress: 0 0 12px rgb(151 190 107 / 45%);
+
+  /* ---- Buttons ---- */
+  --color-button-secondary-border: rgb(232 223 184 / 15%);
+  --color-button-secondary-bg: rgb(255 255 255 / 4%);
+  --color-button-secondary-text: #aebbb0;
+  --color-button-primary-border: #d4ae5a;
+  --gradient-button-primary: linear-gradient(180deg, #d8b664, #b98c39);
+  --shadow-button-primary: 0 7px 20px rgb(179 130 45 / 22%);
+  --color-button-primary-text: #17241c;
+  --color-button-disabled-border: rgb(222 213 176 / 14%);
+  --color-button-disabled-bg: rgb(255 255 255 / 6%);
+  --color-button-disabled-text: #6e7d73;
+
+  /* ---- Card symbols ---- */
+  --color-symbol-road-border: rgb(223 180 85 / 30%);
+  --color-symbol-road-bg: rgb(223 180 85 / 12%);
+  --color-symbol-road-text: #e1bc68;
+  --color-symbol-camp-bg: rgb(94 153 101 / 14%);
+  --color-symbol-camp-border: rgb(129 187 129 / 30%);
+  --color-symbol-camp-text: #acd29f;
+  --color-symbol-quarry-bg: rgb(125 144 151 / 16%);
+  --color-symbol-quarry-border: rgb(162 181 184 / 32%);
+  --color-symbol-quarry-text: #c2d1ce;
+  --color-symbol-wayfinder-bg: rgb(57 176 173 / 15%);
+  --color-symbol-wayfinder-border: rgb(92 218 207 / 34%);
+  --color-symbol-wayfinder-text: #7de2d8;
+  --color-symbol-tent-bg: rgb(64 143 126 / 17%);
+  --color-symbol-tent-border: rgb(106 192 169 / 32%);
+  --color-symbol-tent-text: #91d4bd;
+  --color-symbol-workshop-bg: rgb(205 145 62 / 16%);
+  --color-symbol-workshop-border: rgb(229 177 87 / 36%);
+  --color-symbol-workshop-text: #f1c875;
+  --shadow-symbol-relay: inset 0 0 18px rgb(74 220 211 / 9%);
+
+  /* ---- Signal network (relay symbol, signal lists) ---- */
+  --color-signal-bg: rgb(69 190 186 / 15%);
+  --color-signal-border: rgb(99 221 214 / 35%);
+  --color-signal-text: #83e5dc;
+  --color-signal-item-border: rgb(99 221 214 / 24%);
+  --color-signal-item-bg: rgb(69 190 186 / 9%);
+  --color-signal-item-detail: #b9c9bf;
+
+  /* ---- Notices, toast, chapter banner ---- */
+  --color-notice-border: rgb(219 177 87 / 32%);
+  --color-notice-bg: rgb(30 38 29 / 95%);
+  --shadow-notice: 0 14px 35px rgb(0 0 0 / 35%);
+  --color-notice-text: #e7dab3;
+  --color-notice-button-text: #c8c6b4;
+  --color-toast-border: rgb(127 189 125 / 35%);
+  --color-toast-bg: rgb(13 39 29 / 94%);
+  --shadow-toast: 0 12px 32px rgb(0 0 0 / 32%);
+  --color-toast-text: #bfe0b9;
+  --color-banner-bg: rgb(38 30 14 / 96%);
+  --shadow-banner: 0 14px 36px rgb(0 0 0 / 40%);
+  --color-banner-text: #f2dca8;
+
+  /* ---- World badge, camera hints, loading message ---- */
+  --color-world-badge-text: #cad3c4;
+  --color-world-badge-label: #7f9789;
+  --color-signal-dot: #7ec190;
+  --shadow-signal-dot: 0 0 10px #6cb780;
+  --color-version-text: #8faa9a;
+  --color-camera-hints-text: #a6b5aa;
+  --color-kbd-text: #e8e5d2;
+  --color-view-message-border: rgb(229 197 125 / 20%);
+  --color-view-message-bg: rgb(8 24 20 / 92%);
+  --shadow-view-message: 0 24px 75px rgb(0 0 0 / 45%);
+  --color-view-message-text: #9fb0a3;
+  --color-heading-view-message: #f5edcf;
+  --color-spinner-track: rgb(211 174 90 / 22%);
+  --color-spinner: #d9b665;
+  --color-view-message-button-border: rgb(219 180 91 / 40%);
+  --color-view-message-button-bg: rgb(219 180 91 / 12%);
+  --color-view-message-button-text: #eddaaa;
+
+  /* ---- Build menu ---- */
+  --color-menu-toggle-border: rgb(236 222 170 / 40%);
+  --color-menu-toggle-bg: rgb(31 38 28 / 96%);
+  --shadow-menu-toggle: 0 10px 28px rgb(0 0 0 / 38%);
+  --color-menu-toggle-text: #f2e9d0;
+  --color-menu-border: rgb(236 222 170 / 22%);
+  --color-menu-bg: rgb(18 24 20 / 96%);
+  --shadow-menu: 0 -10px 36px rgb(0 0 0 / 40%);
+  --color-menu-text: #e9e3d0;
+  --color-menu-accent: #e8c27a;
+  --color-menu-time: #9fd0ff;
+  --color-running-bg: rgb(120 200 140 / 18%);
+  --color-menu-card-border: rgb(236 222 170 / 18%);
+  --color-menu-card-bg: rgb(30 38 32 / 92%);
+  --color-menu-card-done-border: rgb(120 200 140 / 45%);
+  --color-menu-card-running-border: rgb(159 208 255 / 55%);
+  --color-market-notice-bg: rgb(120 200 140 / 16%);
+
+  /* ---- Signalwerk dialog ---- */
+  --gradient-signalwerk-backdrop: radial-gradient(circle at 50% 48%, rgb(31 99 91 / 28%), transparent 44%), rgb(3 12 12 / 88%);
+  --blur-signalwerk-backdrop: blur(12px) saturate(85%);
+  --color-signalwerk-panel-border: rgb(103 213 202 / 28%);
+  --gradient-signalwerk-panel: linear-gradient(145deg, rgb(15 35 32 / 98%), rgb(6 21 20 / 98%)), #0b201d;
+  --shadow-signalwerk-panel: 0 28px 90px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(255 255 255 / 5%);
+  --color-signalwerk-text: #dce8dc;
+  --color-signalwerk-rule: rgb(116 202 191 / 14%);
+  --color-signalwerk-kicker: #65cfc7;
+  --color-heading-signalwerk: #fff1c7;
+  --color-signalwerk-muted: #9eb7ab;
+  --color-signalwerk-subtle: #8fa99e;
+  --color-signalwerk-close: #c7d7cf;
+  --color-signalwerk-grid-border: rgb(102 193 185 / 21%);
+  --color-signalwerk-grid-bg: rgb(3 16 16 / 58%);
+  --shadow-signalwerk-grid: inset 0 0 36px rgb(0 0 0 / 35%);
+  --color-rune-border: rgb(136 177 165 / 21%);
+  --gradient-rune: linear-gradient(145deg, rgb(51 73 67 / 78%), rgb(21 42 39 / 92%));
+  --shadow-rune: inset 0 1px 0 rgb(255 255 255 / 6%), 0 5px 13px rgb(0 0 0 / 22%);
+  --color-rune-border-hover: rgb(104 224 213 / 50%);
+  --gradient-rune-hover: linear-gradient(145deg, rgb(55 91 82 / 90%), rgb(21 55 50 / 96%));
+  --color-rune-source-border: rgb(78 184 239 / 55%);
+  --shadow-rune-source: inset 0 0 19px rgb(56 170 237 / 17%), 0 0 15px rgb(58 172 236 / 12%);
+  --color-rune-target-border: rgb(230 187 82 / 58%);
+  --shadow-rune-target: inset 0 0 19px rgb(225 177 67 / 16%), 0 0 15px rgb(226 179 69 / 11%);
+  --color-rune-core-border: #75d8ce;
+  --color-rune-core-bg: #163f3b;
+  --shadow-rune-core: 0 0 9px rgb(80 218 206 / 35%);
+  --gradient-rune-line: linear-gradient(90deg, #4d9e98, #83ddd3);
+  --shadow-rune-line: 0 0 7px rgb(84 216 204 / 28%);
+  --color-terminal-source-text: #79c9f1;
+  --color-terminal-source: #48aee8;
+  --shadow-terminal-source: 0 0 18px #43ace9;
+  --color-terminal-target-text: #e5c267;
+  --color-terminal-target: #e1b84e;
+  --shadow-terminal-target: 0 0 18px #e2b94f;
+  --color-rune-solved-border: #f0cf73;
+  --color-rune-solved: #e5bd56;
+  --shadow-rune-solved: 0 0 12px rgb(234 195 88 / 62%);
+  --color-core-result: #e8d28d;
+  --color-core-glyph: #f0ca61;
+  --shadow-core-glyph: 0 0 19px #d4a942;
+
+  /* ---- Access gate and admin page ---- */
+  --gradient-access: radial-gradient(circle at 50% 30%, #17332b, #08140f 70%);
+  --color-access-text: #e9e4c9;
+  --color-access-card-border: rgb(230 220 175 / 22%);
+  --gradient-access-card: linear-gradient(145deg, rgb(18 36 31 / 94%), rgb(8 23 20 / 90%));
+  --color-access-notice-bg: rgb(160 60 40 / 30%);
+  --color-access-primary-text: #10201b;
+  --color-admin-input-border: rgb(230 220 175 / 30%);
+  --color-admin-input-bg: rgb(0 0 0 / 25%);
+}

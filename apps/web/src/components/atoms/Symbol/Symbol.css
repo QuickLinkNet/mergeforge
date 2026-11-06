@@ -1,0 +1,50 @@
+.road-symbol {
+  display: grid;
+  width: var(--size-symbol);
+  height: var(--size-symbol);
+  flex: 0 0 auto;
+  place-items: center;
+  border: var(--border-width) solid var(--color-symbol-road-border);
+  border-radius: var(--radius-11);
+  background: var(--color-symbol-road-bg);
+  color: var(--color-symbol-road-text);
+  font-size: var(--font-size-26);
+}
+
+.camp-symbol {
+  background: var(--color-symbol-camp-bg);
+  border-color: var(--color-symbol-camp-border);
+  color: var(--color-symbol-camp-text);
+}
+
+.quarry-symbol {
+  background: var(--color-symbol-quarry-bg);
+  border-color: var(--color-symbol-quarry-border);
+  color: var(--color-symbol-quarry-text);
+}
+
+.wayfinder-symbol,
+.survey-symbol {
+  background: var(--color-symbol-wayfinder-bg);
+  border-color: var(--color-symbol-wayfinder-border);
+  color: var(--color-symbol-wayfinder-text);
+}
+
+.tent-symbol {
+  background: var(--color-symbol-tent-bg);
+  border-color: var(--color-symbol-tent-border);
+  color: var(--color-symbol-tent-text);
+}
+
+.relay-symbol {
+  background: var(--color-signal-bg);
+  border-color: var(--color-signal-border);
+  color: var(--color-signal-text);
+  box-shadow: var(--shadow-symbol-relay);
+}
+
+.workshop-symbol {
+  background: var(--color-symbol-workshop-bg);
+  border-color: var(--color-symbol-workshop-border);
+  color: var(--color-symbol-workshop-text);
+}

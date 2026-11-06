@@ -1,0 +1,13 @@
+.resource-dot {
+  grid-row: 1 / 3;
+  align-self: center;
+  width: var(--size-dot);
+  height: var(--size-dot);
+  border-radius: 50%;
+  box-shadow: var(--shadow-glow-current);
+}
+
+.resource-dot.wood { color: var(--color-resource-wood); background: currentColor; }
+.resource-dot.stone { color: var(--color-resource-stone); background: currentColor; }
+.resource-dot.charge { color: var(--color-resource-charge); background: currentColor; }
+.resource-dot.core { color: var(--color-resource-core); background: currentColor; }

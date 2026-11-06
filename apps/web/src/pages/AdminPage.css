@@ -1,0 +1,48 @@
+.access-card.admin-card {
+  width: min(var(--size-admin-card), 100%);
+  max-width: none;
+}
+
+.access-card h2 {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-admin-heading);
+}
+
+.admin-list {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.admin-buttons {
+  display: flex;
+  gap: var(--space-12);
+}
+
+.admin-empty {
+  opacity: 0.7;
+}
+
+.admin-invite {
+  display: flex;
+  gap: var(--space-10);
+}
+
+.admin-invite input {
+  flex: 1;
+  padding: var(--space-8) var(--space-10);
+  border: var(--border-width) solid var(--color-admin-input-border);
+  border-radius: var(--radius-8);
+  background: var(--color-admin-input-bg);
+  color: inherit;
+  font: inherit;
+}

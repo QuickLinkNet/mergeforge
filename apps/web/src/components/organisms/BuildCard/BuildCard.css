@@ -1,0 +1,86 @@
+.build-card {
+  position: absolute;
+  z-index: var(--z-hud);
+  top: var(--layout-hud-top);
+  right: var(--layout-gutter);
+  width: min(var(--size-card-width), calc(100vw - var(--layout-gutter) * 2));
+  padding: var(--space-20);
+  border: var(--border-width) solid var(--color-build-card-border);
+  border-radius: var(--radius-16);
+  background: var(--gradient-surface);
+  box-shadow: var(--shadow-surface);
+  backdrop-filter: var(--blur-surface);
+  pointer-events: auto;
+}
+
+.build-card h2 {
+  margin: 0;
+  color: var(--color-heading-card);
+  font-family: var(--font-serif);
+  font-size: var(--font-size-20);
+}
+
+.exploration-card {
+  border-color: var(--color-exploration-card-border);
+}
+
+.relay-card,
+.signal-card {
+  border-color: var(--color-signal-card-border);
+}
+
+.build-explanation,
+.build-warning {
+  margin: var(--space-11) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-10);
+  line-height: 1.45;
+}
+
+.build-warning {
+  padding: var(--space-12);
+  border: var(--border-width) solid var(--color-warning-border);
+  border-radius: var(--radius-9);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-12);
+}
+
+.build-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-9);
+  margin-top: var(--space-16);
+}
+
+.build-actions.single {
+  grid-template-columns: 1fr;
+}
+
+.build-actions button {
+  min-height: var(--size-control);
+  padding: 0 var(--space-15);
+  border-radius: var(--radius-9);
+  cursor: pointer;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-heavy);
+}
+
+.build-actions button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (max-width: 850px) {
+  .build-card { top: auto; right: var(--layout-gutter-md); bottom: var(--layout-card-bottom-md); }
+}
+
+@media (max-width: 580px) {
+  .build-card {
+    right: var(--layout-gutter-sm);
+    bottom: var(--layout-card-bottom-sm);
+    width: calc(100vw - var(--layout-gutter-sm) * 2);
+    padding: var(--space-15);
+  }
+  .build-actions button { min-height: var(--size-control-touch); }
+}

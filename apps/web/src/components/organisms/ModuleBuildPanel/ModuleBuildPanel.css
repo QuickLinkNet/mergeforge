@@ -1,0 +1,8 @@
+.module-icon {
+  flex: none;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  border-radius: var(--radius-10);
+  background: var(--color-white-6);
+  padding: var(--space-4);
+}

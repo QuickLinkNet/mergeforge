@@ -1,0 +1,64 @@
+/* Playing is for contributors only: visitors see this page instead of the game (D-018). */
+.access-gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  place-items: center;
+  padding: var(--space-24);
+  background: var(--gradient-access);
+  color: var(--color-access-text);
+}
+
+.access-card {
+  display: grid;
+  gap: var(--space-16);
+  max-width: var(--size-access-card);
+  padding: var(--space-28) var(--space-32);
+  border: var(--border-width) solid var(--color-access-card-border);
+  border-radius: var(--radius-14);
+  background: var(--gradient-access-card);
+  line-height: 1.5;
+}
+
+.access-card h1 {
+  margin: 0;
+  letter-spacing: 0.18em;
+}
+
+.access-card p {
+  margin: 0;
+}
+
+.access-notice {
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-8);
+  background: var(--color-access-notice-bg);
+}
+
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-14);
+}
+
+.access-actions a,
+.access-actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.access-actions .access-primary {
+  padding: var(--space-9) var(--space-16);
+  border-radius: var(--radius-9);
+  background: var(--color-link);
+  color: var(--color-access-primary-text);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}

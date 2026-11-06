@@ -1,0 +1,17 @@
+.resource {
+  display: grid;
+  grid-template-columns: var(--size-dot) auto;
+  column-gap: var(--space-7);
+  min-width: var(--size-resource-min);
+  padding: 0 var(--space-14);
+  border-left: var(--border-width) solid var(--color-surface-divider);
+  font-size: var(--font-size-11);
+  line-height: 1.1;
+}
+
+.resource strong { color: var(--color-resource-value); font-size: var(--font-size-14); }
+
+@media (max-width: 580px) {
+  .resource { min-width: 0; padding: 0 var(--space-5); }
+  .resource span:not(.resource-dot) { display: none; }
+}

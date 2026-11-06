@@ -1,0 +1,35 @@
+.camera-hints {
+  position: absolute;
+  z-index: var(--z-hud-low);
+  right: var(--layout-gutter);
+  bottom: var(--layout-bottom);
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-9) var(--space-11);
+  border: var(--border-width) solid var(--color-surface-border);
+  border-radius: var(--radius-11);
+  background: var(--gradient-surface);
+  box-shadow: var(--shadow-surface);
+  backdrop-filter: var(--blur-surface);
+  color: var(--color-camera-hints-text);
+  font-size: var(--font-size-10);
+}
+
+.camera-hints kbd {
+  margin-right: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border: var(--border-width) solid var(--color-white-13);
+  border-radius: var(--radius-5);
+  background: var(--color-white-7);
+  color: var(--color-kbd-text);
+  font: inherit;
+}
+
+.touch-hint { display: none; }
+
+@media (max-width: 580px) {
+  .camera-hints { right: var(--layout-gutter-sm); bottom: var(--layout-camera-bottom-sm); }
+  .camera-hints span:not(.touch-hint) { display: none; }
+  .touch-hint { display: inline; }
+}
