@@ -1,0 +1,29 @@
+.prototype-badge {
+  padding: var(--space-5) var(--space-7);
+  border: var(--border-width) solid var(--color-prototype-badge-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-prototype-badge-text);
+  font-size: var(--font-size-9);
+  letter-spacing: 0.06em;
+}
+
+.chapter-status {
+  padding: var(--space-12) var(--space-14);
+  border-radius: var(--radius-9);
+  background: var(--color-chapter-bg);
+  color: var(--color-chapter-text);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-bold);
+}
+
+.chapter-status.complete {
+  background: var(--color-success-bg-strong);
+  color: var(--color-chapter-complete-text);
+}
+
+.version {
+  padding: var(--space-5) var(--space-7);
+  border-radius: var(--radius-7);
+  background: var(--color-white-5);
+  color: var(--color-version-text);
+}

@@ -1,0 +1,20 @@
+.mission-hint {
+  display: grid;
+  gap: var(--space-8);
+  margin-top: var(--space-10);
+  padding: var(--space-10) var(--space-12);
+  border: var(--border-width) solid var(--color-hint-border);
+  border-radius: var(--radius-10);
+  background: var(--color-hint-bg);
+}
+
+.mission-hint p {
+  margin: 0;
+  font-size: var(--font-size-12-5);
+  line-height: 1.45;
+}
+
+@media (max-width: 580px) {
+  .mission-hint { margin-top: var(--space-8); padding: var(--space-8) var(--space-10); }
+  .mission-hint p { font-size: var(--font-size-12); }
+}

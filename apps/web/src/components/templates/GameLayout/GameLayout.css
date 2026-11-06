@@ -1,0 +1,82 @@
+.game-shell {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--gradient-world);
+}
+
+.map-host {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-map);
+  touch-action: none;
+}
+
+.map-host canvas {
+  display: block;
+}
+
+.map-atmosphere {
+  position: absolute;
+  z-index: var(--z-atmosphere);
+  inset: 0;
+  pointer-events: none;
+  background: var(--gradient-atmosphere-vertical), var(--gradient-atmosphere-horizontal);
+  box-shadow: var(--shadow-atmosphere);
+}
+
+.build-stack {
+  position: absolute;
+  z-index: var(--z-hud);
+  top: var(--layout-hud-top);
+  right: var(--layout-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: min(var(--size-card-width), calc(100vw - var(--layout-gutter) * 2));
+  max-height: calc(100vh - var(--layout-stack-reserve));
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.build-stack:empty {
+  display: none;
+}
+
+.build-stack .build-card {
+  position: static;
+  width: auto;
+  pointer-events: auto;
+}
+
+/* A blocked or failed start shows only the message, not the empty default HUD behind it. */
+.game-shell.is-halted .top-bar,
+.game-shell.is-halted .world-badge,
+.game-shell.is-halted .camera-hints,
+.game-shell.is-halted .account-badge {
+  display: none;
+}
+
+@media (max-width: 850px) {
+  .build-stack {
+    top: auto;
+    right: var(--layout-gutter-md);
+    bottom: var(--layout-card-bottom-md);
+  }
+}
+
+@media (max-width: 580px) {
+  .build-stack {
+    right: var(--layout-gutter-sm);
+    bottom: var(--layout-stack-bottom-sm);
+    width: calc(100vw - var(--layout-gutter-sm) * 2);
+    max-height: 46vh;
+  }
+}
+
+/* Small windows: cards must never cover most of the map. */
+@media (max-width: 900px), (max-height: 700px) {
+  .build-stack { max-height: 38vh; overflow-y: auto; }
+}

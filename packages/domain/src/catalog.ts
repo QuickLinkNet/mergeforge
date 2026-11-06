@@ -35,7 +35,7 @@ import {
   WORKSHOP_STONE_COST,
   WORKSHOP_WOOD_COST,
   WORLD_PULSE_MS,
-} from "./index";
+} from "./constants";
 import type { ModuleManifest } from "./modules";
 
 export type CatalogCategory =

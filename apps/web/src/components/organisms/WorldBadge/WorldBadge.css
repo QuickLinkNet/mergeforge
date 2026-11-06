@@ -1,0 +1,45 @@
+.world-badge {
+  position: absolute;
+  z-index: var(--z-hud-low);
+  bottom: var(--layout-bottom);
+  left: var(--layout-gutter);
+  display: grid;
+  grid-template-columns: var(--size-dot) auto auto;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-9) var(--space-12);
+  border: var(--border-width) solid var(--color-surface-border);
+  border-radius: var(--radius-11);
+  background: var(--gradient-surface);
+  box-shadow: var(--shadow-surface);
+  backdrop-filter: var(--blur-surface);
+  color: var(--color-world-badge-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-10);
+}
+
+.world-badge small {
+  display: block;
+  color: var(--color-world-badge-label);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-9);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signal-dot {
+  width: var(--size-dot-small);
+  height: var(--size-dot-small);
+  border-radius: 50%;
+  background: var(--color-signal-dot);
+  box-shadow: var(--shadow-signal-dot);
+}
+
+@media (max-width: 580px) {
+  .world-badge {
+    bottom: var(--layout-gutter-sm);
+    left: var(--layout-gutter-sm);
+    max-width: calc(100vw - var(--layout-gutter-sm) * 2);
+  }
+  .world-badge .version { display: none; }
+}

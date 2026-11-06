@@ -1,0 +1,16 @@
+.construction-progress {
+  height: var(--size-progress-height);
+  margin-top: var(--space-20);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-white-8);
+}
+
+.construction-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gradient-progress);
+  box-shadow: var(--shadow-progress);
+  transition: width 400ms ease;
+}

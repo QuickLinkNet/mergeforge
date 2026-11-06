@@ -1,0 +1,46 @@
+.market-subtitle {
+  margin: var(--space-14) 0 var(--space-6);
+  font-size: var(--font-size-market-subtitle);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.market-notice {
+  margin: 0 0 var(--space-8);
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius-8);
+  background: var(--color-market-notice-bg);
+}
+
+.market-list {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.market-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-10);
+}
+
+.market-item span {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.market-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-10) 0;
+}
+
+.market-form input {
+  width: var(--size-market-input);
+}
