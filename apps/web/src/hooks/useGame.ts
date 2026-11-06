@@ -69,6 +69,7 @@ export function useGame(online: OnlineSession | undefined) {
   useAutoDismiss(eventMessage, eventMessage !== null, clearEventMessage, MESSAGE_MS);
   useEscapeKey(signalwerkOpen, closeSignalwerk);
 
+  const closeBuildMenu = useCallback(() => setBuildMenuOpen(false), []);
   const handleHexSelect = useCallback((event: HexSelectionEvent) => {
     setSelectedTile(event);
     setPendingSink(null);
@@ -78,6 +79,7 @@ export function useGame(online: OnlineSession | undefined) {
     bootstrap,
     gameState,
     onHexSelect: handleHexSelect,
+    onMapDrag: closeBuildMenu,
     selectedTile,
     placementKeys,
     roadPreview: selection.roadPreview,
@@ -115,8 +117,13 @@ export function useGame(online: OnlineSession | undefined) {
   const radioContacts = useRadioContacts(signalNetworkActive, online);
 
   const dismissSystemNotice = useCallback(() => setSystemNotice(null), []);
+  const { focusTiles } = renderer;
+  /** "Zum Ziel": folds away the build menu and scrolls the map to the guided fields. */
+  const showOnMap = useCallback((keys: readonly string[]) => {
+    setBuildMenuOpen(false);
+    focusTiles(keys);
+  }, [focusTiles]);
   const openSignalwerk = useCallback(() => setSignalwerkOpen(true), []);
-  const closeBuildMenu = useCallback(() => setBuildMenuOpen(false), []);
   const toggleBuildMenu = useCallback(() => setBuildMenuOpen((open) => !open), []);
   const cancelPendingSink = useCallback(() => setPendingSink(null), []);
   const storage = useMemo(() => (gameState === null ? null : storageLimits(gameState)), [gameState]);
@@ -153,6 +160,7 @@ export function useGame(online: OnlineSession | undefined) {
     cancelPendingSink,
     storageLimits: storage,
     highlightFields: setPlacementKeys,
+    showOnMap,
     cancelSelection,
     changeGameState,
     chapterSixComplete,

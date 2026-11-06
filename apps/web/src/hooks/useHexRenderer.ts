@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { hasPrologueEvent, type GameState, type WorldSnapshot } from '@mergeforge/domain';
 import {
   mountHexWorld,
@@ -24,12 +24,17 @@ export interface HexRendererInput extends Omit<RendererViewInput, 'roadTileKeys'
   readonly bootstrap: BootstrapResult;
   readonly gameState: GameState | null;
   readonly onHexSelect: (event: HexSelectionEvent) => void;
+  /** Fired when the player starts dragging the map (used to fold away the build menu). */
+  readonly onMapDrag: () => void;
 }
 
 /** Mounts the Pixi map once, then feeds it the live world and selection overlay. */
 export function useHexRenderer(input: HexRendererInput) {
-  const { bootstrap, gameState, onHexSelect } = input;
+  const { bootstrap, gameState, onHexSelect, onMapDrag } = input;
   const mapHostRef = useRef<HTMLDivElement>(null);
+  const onMapDragRef = useRef(onMapDrag);
+  onMapDragRef.current = onMapDrag;
+  const focusTiles = useCallback((keys: readonly string[]) => rendererRef.current?.focusOn(keys), []);
   const rendererRef = useRef<MountedHexWorld | undefined>(undefined);
   const latestRenderRef = useRef<{
     world: WorldSnapshot;
@@ -94,6 +99,7 @@ export function useHexRenderer(input: HexRendererInput) {
       surveyTent: rendererSurveyTent(bootstrap.state.buildings.find((building) => building.type === 'survey-tent')),
       relayDiscoveryHighlight: hasPrologueEvent(bootstrap.state, 'relay_discovered'),
       onHexSelect,
+      onMapDrag: () => onMapDragRef.current(),
     })
       .then((mountedRenderer) => {
         if (disposed) {
@@ -125,5 +131,5 @@ export function useHexRenderer(input: HexRendererInput) {
     if (effectiveWorld !== null) rendererRef.current?.update(effectiveWorld, rendererView);
   }, [effectiveWorld, rendererView]);
 
-  return { mapHostRef, viewState, errorMessage };
+  return { mapHostRef, viewState, errorMessage, focusTiles };
 }
