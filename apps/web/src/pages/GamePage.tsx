@@ -40,7 +40,7 @@ export function GamePage({ game }: { readonly game: GameController }) {
           chapterComplete={mission.complete}
         />
       )}
-      mission={<MissionPanel mission={mission} guidance={game.guidance} onHighlight={game.highlightFields} />}
+      mission={<MissionPanel mission={mission} guidance={game.guidance} onHighlight={game.highlightFields} onShow={game.showOnMap} />}
       buildStack={<GameBuildStack game={game} />}
       buildMenu={gameState !== null && (
         <>

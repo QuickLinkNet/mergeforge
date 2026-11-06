@@ -5,6 +5,7 @@ import {
   centerLayerOn,
   clampLayer,
   fitLayer,
+  focusPoint,
   startScale,
   viewCenterInWorld,
   zoomLayerAt,
@@ -83,8 +84,9 @@ export async function mountHexWorld(
     }
     layer.position.x += event.clientX - lastPointerX;
     layer.position.y += event.clientY - lastPointerY;
-    if (Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY) > DRAG_THRESHOLD) {
+    if (!pointerDragged && Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY) > DRAG_THRESHOLD) {
       pointerDragged = true;
+      options?.onMapDrag?.();
     }
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
@@ -157,6 +159,14 @@ export async function mountHexWorld(
       currentWorld = nextWorld;
       viewState = patchViewState(viewState, nextViewState);
       refreshScene();
+    },
+    focusOn(tileKeys: readonly string[]): void {
+      const point = destroyed ? null : focusPoint(currentWorld, tileKeys);
+      if (point === null) {
+        return;
+      }
+      centerLayerOn(layer, viewport, point);
+      clampView();
     },
     destroy(): void {
       if (destroyed) {
