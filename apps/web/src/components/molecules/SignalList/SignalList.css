@@ -1,0 +1,52 @@
+.signal-list {
+  display: grid;
+  gap: var(--space-10);
+  margin: var(--space-16) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-item {
+  display: grid;
+  min-height: var(--size-row);
+  grid-template-columns: var(--size-control) 1fr;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+  border: var(--border-width) solid var(--color-signal-item-border);
+  border-radius: var(--radius-11);
+  background: var(--color-signal-item-bg);
+}
+
+.signal-arrow {
+  display: grid;
+  width: var(--size-icon);
+  height: var(--size-icon);
+  place-items: center;
+  border: var(--border-width) solid var(--color-signal-border);
+  border-radius: 50%;
+  color: var(--color-signal-text);
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-black);
+}
+
+.signal-item small {
+  display: block;
+  color: var(--color-text-label);
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signal-item strong {
+  display: block;
+  color: var(--color-heading-card);
+  font-size: var(--font-size-15);
+}
+
+.signal-item em {
+  color: var(--color-signal-item-detail);
+  font-size: var(--font-size-12);
+  font-style: normal;
+}

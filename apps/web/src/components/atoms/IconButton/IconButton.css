@@ -1,0 +1,4 @@
+/* Size, colour and frame come from the surrounding component (notice, banner, dialog, menu). */
+.icon-button {
+  cursor: pointer;
+}
