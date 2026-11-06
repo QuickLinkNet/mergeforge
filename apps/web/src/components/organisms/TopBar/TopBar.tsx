@@ -6,6 +6,8 @@ export interface TopBarProps {
   readonly syncLabel: string;
   readonly wood: number;
   readonly stone: number;
+  /** Storage limits of the finished storehouse level, shown as "120 / 300". */
+  readonly limits?: { readonly wood: number; readonly stone: number } | undefined;
   /** Present once a pathfinder exists. */
   readonly charges?: { readonly current: number; readonly max: number } | undefined;
   /** Present once the resonance core was found. */
@@ -16,7 +18,7 @@ export interface TopBarProps {
 }
 
 /** Wordmark, stock and chapter status across the top of the map. */
-export function TopBar({ syncLabel, wood, stone, charges, core, chapterNumber, chapterName, chapterComplete }: TopBarProps) {
+export function TopBar({ syncLabel, wood, stone, limits, charges, core, chapterNumber, chapterName, chapterComplete }: TopBarProps) {
   return (
     <header className="top-bar">
       <a className="wordmark" href="./" aria-label="MERGEFORGE Startseite">
@@ -25,8 +27,8 @@ export function TopBar({ syncLabel, wood, stone, charges, core, chapterNumber, c
       </a>
       <div className="status-cluster" aria-label="Aktueller Dorfstatus">
         <span className="preview-label">{syncLabel}</span>
-        <ResourceChip dot="wood" label="Holz" value={wood} ariaLabel={`Holz: ${wood}`} />
-        <ResourceChip dot="stone" label="Stein" value={stone} ariaLabel={`Stein: ${stone}`} />
+        <ResourceChip dot="wood" label="Holz" value={wood} limit={limits?.wood} ariaLabel={`Holz: ${wood}`} />
+        <ResourceChip dot="stone" label="Stein" value={stone} limit={limits?.stone} ariaLabel={`Stein: ${stone}`} />
         {charges !== undefined && (
           <ResourceChip
             className="charges"

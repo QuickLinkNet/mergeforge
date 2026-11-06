@@ -3,6 +3,7 @@ import {
   buildCatalog,
   hasCompletedChapter,
   hasRelayCapability,
+  storageLimits,
   type GameState,
 } from '@mergeforge/domain';
 import type { FindEffectVisual, HexSelectionEvent } from '@mergeforge/renderer-pixi';
@@ -10,6 +11,7 @@ import { bootstrapGame } from '../game/bootstrap';
 import { maxPathfinderCharges } from '../game/clock';
 import { MODULE_MANIFESTS } from '../game/modules';
 import { pathfinderGuidance } from '../game/pathfinderGuidance';
+import type { SinkId } from '../game/sinks';
 import { UNIVERSE_SEED, type OnlineSession } from '../online';
 import { useAutoDismiss } from './useAutoDismiss';
 import { useAutoSave } from './useAutoSave';
@@ -21,6 +23,7 @@ import { useHexRenderer } from './useHexRenderer';
 import { useMissionText } from './useMissionText';
 import { useRadioContacts } from './useRadioContacts';
 import { useSelectionPreviews } from './useSelectionPreviews';
+import { useSinkNotices } from './useSinkNotices';
 import { useSyncStatus } from './useSyncStatus';
 
 const MESSAGE_MS = 4_000;
@@ -45,6 +48,8 @@ export function useGame(online: OnlineSession | undefined) {
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
   /** Fields highlighted on the map after "Feld wählen" in the build menu. */
   const [placementKeys, setPlacementKeys] = useState<readonly string[]>([]);
+  /** Storehouse or upgrade whose confirmation card is open (chosen in the build menu). */
+  const [pendingSink, setPendingSink] = useState<SinkId | null>(null);
 
   const nowMs = useGameClock(bootstrapNowRef.current, setGameState);
   const selection = useSelectionPreviews(gameState, selectedTile, nowMs);
@@ -63,7 +68,11 @@ export function useGame(online: OnlineSession | undefined) {
   useAutoDismiss(eventMessage, eventMessage !== null, clearEventMessage, MESSAGE_MS);
   useEscapeKey(signalwerkOpen, closeSignalwerk);
 
-  const handleHexSelect = useCallback((event: HexSelectionEvent) => setSelectedTile(event), []);
+  const handleHexSelect = useCallback((event: HexSelectionEvent) => {
+    setSelectedTile(event);
+    setPendingSink(null);
+  }, []);
+  useSinkNotices(gameState, setEventMessage);
   const renderer = useHexRenderer({
     bootstrap,
     gameState,
@@ -90,6 +99,7 @@ export function useGame(online: OnlineSession | undefined) {
     setHighlightedFindEffects,
     setPlacementKeys,
     setBuildMenuOpen,
+    setPendingSink,
   });
 
   const catalog = useMemo(() => buildCatalog(MODULE_MANIFESTS), []);
@@ -107,6 +117,8 @@ export function useGame(online: OnlineSession | undefined) {
   const openSignalwerk = useCallback(() => setSignalwerkOpen(true), []);
   const closeBuildMenu = useCallback(() => setBuildMenuOpen(false), []);
   const toggleBuildMenu = useCallback(() => setBuildMenuOpen((open) => !open), []);
+  const cancelPendingSink = useCallback(() => setPendingSink(null), []);
+  const storage = useMemo(() => (gameState === null ? null : storageLimits(gameState)), [gameState]);
 
   const mission = useMissionText(gameState);
   const { chapterBanner, dismissChapterBanner } = useChapterProgress(gameState, mission);
@@ -136,6 +148,9 @@ export function useGame(online: OnlineSession | undefined) {
     buildMenuOpen,
     closeBuildMenu,
     toggleBuildMenu,
+    pendingSink,
+    cancelPendingSink,
+    storageLimits: storage,
     highlightFields: setPlacementKeys,
     cancelSelection,
     changeGameState,

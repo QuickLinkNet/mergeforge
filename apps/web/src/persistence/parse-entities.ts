@@ -13,6 +13,8 @@ export function parseBuildings(
   tileByKey: TileByKey,
   stoneSiteKeys: ReadonlySet<string>,
   villageTileKey: string,
+  /** False for saves before schema 8: they cannot contain a storehouse or an upgrade yet. */
+  allowSinks = true,
 ): readonly Building[] | null {
   if (!Array.isArray(value)) return null;
   const buildings: Building[] = [];
@@ -21,12 +23,14 @@ export function parseBuildings(
 
   for (const candidate of value) {
     if (!isRecord(candidate)) return null;
-    const isVillageBuilding = candidate.type === 'survey-tent' || candidate.type === 'workshop';
+    const isSink = SINK_TYPES.includes(candidate.type);
+    const isVillageBuilding = candidate.type === 'survey-tent' || candidate.type === 'workshop' || isSink;
     const startedAtMs = parseTimestamp(candidate.startedAtMs);
     const completesAtMs = parseTimestamp(candidate.completesAtMs);
     if (
       typeof candidate.id !== 'string' ||
-      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent' && candidate.type !== 'workshop' && candidate.type !== 'module') ||
+      (isSink && !allowSinks) ||
+      (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry' && candidate.type !== 'survey-tent' && candidate.type !== 'workshop' && candidate.type !== 'module' && !isSink) ||
       typeof candidate.tileKey !== 'string' ||
       (candidate.status !== 'constructing' && candidate.status !== 'active') ||
       startedAtMs === null ||
@@ -43,13 +47,19 @@ export function parseBuildings(
       completesAtMs < startedAtMs ||
       (candidate.type === 'lumber-camp' && tile.terrain !== 'forest') ||
       (candidate.type === 'quarry' && !stoneSiteKeys.has(candidate.tileKey)) ||
-      ((candidate.type === 'survey-tent' || candidate.type === 'workshop') && candidate.tileKey !== villageTileKey)
+      (isVillageBuilding && candidate.tileKey !== villageTileKey)
     ) {
       return null;
     }
 
     ids.add(candidate.id);
     if (!isVillageBuilding) tileKeys.add(candidate.tileKey);
+    if (isSink) {
+      const sink = parseSinkBuilding(candidate, startedAtMs, completesAtMs);
+      if (sink === null) return null;
+      buildings.push(sink);
+      continue;
+    }
     if (candidate.type === 'module') {
       const moduleBuilding = parseModuleBuilding(candidate, startedAtMs, completesAtMs);
       if (moduleBuilding === null) return null;
@@ -68,6 +78,7 @@ export function parseBuildings(
     } else {
       const lastProductionAtMs = parseTimestamp(candidate.lastProductionAtMs);
       if (lastProductionAtMs === null) return null;
+      if (candidate.type !== 'lumber-camp' && candidate.type !== 'quarry') return null;
       buildings.push({
         id: candidate.id,
         type: candidate.type,
@@ -123,6 +134,33 @@ export function parseUnits(
     });
   }
   return units;
+}
+
+const SINK_TYPES: readonly unknown[] = ['storehouse', 'lumber-upgrade', 'quarry-upgrade'];
+const STOREHOUSE_KEYS = 'completesAtMs,id,level,startedAtMs,status,tileKey,type';
+const UPGRADE_KEYS = 'completesAtMs,id,startedAtMs,status,tileKey,type';
+
+/** Storehouse or production upgrade (schema 8): exact fields, fixed id, level 1..3. */
+function parseSinkBuilding(
+  candidate: Record<string, unknown>,
+  startedAtMs: number,
+  completesAtMs: number,
+): Building | null {
+  const { id, tileKey, status } = candidate;
+  if (
+    typeof tileKey !== 'string' ||
+    id !== `${String(candidate.type)}:${tileKey}` ||
+    (status !== 'constructing' && status !== 'active')
+  ) return null;
+  const keys = Object.keys(candidate).sort().join(',');
+  if (candidate.type === 'storehouse') {
+    const { level } = candidate;
+    if (keys !== STOREHOUSE_KEYS || (level !== 1 && level !== 2 && level !== 3)) return null;
+    return { id, type: 'storehouse', tileKey, status, level, startedAtMs, completesAtMs };
+  }
+  if (keys !== UPGRADE_KEYS) return null;
+  if (candidate.type !== 'lumber-upgrade' && candidate.type !== 'quarry-upgrade') return null;
+  return { id, type: candidate.type, tileKey, status, startedAtMs, completesAtMs };
 }
 
 const MODULE_BUILDING_KEYS = [

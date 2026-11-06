@@ -1,4 +1,4 @@
-import { WORLD_PULSE_MS } from '@mergeforge/domain';
+import { WORLD_PULSE_MS, type GameState } from '@mergeforge/domain';
 import { clampedProgress } from '../../../game/clock';
 import { formatRemaining } from '../../../game/copy';
 import { lumberFailureCopy, quarryFailureCopy } from '../../../game/failureCopy';
@@ -54,12 +54,14 @@ export interface BuildingStatusCardProps {
   readonly building: ProductionBuilding;
   readonly nowMs: number;
   readonly modules: readonly LoadedModule[];
+  /** The game state, so the yield includes finished production upgrades. */
+  readonly state?: GameState;
   readonly onClose: () => void;
 }
 
 /** Construction progress or production timer of the selected building. */
-export function BuildingStatusCard({ building, nowMs, modules, onClose }: BuildingStatusCardProps) {
-  const { name, article, resource, yieldPerPulse } = describeBuilding(building, modules);
+export function BuildingStatusCard({ building, nowMs, modules, state, onClose }: BuildingStatusCardProps) {
+  const { name, article, resource, yieldPerPulse } = describeBuilding(building, modules, state);
   const constructing = building.status === 'constructing';
   const remainingMs = constructing
     ? building.completesAtMs - nowMs

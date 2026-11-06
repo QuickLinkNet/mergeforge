@@ -11,12 +11,19 @@ Auslöser: Test über Nacht. Lager voll (300 Holz, 140 Stein), 6/12 Ladungen, ni
 
 ## Phasen
 
-| Phase | Inhalt | Größe |
-|---|---|---|
-| A | Umbau: Design-System, Atomic Design, Dateien unter 500 Zeilen (Web, Domain, Renderer, Persistence/Online) | 1 bis 2 Tage |
-| B | Rohstoff-Senken: Lager-Ausbau, weitere Gebäude/Stufen, Kapitel 8 als Ziel | Tage |
-| C | Nachbar als Dorf am Inselrand sichtbar, Wegfinder-Expedition zum Grenzpunkt, „Kontakt aufnehmen“ | ca. 1 Woche |
-| D | Gemeinsame, zusammenhängende Welt: Entwurf, Entscheidung (D-023), dann Umsetzung mit Server-Prüfung des Spielstands | mehrere Wochen |
+| Phase | Inhalt | Größe | Status |
+|---|---|---|---|
+| A | Umbau: Design-System, Atomic Design, Dateien unter 500 Zeilen (Web, Domain, Renderer, Persistence/Online) | 1 bis 2 Tage | erledigt |
+| B | Rohstoff-Senken: Lager-Ausbau, weitere Gebäude/Stufen, Kapitel 8 als Ziel | Tage | umgesetzt (D-023), Branch `feat/phase-b-sinks` |
+| C | Nachbar als Dorf am Inselrand sichtbar, Wegfinder-Expedition zum Grenzpunkt, „Kontakt aufnehmen“ | ca. 1 Woche | offen |
+| D | Gemeinsame, zusammenhängende Welt: Entwurf, Entscheidung (D-024), dann Umsetzung mit Server-Prüfung des Spielstands | mehrere Wochen | offen |
+
+### Phase B im Detail (D-023)
+
+- **Lagerhaus** im Dorf, 3 Stufen (60/30, 120/60, 200/100 Holz/Stein; 30, 60, 90 Min). Lager Holz 300 → 450 → 600 → 800, Stein 150 → 225 → 300 → 400, erst nach Fertigstellung.
+- **Holzfäller-Ausbau** (50/20, 20 Min): 2 → 4 Holz pro Takt. **Steinbruch-Ausbau** (40/30, 30 Min): 1 → 2 Stein pro Takt.
+- **Kapitel 8 „Das Gründerwerk“:** Lagerhaus Stufe 1 und beide Ausbauten. Der Abschlusstext kündigt Phase C an.
+- Spielstand-Schema 8 mit Migration von Schema 7; Server erlaubt Bestände bis 800/400.
 
 ## Abhängigkeiten
 

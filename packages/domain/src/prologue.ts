@@ -1,11 +1,22 @@
 import { connectedRoadNetworkTileKeys } from "./internal";
-import type { GameState } from "./types";
+import type { Building, GameState } from "./types";
 
 export interface PrologueObservations {
   readonly stoneProductionObserved?: boolean;
   readonly pathfinderSurveyCompleted?: boolean;
   readonly relayDiscovered?: boolean;
   readonly relayRepaired?: boolean;
+}
+
+/** Chapter 8 goal: storehouse level 1 and both production upgrades finished. */
+function hasFinishedFoundersWorks(state: GameState): boolean {
+  const active = (type: Building["type"]) =>
+    state.buildings.some((building) => building.type === type && building.status === "active");
+  const storehouse = state.buildings.find((building) => building.type === "storehouse");
+  const storehouseReady =
+    storehouse?.type === "storehouse" &&
+    (storehouse.status === "active" || storehouse.level > 1);
+  return storehouseReady && active("lumber-upgrade") && active("quarry-upgrade");
 }
 
 export function reconcilePrologue(
@@ -58,8 +69,14 @@ export function reconcilePrologue(
   }
   // Chapter 7 is never derived here: it needs the explicit player action
   // scanFarSignals, so an already completed chapter 7 is only carried over.
+  if (completedChapterIds.has(7) && hasFinishedFoundersWorks(state)) {
+    completedChapterIds.add(8);
+    if (!eventIds.includes("founders_works_completed")) {
+      eventIds = [...eventIds, "founders_works_completed"];
+    }
+  }
 
-  const orderedChapterIds = ([3, 4, 5, 6, 7] as const).filter((chapterId) =>
+  const orderedChapterIds = ([3, 4, 5, 6, 7, 8] as const).filter((chapterId) =>
     completedChapterIds.has(chapterId),
   );
   const unchanged =

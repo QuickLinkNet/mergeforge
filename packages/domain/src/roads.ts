@@ -1,12 +1,8 @@
-import {
-  FOREST_SURFACE_WOOD,
-  MAX_STONE_STORAGE,
-  MAX_WOOD_STORAGE,
-  ROAD_WOOD_COST,
-} from "./constants";
+import { FOREST_SURFACE_WOOD, ROAD_WOOD_COST } from "./constants";
 import { axialNeighbors, hexKey } from "./hex";
 import { isConnectedToRoadNetwork } from "./internal";
 import { reconcilePrologue } from "./prologue";
+import { storageLimits } from "./storage";
 import type { BuildRoadRejection, BuildRoadResult, GameState, HexCoord } from "./types";
 
 /**
@@ -58,17 +54,18 @@ export function buildRoad(state: GameState, target: HexCoord): BuildRoadResult {
     0,
   );
 
+  const limits = storageLimits(state);
   const nextState: GameState = {
     ...state,
     resources: {
       ...state.resources,
       wood: Math.min(
-        MAX_WOOD_STORAGE,
+        limits.wood,
         state.resources.wood -
           ROAD_WOOD_COST +
           newlyVisibleForestKeys.length * FOREST_SURFACE_WOOD,
       ),
-      stone: Math.min(MAX_STONE_STORAGE, state.resources.stone + foundStone),
+      stone: Math.min(limits.stone, state.resources.stone + foundStone),
     },
     roadTileKeys: [...state.roadTileKeys, targetKey],
     visibleTileKeys: [...visibleKeys],

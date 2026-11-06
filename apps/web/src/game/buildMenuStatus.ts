@@ -15,6 +15,7 @@ import {
 
 import { pathfinderGuidance } from './pathfinderGuidance';
 import { compassDirection } from './relayHint';
+import { isSinkId, sinkStatus } from './sinks';
 
 export type MenuStatus =
   /** done for good (one-time entries) */
@@ -159,6 +160,8 @@ export function entryStatus(
 ): MenuStatus {
   const remaining = (completesAtMs: number) => Math.max(0, completesAtMs - nowMs);
   const built = (type: string) => state.buildings.filter((building) => building.type === type);
+
+  if (isSinkId(entry.id)) return sinkStatus(entry.id, state, nowMs);
 
   switch (entry.id) {
     case 'pathfinder': {

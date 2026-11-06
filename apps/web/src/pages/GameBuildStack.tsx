@@ -11,6 +11,7 @@ import { RadioContacts } from '../components/organisms/RadioContacts/RadioContac
 import { RelayCard, WorkshopCard, WorkshopStatusCard } from '../components/organisms/RelayCards/RelayCards';
 import { RoadCard } from '../components/organisms/RoadCard/RoadCard';
 import { FarSignalsCard, SignalScanCard } from '../components/organisms/SignalCards/SignalCards';
+import { SinkBuildCard } from '../components/organisms/SinkBuildCard/SinkBuildCard';
 import { SurveyCard, SurveyTentCard, SurveyTentStatusCard } from '../components/organisms/SurveyCards/SurveyCards';
 import type { GameController } from '../hooks/useGame';
 import { LOADED_MODULES } from '../moduleRegistry';
@@ -33,6 +34,16 @@ export function GameBuildStack({ game }: { readonly game: GameController }) {
     <>
       {game.chapterSixComplete && !game.chapterSevenComplete && (
         <SignalScanCard onScan={actions.confirmSignalScan} />
+      )}
+
+      {game.pendingSink !== null && gameState !== null && (
+        <SinkBuildCard
+          sink={game.pendingSink}
+          state={gameState}
+          nowMs={commandNowMs}
+          onCancel={game.cancelPendingSink}
+          onConfirm={() => { if (game.pendingSink !== null) actions.confirmSink(game.pendingSink); }}
+        />
       )}
 
       {game.signalNetworkActive && game.radioContacts.length > 0 && (
@@ -116,7 +127,13 @@ export function GameBuildStack({ game }: { readonly game: GameController }) {
       )}
 
       {selectedBuilding !== undefined && (
-        <BuildingStatusCard building={selectedBuilding} nowMs={commandNowMs} modules={LOADED_MODULES} onClose={cancelSelection} />
+        <BuildingStatusCard
+          building={selectedBuilding}
+          nowMs={commandNowMs}
+          modules={LOADED_MODULES}
+          {...(gameState === null ? {} : { state: gameState })}
+          onClose={cancelSelection}
+        />
       )}
 
       {selectedBuilding === undefined && buildingPlan !== null && (
