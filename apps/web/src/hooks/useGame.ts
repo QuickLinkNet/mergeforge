@@ -11,6 +11,7 @@ import { bootstrapGame } from '../game/bootstrap';
 import { maxPathfinderCharges } from '../game/clock';
 import { MODULE_MANIFESTS } from '../game/modules';
 import { pathfinderGuidance } from '../game/pathfinderGuidance';
+import { relayGuidance } from '../game/relayGuidance';
 import type { SinkId } from '../game/sinks';
 import { UNIVERSE_SEED, type OnlineSession } from '../online';
 import { useAutoDismiss } from './useAutoDismiss';
@@ -53,7 +54,7 @@ export function useGame(online: OnlineSession | undefined) {
 
   const nowMs = useGameClock(bootstrapNowRef.current, setGameState);
   const selection = useSelectionPreviews(gameState, selectedTile, nowMs);
-  const guidance = useMemo(() => (gameState === null ? null : pathfinderGuidance(gameState)), [gameState]);
+  const guidance = useMemo(() => (gameState === null ? null : pathfinderGuidance(gameState) ?? relayGuidance(gameState)), [gameState]);
 
   // Picking a field (or closing the highlight) ends the placement help of the build menu.
   useEffect(() => setPlacementKeys((keys) => (keys.length === 0 ? keys : [])), [selectedTile]);

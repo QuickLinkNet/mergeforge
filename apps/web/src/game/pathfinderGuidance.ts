@@ -4,7 +4,7 @@ const keyToCoord = (key: string): HexCoord => {
   return { q: q ?? 0, r: r ?? 0 };
 };
 
-export type GuidanceStep = 'move' | 'survey' | 'no-charge' | 'nothing-here';
+export type GuidanceStep = 'move' | 'survey' | 'no-charge' | 'nothing-here' | 'relay';
 
 export interface PathfinderGuidance {
   readonly step: GuidanceStep;
